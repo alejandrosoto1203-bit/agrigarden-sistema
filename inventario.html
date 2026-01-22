@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario | Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FAFAFA;
+            color: #1e293b;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 16px;
+            border: 1px solid #F1F5F9;
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-primary {
+            background-color: #18181b;
+            color: white;
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: #27272a;
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+
+<body class="flex h-screen overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar-container"></div>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 ml-64 p-10 space-y-8 min-w-0 overflow-y-auto">
+        <header class="flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Inventario Mensual</h1>
+                <p class="text-gray-400 font-medium">Registro de valor de inventario al inicio y fin de mes</p>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="exportarInventario()"
+                    class="bg-white border border-gray-200 px-6 py-3 rounded-xl font-bold text-sm shadow-sm hover:bg-gray-50 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">download</span> Exportar
+                </button>
+                <button onclick="abrirModal()"
+                    class="btn-primary flex items-center gap-3 px-6 py-3 rounded-xl font-bold text-sm shadow-xl shadow-gray-200">
+                    <span class="material-symbols-outlined text-xl">add</span> Registrar Mes
+                </button>
+            </div>
+        </header>
+
+        <!-- KPI SUMMARY ROWS (Optional: maybe Last Month's Variation, Average Value?) -->
+        <!-- Keeping it simple as requested: Just the list for now, or maybe small cards -->
+
+        <!-- DATA TABLE -->
+        <div class="card overflow-hidden shadow-sm">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h3 class="font-extrabold text-sm uppercase tracking-widest text-gray-500">Histórico de Inventario</h3>
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-gray-400 text-sm">filter_list</span>
+                    <select id="filtroSucursal" onchange="cargarInventario()"
+                        class="bg-transparent text-xs font-bold text-gray-600 focus:outline-none uppercase">
+                        <option value="Todos">Todas las Sucursales</option>
+                        <option value="Matriz">Matriz</option>
+                        <option value="Norte">Norte</option>
+                        <option value="Sur">Sur</option>
+                    </select>
+                    <div class="w-px h-4 bg-gray-300 mx-1"></div>
+                    <select id="filtroYear" onchange="cargarInventario()"
+                        class="bg-transparent text-xs font-bold text-gray-600 focus:outline-none">
+                        <option value="2026">2026</option>
+                        <option value="2025">2025</option>
+                    </select>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50 text-gray-400 font-black text-[10px] uppercase tracking-wider">
+                        <tr>
+                            <th class="p-4 pl-6">Mes</th>
+                            <th class="p-4">Sucursal</th>
+                            <th class="p-4">Tipo de Inventario</th>
+                            <th class="p-4 text-right">Monto</th>
+                            <th class="p-4 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaInventario" class="divide-y divide-gray-100 text-sm">
+                        <!-- JS Injection -->
+                        <tr>
+                            <td colspan="5" class="p-10 text-center text-gray-400 italic">Cargando registros...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL -->
+    <div id="modalInventario"
+        class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden z-[100] flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl transform scale-95 transition-all duration-300 p-8">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h3 class="text-2xl font-extrabold tracking-tight" id="modalTitle">Nuevo Registro</h3>
+                    <p class="text-xs text-gray-400 font-bold uppercase tracking-wider">Detalles del Mes</p>
+                </div>
+                <button onclick="cerrarModal()"
+                    class="size-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+
+            <form id="formInventario" onsubmit="guardarInventario(event)" class="space-y-5">
+                <input type="hidden" id="invId">
+
+                <div class="grid grid-cols-1 mb-4">
+                    <label class="block text-xs font-black text-gray-400 uppercase mb-2">Sucursal</label>
+                    <select id="invSucursal" required
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all uppercase">
+                        <option value="Matriz">Matriz</option>
+                        <option value="Norte">Sucursal Norte</option>
+                        <option value="Sur">Sucursal Sur</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-black text-gray-400 uppercase mb-2">Mes</label>
+                        <select id="invMes" required
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all">
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black text-gray-400 uppercase mb-2">Año</label>
+                        <input type="number" id="invAnio" required
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                            value="2026">
+                    </div>
+                </div>
+
+                <!-- Type Selection -->
+                <div>
+                    <label class="block text-xs font-black text-gray-400 uppercase mb-3">Tipo de Registro</label>
+                    <div class="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-xl">
+                        <button type="button" onclick="setTipo('inicial')" id="btnTipoInicial"
+                            class="py-2 rounded-lg text-xs font-black uppercase transition-all bg-white shadow-sm text-black">
+                            Inicial
+                        </button>
+                        <button type="button" onclick="setTipo('final')" id="btnTipoFinal"
+                            class="py-2 rounded-lg text-xs font-black uppercase transition-all text-gray-400 hover:text-gray-600">
+                            Final
+                        </button>
+                    </div>
+                </div>
+
+                <!-- One Input Amount -->
+                <div>
+                    <label id="lblMonto" class="block text-xs font-black text-gray-400 uppercase mb-2">Monto Inventario
+                        Inicial ($)</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-3 text-gray-400 font-bold">$</span>
+                        <input type="number" id="invMonto" step="0.01" required
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                            placeholder="0.00">
+                    </div>
+                    <input type="hidden" id="invTipo" value="inicial">
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit"
+                        class="w-full btn-primary py-4 rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-gray-200">
+                        GUARDAR REGISTRO
+                    </button>
+                    <button type="button" id="btnEliminar" onclick="eliminarRegistro()"
+                        class="hidden w-full mt-3 text-red-500 font-bold text-xs py-2 hover:bg-red-50 rounded-lg">
+                        ELIMINAR REGISTRO
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="api.js"></script>
+    <script src="auth.js"></script>
+    <script src="menu.js"></script>
+    <script src="menu.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="export_helper.js"></script>
+    <script src="inventario.js"></script>
+    <script>
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            inyectarMenu('inventario');
+            cargarInventario();
+        });
+
+        // Modal Logic
+        const modal = document.getElementById('modalInventario');
+
+        function abrirModal(inv = null) {
+            const form = document.getElementById('formInventario');
+            const title = document.getElementById('modalTitle');
+            const btnDelete = document.getElementById('btnEliminar');
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+
+            if (inv) {
+                // Edit Mode
+                title.innerText = 'Editar Registro';
+                document.getElementById('invId').value = inv.id;
+                document.getElementById('invMes').value = inv.mes;
+                document.getElementById('invAnio').value = inv.anio;
+                document.getElementById('invSucursal').value = inv.sucursal || 'Matriz';
+                btnDelete.classList.remove('hidden');
+            } else {
+                // New Mode
+                title.innerText = 'Nuevo Registro';
+                form.reset();
+                if (window.currentEditItem !== undefined) window.currentEditItem = null;
+                document.getElementById('invId').value = '';
+
+                const today = new Date();
+                document.getElementById('invMes').value = today.getMonth() + 1;
+                document.getElementById('invAnio').value = today.getFullYear();
+                document.getElementById('invMonto').value = '';
+                btnDelete.classList.add('hidden');
+
+                if (window.setTipo) window.setTipo('inicial');
+            }
+        }
+
+        function cerrarModal() {
+            modal.classList.add('opacity-0');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    </script>
+</body>
+
+</html>

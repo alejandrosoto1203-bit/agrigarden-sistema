@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Gestión de Compras - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "#19e66b", background: "#f8fafc" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .card {
+            background: white;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+
+        .font-mono-order {
+            font-family: 'monospace';
+            color: #334155;
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .tab-active {
+            color: #19e66b;
+            border-bottom: 2px solid #19e66b;
+            font-weight: 800;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#1e293b] flex">
+
+    <div id="sidebar-container"></div>
+
+    <main class="flex-1 ml-64 p-8 space-y-8">
+        <header class="flex justify-between items-center">
+            <div>
+                <nav class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Inicio > Gestión de
+                    Compras</nav>
+                <h1 class="text-3xl font-extrabold tracking-tight italic uppercase">Módulo de Compras</h1>
+                <p class="text-gray-500 text-sm font-medium">Gestiona y monitorea todas las órdenes de suministros
+                    agrícolas.</p>
+            </div>
+            <button onclick="window.location.href='nueva_compra.html'"
+                class="bg-[#19e66b] text-black px-6 py-3 rounded-xl font-black flex items-center gap-2 text-xs shadow-lg shadow-[#19e66b]/20 hover:brightness-105 transition-all">
+                <span class="material-symbols-outlined text-lg">shopping_cart_checkout</span> Nueva Solicitud de Compra
+            </button>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="card p-6 flex items-center justify-between">
+                <div>
+                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Pedidos Pendientes</p>
+                    <span id="kpiPendientes" class="text-2xl font-black">0</span>
+                    <div class="text-[9px] font-bold text-green-500 mt-1">+5% desde ayer</div>
+                </div>
+                <span class="material-symbols-outlined text-primary bg-primary/10 p-3 rounded-xl">assignment_late</span>
+            </div>
+            <div class="card p-6 flex items-center justify-between">
+                <div>
+                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Órdenes en Camino</p>
+                    <span id="kpiCamino" class="text-2xl font-black">0</span>
+                    <div class="text-[9px] font-bold text-gray-400 mt-1">Estable vs semana pasada</div>
+                </div>
+                <span class="material-symbols-outlined text-blue-500 bg-blue-50 p-3 rounded-xl">local_shipping</span>
+            </div>
+            <div class="card p-6 flex items-center justify-between">
+                <div>
+                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Recibidas Parcialmente
+                    </p>
+                    <span id="kpiParcial" class="text-2xl font-black">0</span>
+                    <div class="text-[9px] font-bold text-orange-500 mt-1">Requiere atención</div>
+                </div>
+                <span
+                    class="material-symbols-outlined text-orange-500 bg-orange-50 p-3 rounded-xl">pending_actions</span>
+            </div>
+            <div class="card p-6 flex items-center justify-between">
+                <div>
+                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Retrasos Críticos</p>
+                    <span id="kpiRetrasos" class="text-2xl font-black text-red-500">0</span>
+                    <div class="text-[9px] font-bold text-red-400 mt-1">Acción inmediata</div>
+                </div>
+                <span class="material-symbols-outlined text-red-500 bg-red-50 p-3 rounded-xl">error</span>
+            </div>
+        </div>
+
+        <div class="flex gap-8 border-b border-gray-200 px-2">
+            <button id="tabProceso" onclick="cambiarPestañaCompras('proceso')"
+                class="pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all">En Proceso</button>
+            <button id="tabCompletado" onclick="cambiarPestañaCompras('completado')"
+                class="pb-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all">Completadas</button>
+        </div>
+
+        <div class="card overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+                <div class="flex-1 max-w-md relative">
+                    <span class="material-symbols-outlined absolute left-3 top-2.5 text-gray-400 text-xl">search</span>
+                    <input type="text" id="busquedaCompras" oninput="filtrarCompras()"
+                        placeholder="Buscar por proveedor o solicitante..."
+                        class="w-full pl-10 pr-4 py-2 bg-gray-50 border-none rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all">
+                </div>
+                <div class="flex gap-2">
+                    <select id="filtroSucursal" onchange="filtrarCompras()"
+                        class="bg-gray-50 border-none rounded-xl text-[10px] font-black uppercase px-4 focus:ring-2 focus:ring-primary">
+                        <option value="Todos">Todas las Sucursales</option>
+                        <option value="M">Matriz</option>
+                        <option value="N">Norte</option>
+                        <option value="S">Sur</option>
+                    </select>
+                    <select id="filtroEstado" onchange="filtrarCompras()"
+                        class="bg-gray-50 border-none rounded-xl text-[10px] font-black uppercase px-4 focus:ring-2 focus:ring-primary">
+                        <option value="Todos">Todos los estados</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Ordenado">Ordenado</option>
+                        <option value="Parcial">Parcial</option>
+                        <option value="Completo">Completo</option>
+                        <option value="Retrasado">Retrasado</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead
+                        class="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest border-b border-gray-100">
+                        <tr>
+                            <th class="px-6 py-5">Fechas (Crea/Ord/Rec)</th>
+                            <th class="px-6 py-5">N° Orden</th>
+                            <th class="px-6 py-5">Sucursal</th>
+                            <th class="px-6 py-5">Solicitante</th>
+                            <th class="px-6 py-5">Proveedor</th>
+                            <th class="px-6 py-5 text-center">Items</th>
+                            <th class="px-6 py-5 text-center">Estado</th>
+                            <th class="px-6 py-5 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaComprasBody" class="divide-y divide-gray-50 text-sm font-bold">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <div id="modalVerDetalle"
+        class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-8 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-black uppercase italic tracking-tight" id="modalDetalleTitulo">Detalle de
+                        Orden</h3>
+                    <p class="text-[10px] text-gray-400 font-black uppercase mt-1 tracking-widest">Visualización de
+                        partidas y gestión de estatus</p>
+                </div>
+                <button onclick="cerrarModalDetalle()"
+                    class="size-10 rounded-full hover:bg-gray-200 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-gray-400">close</span>
+                </button>
+            </div>
+            <div class="px-8 mt-4 flex justify-end">
+                <button onclick="descargarPDFOrden()"
+                    class="bg-red-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 hover:bg-red-700 shadow-md">
+                    <span class="material-symbols-outlined text-sm">picture_as_pdf</span> Descargar PDF
+                </button>
+            </div>
+            <div class="p-8 grid grid-cols-12 gap-8 overflow-y-auto">
+                <div class="col-span-4 space-y-6">
+                    <div class="bg-gray-50 p-6 rounded-3xl border border-gray-100 space-y-4 font-bold">
+                        <div>
+                            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Solicitante</p>
+                            <p id="detSolicitante" class="text-sm font-black uppercase">-</p>
+                        </div>
+                        <div>
+                            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Proveedor</p>
+                            <p id="detProveedor" class="text-sm font-black uppercase">-</p>
+                        </div>
+                        <div>
+                            <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Estado Actual</p>
+                            <span id="detEstadoActual"
+                                class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-[9px] font-black uppercase">Pendiente</span>
+                        </div>
+                    </div>
+                    <div id="detSeccionFechas"
+                        class="hidden bg-blue-50/50 p-6 rounded-3xl border border-blue-100 space-y-4">
+                        <p class="text-[10px] font-black text-blue-600 uppercase italic">Seguimiento de Logística</p>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-[8px] font-black text-gray-400 uppercase">Fecha Orden</p>
+                                <p id="valFechaOrden" class="text-xs font-bold">-</p>
+                            </div>
+                            <div>
+                                <p class="text-[8px] font-black text-gray-400 uppercase">Est. Recibo</p>
+                                <p id="valFechaRecibo" class="text-xs font-bold">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Actualizar
+                            Gestión</p>
+                        <div class="grid grid-cols-1 gap-2">
+                            <div class="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+                                <label class="text-[9px] font-black text-gray-400 uppercase">Fecha Orden / Recepción
+                                    Estimada</label>
+                                <input type="date" id="inputFechaOrdenModal"
+                                    class="w-full bg-white border-none rounded-lg p-2 text-xs font-bold">
+                                <input type="date" id="inputFechaReciboModal"
+                                    class="w-full bg-white border-none rounded-lg p-2 text-xs font-bold">
+                                <button onclick="actualizarEstadoPro('Ordenado')"
+                                    class="w-full bg-blue-600 text-white py-2 rounded-xl text-[10px] font-black uppercase hover:brightness-110 transition-all">Marcar
+                                    como Ordenado</button>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="actualizarEstadoPro('Parcial')"
+                                    class="flex-1 bg-orange-100 text-orange-700 py-3 rounded-xl text-[9px] font-black uppercase hover:bg-orange-200">Parcial</button>
+                                <button onclick="actualizarEstadoPro('Completo')"
+                                    class="flex-1 bg-green-100 text-green-700 py-3 rounded-xl text-[9px] font-black uppercase hover:bg-green-200">Completo</button>
+                            </div>
+                            <button onclick="actualizarEstadoPro('Retrasado')"
+                                class="w-full bg-red-100 text-red-700 py-3 rounded-xl text-[9px] font-black uppercase hover:bg-red-200">Retrasado</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-span-8 space-y-4">
+                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Partidas Incluidas</p>
+                    <div class="border border-gray-100 rounded-3xl overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-50 text-[8px] font-black text-gray-400 uppercase tracking-widest">
+                                <tr>
+                                    <th class="px-4 py-3">Código</th>
+                                    <th class="px-4 py-3">Producto</th>
+                                    <th class="px-4 py-3 text-center">Cant</th>
+                                    <th class="px-4 py-3 text-right">Unitario</th>
+                                    <th class="px-4 py-3 text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detListaProductos" class="font-bold"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="menu.js"></script>
+    <script src="compras.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            inyectarMenu('compras');
+            cargarListaCompras();
+        });
+    </script>
+</body>
+
+</html>

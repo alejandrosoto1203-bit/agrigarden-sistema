@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Monitor de Tareas - Agrigarden HR</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "#19e66b", background: "#f8fafc" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .kanban-column {
+            min-height: 500px;
+            background: #f1f5f9;
+            border-radius: 1.5rem;
+            padding: 1.25rem;
+        }
+
+        .task-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.25rem;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s;
+            cursor: grab;
+        }
+
+        .task-card:hover {
+            border-color: #19e66b;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#1e293b] flex">
+
+    <div id="sidebar-container"></div>
+
+    <main class="flex-1 lg:ml-64 p-6 md:p-8 overflow-y-auto bg-slate-50/50 flex flex-col lg:flex-row gap-6">
+
+        <!-- COLUMNA PRINCIPAL -->
+        <div class="flex-1 flex flex-col gap-8 min-w-0">
+
+            <!-- HEADER -->
+            <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 class="text-3xl font-black text-slate-800 tracking-tight">Monitor de Tareas</h1>
+                    <p class="text-slate-500 font-medium text-sm mt-1">Gestión operativa y cumplimiento normativo.</p>
+                </div>
+                <div class="flex flex-wrap gap-3 items-center">
+                    <!-- Buscador -->
+                    <div class="relative hidden xl:block group">
+                        <span
+                            class="material-symbols-outlined absolute left-3 top-3 text-slate-400 text-sm group-focus-within:text-emerald-500 transition-colors">search</span>
+                        <input type="text" id="busquedaTareas" onkeyup="renderizarTablero()"
+                            placeholder="Buscar tarea..."
+                            class="pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold w-48 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-all shadow-sm">
+                    </div>
+
+                    <button onclick="abrirModalNuevaTarea()"
+                        class="bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 text-xs shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 hover:scale-[1.02] transition-all">
+                        <span class="material-symbols-outlined text-sm">add</span> Nueva Tarea
+                    </button>
+                    <button
+                        class="bg-white border border-slate-200 px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 text-xs text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">download</span> Informe
+                    </button>
+                </div>
+            </header>
+
+            <!-- KPI CARDS -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- KPI 1 -->
+                <div
+                    class="bg-white p-5 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 flex flex-col justify-between h-32 relative overflow-hidden group">
+                    <div
+                        class="absolute right-0 top-0 w-16 h-16 bg-emerald-50 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110">
+                    </div>
+                    <div class="flex justify-between items-start relative z-10">
+                        <span
+                            class="text-[10px] font-black uppercase tracking-widest text-slate-400">Cumplimiento</span>
+                        <span
+                            class="material-symbols-outlined text-emerald-500 bg-emerald-50 p-1.5 rounded-lg text-lg">bar_chart</span>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-black text-slate-800 tracking-tight" id="kpiCumplimiento">0%</h2>
+                        <div class="flex items-center gap-1 mt-1">
+                            <span class="material-symbols-outlined text-[10px] text-emerald-500">trending_up</span>
+                            <span class="text-[10px] font-bold text-emerald-600">+2.4% vs mes anterior</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI 2 -->
+                <div
+                    class="bg-white p-5 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 flex flex-col justify-between h-32">
+                    <div class="flex justify-between items-start">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total
+                            Pendientes</span>
+                        <span
+                            class="material-symbols-outlined text-orange-500 bg-orange-50 p-1.5 rounded-lg text-lg">assignment_late</span>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-black text-slate-800 tracking-tight" id="kpiTotalPendientes">0</h2>
+                        <span
+                            class="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full inline-block mt-1">Requieren
+                            atención</span>
+                    </div>
+                </div>
+
+                <!-- KPI 3 -->
+                <div
+                    class="bg-white p-5 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 flex flex-col justify-between h-32">
+                    <div class="flex justify-between items-start">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Vencidas
+                            Hoy</span>
+                        <span
+                            class="material-symbols-outlined text-red-500 bg-red-50 p-1.5 rounded-lg text-lg">event_busy</span>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-black text-slate-800 tracking-tight" id="kpiVencidas">0</h2>
+                        <span class="text-[10px] font-bold text-red-600">Acción inmediata requerida</span>
+                    </div>
+                </div>
+
+                <!-- KPI 4 -->
+                <div
+                    class="bg-white p-5 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 flex flex-col justify-between h-32">
+                    <div class="flex justify-between items-start">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Completadas</span>
+                        <span
+                            class="material-symbols-outlined text-blue-500 bg-blue-50 p-1.5 rounded-lg text-lg">verified</span>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-black text-slate-800 tracking-tight" id="kpiCompletadas">0</h2>
+                        <div class="flex items-center gap-1 mt-1">
+                            <span class="material-symbols-outlined text-[10px] text-emerald-500">trending_up</span>
+                            <span class="text-[10px] font-bold text-emerald-600">+15% eficiencia</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOOLBAR / TABS -->
+            <div class="flex flex-col sm:flex-row justify-between items-center border-b border-slate-200 pb-1 gap-4">
+                <div class="flex gap-6">
+                    <button
+                        class="flex items-center gap-2 pb-3 border-b-2 border-emerald-500 text-emerald-700 font-bold text-sm">
+                        <span class="material-symbols-outlined text-lg">view_column</span> Tablero Kanban
+                    </button>
+                    <button
+                        class="flex items-center gap-2 pb-3 border-b-2 border-transparent text-slate-400 font-bold text-sm hover:text-slate-600 transition-colors">
+                        <span class="material-symbols-outlined text-lg">format_list_bulleted</span> Lista
+                    </button>
+                </div>
+
+                <div class="flex gap-2">
+                    <select id="filtroVista" onchange="cargarTareas()"
+                        class="py-1.5 px-3 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
+                        <option value="activas">Filtro: Activas</option>
+                        <option value="mes">Filtro: Este Mes</option>
+                        <option value="todas">Filtro: Todas</option>
+                    </select>
+                    <button
+                        class="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50">
+                        <span class="material-symbols-outlined text-sm">filter_list</span>
+                        <span>Más Filtros</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- KANBAN BOARD -->
+            <!-- KANBAN BOARD -->
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 flex-1 min-h-[400px]">
+
+                <!-- COLUMNA PENDIENTE -->
+                <div class="flex flex-col gap-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="size-2 rounded-full bg-orange-400"></div>
+                        <h3 class="text-sm font-black text-slate-700 uppercase">Pendiente</h3>
+                        <span class="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                            id="countPendiente">0</span>
+                        <button class="ml-auto text-slate-400 hover:text-slate-600"><span
+                                class="material-symbols-outlined text-lg">more_horiz</span></button>
+                    </div>
+                    <div class="flex-1 space-y-3 p-1" id="col-PENDIENTE" ondrop="drop(event)"
+                        ondragover="allowDrop(event)">
+                        <!-- Cards injected by JS -->
+                    </div>
+                </div>
+
+                <!-- COLUMNA PROCESO -->
+                <div class="flex flex-col gap-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="size-2 rounded-full bg-blue-500"></div>
+                        <h3 class="text-sm font-black text-slate-700 uppercase">En Proceso</h3>
+                        <span class="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                            id="countProceso">0</span>
+                        <button class="ml-auto text-slate-400 hover:text-slate-600"><span
+                                class="material-symbols-outlined text-lg">more_horiz</span></button>
+                    </div>
+                    <div class="flex-1 space-y-3 p-1" id="col-PROCESO" ondrop="drop(event)"
+                        ondragover="allowDrop(event)">
+                        <!-- Cards injected by JS -->
+                    </div>
+                </div>
+
+                <!-- COLUMNA COMPLETADO -->
+                <div class="flex flex-col gap-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="size-2 rounded-full bg-emerald-500"></div>
+                        <h3 class="text-sm font-black text-slate-700 uppercase">Completado</h3>
+                        <span class="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                            id="countCompletado">0</span>
+                        <button class="ml-auto text-slate-400 hover:text-slate-600"><span
+                                class="material-symbols-outlined text-lg">more_horiz</span></button>
+                    </div>
+                    <div class="flex-1 space-y-3 p-1" id="col-COMPLETADO" ondrop="drop(event)"
+                        ondragover="allowDrop(event)">
+                        <!-- Cards injected by JS -->
+                    </div>
+                </div>
+
+                <!-- COLUMNA NO REALIZADA -->
+                <div class="flex flex-col gap-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="size-2 rounded-full bg-red-500"></div>
+                        <h3 class="text-sm font-black text-slate-700 uppercase">No Realizada</h3>
+                        <span class="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                            id="countNoRealizada">0</span>
+                        <button class="ml-auto text-slate-400 hover:text-slate-600"><span
+                                class="material-symbols-outlined text-lg">more_horiz</span></button>
+                    </div>
+                    <div class="flex-1 space-y-3 p-1" id="col-NO_REALIZADA" ondrop="drop(event)"
+                        ondragover="allowDrop(event)">
+                        <!-- Cards injected by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SIDEBAR DERECHO (ALERTAS / ANALYTICS) -->
+        <aside class="w-full lg:w-80 shrink-0 flex flex-col gap-6">
+
+            <!-- ALERTAS -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+                <h3 class="font-black text-slate-800 text-sm mb-4">Alertas de Automatización</h3>
+                <div class="space-y-3">
+                    <!-- Alerta 1 -->
+                    <div
+                        class="bg-red-50 rounded-xl p-3 flex gap-3 items-start cursor-pointer hover:bg-red-100 transition-colors">
+                        <div class="bg-white p-1.5 rounded-lg shadow-sm text-red-500 shrink-0">
+                            <span class="material-symbols-outlined text-lg">notifications_active</span>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-red-700 mb-0.5">Vencimiento Próximo</h4>
+                            <p class="text-[10px] text-red-600 leading-tight">3 tareas de Nomina vencen en menos de 24h.
+                            </p>
+                        </div>
+                    </div>
+                    <!-- Alerta 2 -->
+                    <div
+                        class="bg-orange-50 rounded-xl p-3 flex gap-3 items-start cursor-pointer hover:bg-orange-100 transition-colors">
+                        <div class="bg-white p-1.5 rounded-lg shadow-sm text-orange-500 shrink-0">
+                            <span class="material-symbols-outlined text-lg">schedule</span>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-orange-700 mb-0.5">Pendiente Aprobación</h4>
+                            <p class="text-[10px] text-orange-600 leading-tight">Solicitud de vacaciones Logística
+                                espera revisión.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RENDIMIENTO -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex-1 overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-black text-slate-800 text-sm">Rendimiento Colaboradores</h3>
+                    <button class="text-xs text-slate-400 hover:text-emerald-500" title="Actualizar"><span
+                            class="material-symbols-outlined text-sm">refresh</span></button>
+                </div>
+
+                <div id="contenedorRendimientoEmpleados" class="space-y-6">
+                    <!-- Injected by JS -->
+                    <p class="text-xs text-slate-400 text-center py-4">Cargando datos...</p>
+                </div>
+
+                <div class="mt-6 pt-6 border-t border-slate-50">
+                    <button
+                        class="w-full py-3 border border-slate-200 border-dashed rounded-xl text-xs font-bold text-slate-400 hover:border-emerald-500 hover:text-emerald-500 transition-all">
+                        + Configurar Flujo Automático
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+
+    <!-- MODAL NUEVA TAREA / EDITAR -->
+    <div id="modalNuevaTarea"
+        class="fixed inset-0 bg-slate-900/60 hidden z-[150] flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden transform transition-all scale-100">
+            <div class="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <h3 class="text-xl font-black uppercase italic text-slate-800" id="modalTitulo">Nueva Tarea</h3>
+                <button onclick="cerrarModalNuevaTarea()"
+                    class="size-10 rounded-xl hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors">
+                    <span class="material-symbols-outlined font-bold">close</span>
+                </button>
+            </div>
+            <div class="p-8 space-y-6">
+                <input type="hidden" id="inputTareaId">
+                <div>
+                    <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Título de la
+                        Tarea</label>
+                    <input type="text" id="inputTitulo"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-primary focus:border-primary transition-all"
+                        placeholder="Ej: Revisar Contratos Nuevos">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label
+                            class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Categoría</label>
+                        <select id="selectCategoria"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-primary focus:border-primary">
+                            <option value="General">General</option>
+                            <option value="Onboarding">Onboarding</option>
+                            <option value="Capacitación">Capacitación</option>
+                            <option value="Legal">Legal</option>
+                            <option value="Nominas">Nominas</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label
+                            class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Vencimiento</label>
+                        <input type="date" id="inputFecha"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-primary focus:border-primary">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Asignar
+                        Responsable</label>
+                    <select id="selectResponsable"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-primary focus:border-primary">
+                        <option value="">Seleccionar Empleado...</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Descripción /
+                        Notas</label>
+                    <textarea id="inputDescripcion" rows="3"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-700 focus:ring-primary focus:border-primary placeholder-slate-300"
+                        placeholder="Detalles adicionales..."></textarea>
+                </div>
+
+                <div class="pt-4">
+                    <button onclick="guardarTarea()"
+                        class="w-full bg-primary text-black py-4 rounded-xl font-black uppercase text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined">save</span> Guardar Tarea
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL BITÁCORA -->
+    <div id="modalBitacora"
+        class="fixed inset-0 bg-slate-900/60 hidden z-[150] flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
+                <h3 class="text-lg font-black uppercase italic text-slate-800">Bitácora de Tarea</h3>
+                <button onclick="cerrarModalBitacora()"
+                    class="size-8 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors">
+                    <span class="material-symbols-outlined font-bold text-sm">close</span>
+                </button>
+            </div>
+
+            <!-- Lista scrollable -->
+            <div class="p-4 flex-1 overflow-y-auto space-y-4 bg-slate-50/50" id="listaBitacora">
+                <!-- Items inyectados con JS -->
+                <p class="text-center text-xs text-slate-400 py-4">Cargando comentarios...</p>
+            </div>
+
+            <!-- Input Footer -->
+            <div class="p-4 border-t border-slate-100 bg-white shrink-0">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nuevo
+                    Comentario</label>
+                <div class="flex gap-2">
+                    <input type="hidden" id="inputBitacoraTareaId">
+                    <input type="text" id="inputNotaBitacora"
+                        class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:ring-primary focus:border-primary"
+                        placeholder="Escribe una nota...">
+                    <button onclick="agregarNotaBitacora()"
+                        class="bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-800 transition-colors">
+                        <span class="material-symbols-outlined text-sm">send</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="menu.js"></script>
+    <script src="rrhh_tareas.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            inyectarMenu('rrhh');
+            inyectarSubmenuRRHH('tareas'); // Submenú RRHH
+            cargarTareas();
+        });
+    </script>
+</body>
+
+</html>

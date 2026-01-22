@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Nueva Solicitud de Compra - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "#19e66b" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body { background-color: #f8fafc; font-family: 'Manrope', sans-serif; }
+        .input-form { background: #f1f5f9; border: none; border-radius: 0.75rem; padding: 0.75rem; font-weight: 600; width: 100%; font-size: 0.85rem; }
+        .input-form:focus { background: white; ring: 2px; ring-color: #19e66b; outline: none; }
+        .btn-add { border: 2px dashed #e2e8f0; color: #94a3b8; transition: all 0.2s; }
+        .btn-add:hover { border-color: #19e66b; color: #19e66b; }
+        .file-custom { position: relative; overflow: hidden; display: inline-block; width: 100%; }
+        .file-custom input[type=file] { position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; width: 100%; }
+    </style>
+</head>
+<body class="min-h-screen p-8 flex flex-col items-center">
+
+    <div class="w-full max-w-5xl space-y-6">
+        <header class="flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <button onclick="window.location.href='compras.html'" class="p-2 hover:bg-gray-100 rounded-full transition-all">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </button>
+                <h1 class="text-2xl font-black uppercase italic" id="txtTituloPagina">Nueva Solicitud de Compra</h1>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="window.location.href='compras.html'" class="px-6 py-2.5 rounded-xl font-bold text-gray-400 text-sm">Cancelar</button>
+                <button onclick="guardarOrdenCompra()" id="btnGuardarOrden" class="bg-[#19e66b] text-black px-8 py-2.5 rounded-xl font-black text-sm shadow-lg shadow-[#19e66b]/20 hover:scale-105 transition-all">Finalizar Solicitud</button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-12 gap-8">
+            <div class="col-span-4 bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-6 self-start">
+                <div class="flex items-center gap-2 text-[#19e66b]">
+                    <span class="material-symbols-outlined font-black">info</span>
+                    <h2 class="font-black text-xs uppercase tracking-widest text-black">Información General</h2>
+                </div>
+
+                <div class="space-y-4">
+                    <input type="hidden" id="compraIdEdit">
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nombre del Solicitante</label>
+                        <input type="text" id="nombreSolicitante" class="input-form uppercase" placeholder="NOMBRE Y APELLIDO">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Origen (Sucursal)</label>
+                        <select id="origenOrden" class="input-form" onchange="actualizarNumeroOrdenPreview()">
+                            <option value="M">Almacén Central (M)</option>
+                            <option value="N">Sucursal Norte (N)</option>
+                            <option value="S">Sucursal Sur (S)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Proveedor</label>
+                        <select id="proveedorOrden" class="input-form" onchange="checkNuevoProveedor(this.value)">
+                        </select>
+                        <input type="text" id="nuevoProveedorInput" class="hidden mt-2 input-form border-[#19e66b]" placeholder="Escribe nombre del nuevo proveedor...">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Fecha Creación</label>
+                        <input type="date" id="fechaSolicitud" class="input-form" onchange="actualizarNumeroOrdenPreview()">
+                    </div>
+                    
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">N° de Orden Generado</p>
+                        <p id="ordenPreview" class="text-sm font-black text-slate-700 font-mono tracking-tighter">--AGR--</p>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Adjuntar Cotización</label>
+                        <div class="file-custom mt-2">
+                            <input type="file" id="fileCotizacion" onchange="document.getElementById('fileNameLabel').innerText = this.files[0].name">
+                            <div class="input-form flex items-center gap-2 text-gray-400 border-2 border-dashed border-gray-200">
+                                <span class="material-symbols-outlined text-lg">upload_file</span>
+                                <span id="fileNameLabel">Subir PDF o Imagen</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-span-8 bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2 text-[#19e66b]">
+                        <span class="material-symbols-outlined font-black">list_alt</span>
+                        <h2 class="font-black text-xs uppercase tracking-widest text-black">Productos Solicitados</h2>
+                    </div>
+                    <span id="contadorItems" class="text-[10px] font-black bg-gray-100 px-3 py-1 rounded-full text-gray-500">0 ITEMS</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="text-[9px] font-black uppercase text-gray-400 tracking-widest">
+                            <tr>
+                                <th class="pb-4 w-[20%]">Código</th>
+                                <th class="pb-4 w-[35%]">Producto</th>
+                                <th class="pb-4 text-center">Cant.</th>
+                                <th class="pb-4 text-right">Unitario</th>
+                                <th class="pb-4 text-right">Total</th>
+                                <th class="pb-4 w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="filasProductos">
+                        </tbody>
+                    </table>
+                </div>
+
+                <button onclick="agregarFilaProducto()" class="w-full py-4 btn-add rounded-2xl flex items-center justify-center gap-2 font-black text-xs uppercase tracking-widest">
+                    <span class="material-symbols-outlined">add_circle</span> Añadir Producto
+                </button>
+
+                <div class="pt-6 border-t border-gray-100 flex justify-end">
+                    <div class="text-right">
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Estimado Total</p>
+                        <p id="totalOrden" class="text-4xl font-black">$ 0.00</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="compras.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            inicializarProveedores();
+            actualizarNumeroOrdenPreview();
+            
+            // Lógica para detectar modo edición
+            const urlParams = new URLSearchParams(window.location.search);
+            const editId = urlParams.get('edit');
+            if(editId) {
+                cargarDatosParaEditar(editId);
+            } else {
+                const hoy = new Date().toISOString().split('T')[0];
+                document.getElementById('fechaSolicitud').value = hoy;
+                agregarFilaProducto();
+            }
+        });
+    </script>
+</body>
+</html>

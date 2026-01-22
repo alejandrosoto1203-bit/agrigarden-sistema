@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Control de Efectivo - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "#19e66b", background: "#f8faf9", sidebar: "#ffffff" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8faf9;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .card {
+            background: white;
+            border-radius: 1.25rem;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#111814] flex">
+
+    <div id="sidebar-container"></div>
+
+    <main class="flex-1 ml-64 p-10 space-y-8 min-w-0">
+
+        <header class="flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Control de Efectivo</h1>
+                <p class="text-gray-400 font-medium">Monitoreo de flujo de caja y disponibilidad física</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="window.print()"
+                    class="bg-white border border-gray-300 px-5 py-3 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-gray-50 transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-lg">print</span> Imprimir Reporte
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            <!-- COLUMNA NORTE -->
+            <div class="space-y-6">
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <h2 class="text-xl font-black text-blue-900 uppercase tracking-tight">Sucursal Norte</h2>
+                </div>
+
+                <!-- KPIs NORTE -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="card p-4 shadow-sm bg-gray-50">
+                        <p class="text-gray-400 font-bold text-[9px] uppercase tracking-widest mb-1">Saldo Inicial</p>
+                        <span id="kpiSaldo_Norte" class="text-lg font-extrabold text-gray-600">$0.00</span>
+                    </div>
+                    <div class="card p-4 shadow-sm bg-gray-900">
+                        <p class="text-white/60 font-bold text-[9px] uppercase tracking-widest mb-1">Disponible Real</p>
+                        <span id="kpiDisponible_Norte" class="text-lg font-black text-primary">$0.00</span>
+                    </div>
+                    <div class="card p-4 shadow-sm border-green-100 bg-green-50/30">
+                        <p class="text-green-600 font-bold text-[9px] uppercase tracking-widest mb-1">Entradas</p>
+                        <span id="kpiEntradas_Norte" class="text-lg font-extrabold text-green-700">$0.00</span>
+                    </div>
+                    <div class="card p-4 shadow-sm border-red-100 bg-red-50/30">
+                        <p class="text-red-600 font-bold text-[9px] uppercase tracking-widest mb-1">Salidas</p>
+                        <span id="kpiSalidas_Norte" class="text-lg font-extrabold text-red-700">$0.00</span>
+                    </div>
+                </div>
+
+                <!-- TABLA NORTE -->
+                <div class="card overflow-hidden shadow-sm">
+                    <div class="p-4 border-b border-gray-100 bg-blue-50/10">
+                        <h3 class="font-bold text-gray-700 uppercase text-xs tracking-wide">Movimientos Norte</h3>
+                    </div>
+                    <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+                        <table class="w-full text-left">
+                            <thead
+                                class="bg-white text-gray-400 text-[9px] font-black uppercase tracking-wider border-b border-gray-100 sticky top-0 bg-white">
+                                <tr>
+                                    <th class="px-4 py-3">Fecha</th>
+                                    <th class="px-4 py-3">Concepto</th>
+                                    <th class="px-4 py-3 text-right">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaMovimientos_Norte" class="divide-y divide-gray-50 text-xs">
+                                <tr>
+                                    <td colspan="3" class="p-6 text-center text-gray-300 italic">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMNA SUR -->
+            <div class="space-y-6">
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                    <h2 class="text-xl font-black text-green-900 uppercase tracking-tight">Sucursal Sur</h2>
+                </div>
+
+                <!-- KPIs SUR -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="card p-4 shadow-sm bg-gray-50">
+                        <p class="text-gray-400 font-bold text-[9px] uppercase tracking-widest mb-1">Saldo Inicial</p>
+                        <span id="kpiSaldo_Sur" class="text-lg font-extrabold text-gray-600">$0.00</span>
+                    </div>
+                    <div class="card p-4 shadow-sm bg-gray-900">
+                        <p class="text-white/60 font-bold text-[9px] uppercase tracking-widest mb-1">Disponible Real</p>
+                        <span id="kpiDisponible_Sur" class="text-lg font-black text-primary">$0.00</span>
+                    </div>
+                    <div class="card p-4 shadow-sm border-green-100 bg-green-50/30">
+                        <p class="text-green-600 font-bold text-[9px] uppercase tracking-widest mb-1">Entradas</p>
+                        <span id="kpiEntradas_Sur" class="text-lg font-extrabold text-green-700">$0.00</span>
+                    </div>
+                    <div class="card p-4 shadow-sm border-red-100 bg-red-50/30">
+                        <p class="text-red-600 font-bold text-[9px] uppercase tracking-widest mb-1">Salidas</p>
+                        <span id="kpiSalidas_Sur" class="text-lg font-extrabold text-red-700">$0.00</span>
+                    </div>
+                </div>
+
+                <!-- TABLA SUR -->
+                <div class="card overflow-hidden shadow-sm">
+                    <div class="p-4 border-b border-gray-100 bg-green-50/10">
+                        <h3 class="font-bold text-gray-700 uppercase text-xs tracking-wide">Movimientos Sur</h3>
+                    </div>
+                    <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+                        <table class="w-full text-left">
+                            <thead
+                                class="bg-white text-gray-400 text-[9px] font-black uppercase tracking-wider border-b border-gray-100 sticky top-0 bg-white">
+                                <tr>
+                                    <th class="px-4 py-3">Fecha</th>
+                                    <th class="px-4 py-3">Concepto</th>
+                                    <th class="px-4 py-3 text-right">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaMovimientos_Sur" class="divide-y divide-gray-50 text-xs">
+                                <tr>
+                                    <td colspan="3" class="p-6 text-center text-gray-300 italic">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <footer class="text-center py-10 text-gray-400 text-[10px] font-bold uppercase tracking-widest">
+            © 2026 Agrigarden Financial Systems
+        </footer>
+
+        <script src="api.js"></script>
+        <script src="auth.js"></script>
+        <script src="menu.js"></script>
+        <script src="configuracion.js"></script> <!-- Reutilizamos lógica de config -->
+        <script src="control_efectivo.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                try {
+                    if (typeof inyectarMenu === 'function') inyectarMenu('efectivo');
+                    if (typeof cargarControlEfectivo === 'function') {
+                        cargarControlEfectivo();
+                    }
+                } catch (e) {
+                    console.error("Error en inicialización:", e);
+                }
+            });
+        </script>
+</body>
+
+</html>

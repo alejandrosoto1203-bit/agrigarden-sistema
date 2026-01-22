@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Panel de Control - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "#19e66b", background: "#f8faf9" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8faf9;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .card {
+            background: white;
+            border-radius: 1.25rem;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#111814] flex">
+
+    <div id="sidebar-container"></div>
+
+    <main class="flex-1 ml-64 p-10 space-y-8 min-w-0">
+        <header class="flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Panel de Control</h1>
+                <p class="text-gray-400 font-medium">Métricas clave y rendimiento del negocio</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <select id="filtroSucursalDash" onchange="aplicarFiltrosDashboard()"
+                    class="bg-white border border-gray-200 text-gray-700 text-xs font-black uppercase rounded-xl px-4 py-2 focus:ring-2 focus:ring-primary outline-none shadow-sm h-10">
+                    <option value="Todos">Todas / Combinado</option>
+                    <option value="Matriz">Matriz</option>
+                    <option value="Norte">Sucursal Norte</option>
+                    <option value="Sur">Sucursal Sur</option>
+                </select>
+                <div
+                    class="size-10 bg-primary/20 rounded-full flex items-center justify-center text-primary border border-primary/30">
+                    <span class="material-symbols-outlined">analytics</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ROW 1: FINANCIAL & HR PERFORMANCE -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="card p-6 border-l-4 border-primary shadow-sm">
+                <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Ingresos (Mes)</p>
+                <span id="dashIngresosMes" class="text-2xl font-extrabold">$0.00</span>
+                <div class="flex items-center gap-2 mt-2">
+                    <span
+                        class="text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Bruto</span>
+                </div>
+            </div>
+
+            <div class="card p-6 border-l-4 border-red-400 shadow-sm">
+                <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Gastos (Mes)</p>
+                <span id="dashGastosMes" class="text-2xl font-extrabold">$0.00</span>
+                <div class="flex items-center gap-2 mt-2">
+                    <span
+                        class="text-[10px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Operativos</span>
+                </div>
+            </div>
+
+            <!-- HR Best -->
+            <div class="card p-6 border-l-4 border-emerald-500 shadow-sm relative overflow-hidden">
+                <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Mayor Cumplimiento</p>
+                <div class="flex items-center gap-3 z-10 relative">
+                    <div class="size-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-black text-xs"
+                        id="hrBestAvatar">--</div>
+                    <div>
+                        <p id="hrBestName" class="font-extrabold text-sm text-slate-800 leading-tight">Sin Datos</p>
+                        <p id="hrBestRate" class="text-xs font-bold text-emerald-600">0% Tareas</p>
+                    </div>
+                </div>
+                <span
+                    class="material-symbols-outlined absolute -right-2 -bottom-2 text-emerald-50 text-6xl">emoji_events</span>
+            </div>
+
+            <!-- HR Worst -->
+            <div class="card p-6 border-l-4 border-orange-400 shadow-sm relative overflow-hidden">
+                <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Mayor Rezago</p>
+                <div class="flex items-center gap-3 z-10 relative">
+                    <div class="size-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-black text-xs"
+                        id="hrWorstAvatar">--</div>
+                    <div>
+                        <p id="hrWorstName" class="font-extrabold text-sm text-slate-800 leading-tight">Sin Datos</p>
+                        <p id="hrWorstRate" class="text-xs font-bold text-orange-600">0% Pendientes</p>
+                    </div>
+                </div>
+                <span
+                    class="material-symbols-outlined absolute -right-2 -bottom-2 text-orange-50 text-6xl">warning</span>
+            </div>
+        </div>
+
+        <!-- ROW 2: MAIN CHARTS -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="card p-6 lg:col-span-2 shadow-sm">
+                <h3 class="text-slate-900 font-extrabold text-sm uppercase mb-6">Gastos por Categoría</h3>
+                <div class="h-40 relative">
+                    <canvas id="chartGastos"></canvas>
+                </div>
+                <div class="mt-6 border-t border-slate-50 pt-4">
+                    <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Top Conceptos (Volumen)</p>
+                    <div class="h-40 relative">
+                        <canvas id="chartGastosSub"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="card p-6 shadow-sm">
+                <h3 class="text-sm font-black uppercase text-gray-500 mb-4">Distribución Gastos</h3>
+                <div class="h-64 flex items-center justify-center">
+                    <canvas id="chartTendencia"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW 3: COBRANZA ANALYTICS & DEBT STATUS -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Chart: Cobranza -->
+            <div class="card p-6 shadow-sm">
+                <h3 class="text-sm font-black uppercase text-gray-500 mb-4">Estatus Cuentas Por Cobrar</h3>
+                <div class="h-48 flex items-center justify-center">
+                    <canvas id="chartCobranza"></canvas>
+                </div>
+                <div class="flex justify-around mt-4">
+                    <div class="text-center">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase">Al Corriente</p>
+                        <p id="txtCobranzaVigente" class="text-lg font-black text-blue-600">$0</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase">Vencido</p>
+                        <p id="txtCobranzaVencida" class="text-lg font-black text-red-500">$0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- List: Top 3 Morosos -->
+            <div class="card p-6 shadow-sm">
+                <h3 class="text-sm font-black uppercase text-gray-500 mb-4">Antigüedad de Deuda (Top 3)</h3>
+                <div id="listMorosos" class="space-y-3">
+                    <p class="text-xs text-gray-400 italic">No hay cuentas vencidas.</p>
+                </div>
+            </div>
+
+            <!-- Financial Position Cards -->
+            <div class="grid grid-cols-1 gap-4">
+                <div class="card p-4 shadow-sm bg-orange-50/50 border-orange-100 flex justify-between items-center">
+                    <div>
+                        <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Total Por Cobrar</p>
+                        <span id="dashPorCobrar" class="text-xl font-extrabold text-orange-600">$0.00</span>
+                    </div>
+                    <span class="material-symbols-outlined text-orange-300">account_balance_wallet</span>
+                </div>
+                <div class="card p-4 shadow-sm bg-stone-50 border-stone-100 flex justify-between items-center">
+                    <div>
+                        <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Deuda Pasivos (Capital)
+                        </p>
+                        <span id="dashDeudaTotal" class="text-xl font-extrabold text-stone-600">$0.00</span>
+                    </div>
+                    <span class="material-symbols-outlined text-stone-300">account_balance</span>
+                </div>
+                <div class="card p-4 shadow-sm bg-red-50/50 border-red-100 flex justify-between items-center">
+                    <div>
+                        <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Por Pagar (Operativo)
+                        </p>
+                        <span id="dashPorPagar" class="text-xl font-extrabold text-red-600">$0.00</span>
+                    </div>
+                    <span class="material-symbols-outlined text-red-300">money_off</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW 4: ASSETS & HR STATS -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="card p-5 shadow-sm bg-blue-50/50 border-blue-100">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Activos Fijos (Inv.)
+                        </p>
+                        <span id="dashInversiones" class="text-xl font-extrabold text-blue-600">$0.00</span>
+                    </div>
+                    <span class="material-symbols-outlined text-blue-300">inventory_2</span>
+                </div>
+            </div>
+
+            <div class="card p-5 shadow-sm bg-slate-50 border-slate-100">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Nómina Est.</p>
+                        <span id="dashNomina" class="text-xl font-extrabold text-slate-700">$0.00</span>
+                    </div>
+                    <span class="material-symbols-outlined text-slate-300">groups</span>
+                </div>
+            </div>
+
+            <div class="card p-5 shadow-sm bg-emerald-50/50 border-emerald-100">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Total Empleados</p>
+                        <span id="dashEmpleados" class="text-xl font-extrabold text-emerald-600">0</span>
+                    </div>
+                    <span class="material-symbols-outlined text-emerald-300">badge</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="api.js"></script>
+    <script src="auth.js"></script>
+    <script src="menu.js"></script>
+    <script src="dashboard.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            inyectarMenu('dashboard');
+            if (typeof cargarDashboard === 'function') cargarDashboard();
+        });
+    </script>
+</body>
+
+</html>

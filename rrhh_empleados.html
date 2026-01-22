@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Central de Empleados - Agrigarden RRHH</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "#19e66b", background: "#f8fafc" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Aumento de tamaño de texto general */
+        body {
+            background-color: #f8fafc;
+            font-family: 'Manrope', sans-serif;
+            font-size: 16px;
+        }
+
+        /* DISEÑO DE TARJETAS TIPO REFERENCIA */
+        .emp-card {
+            background: white;
+            border-radius: 1.5rem;
+            border: 1px solid #f1f5f9;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .emp-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        /* PANEL EXPEDIENTE ESTILO SLIDE-OVER */
+        .slide-over {
+            position: fixed;
+            right: -100%;
+            top: 0;
+            width: 500px;
+            height: 100%;
+            background: white;
+            transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+            box-shadow: -15px 0 50px rgba(0, 0, 0, 0.08);
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slide-over.active {
+            right: 0;
+        }
+
+        /* ESTILO DE PESTAÑAS */
+        .tab-btn {
+            padding: 1rem 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #94a3b8;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            color: #19e66b;
+            border-bottom-color: #19e66b;
+        }
+
+        /* FOTO REDONDA CON INDICADOR */
+        .avatar-container {
+            position: relative;
+            width: 110px;
+            height: 110px;
+            margin-bottom: 1.5rem;
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid white;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-badge {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 3px solid white;
+        }
+
+        /* FORMATO PROFESIONAL DE INPUTS - TEXTO MÁS GRANDE */
+        .input-form {
+            background: #f1f5f9;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 1rem;
+            padding: 1rem 1.2rem;
+            font-weight: 600;
+            width: 100%;
+            font-size: 1rem;
+            transition: all 0.2s;
+            color: #1f2937;
+        }
+
+        .input-form:focus {
+            background: #ffffff;
+            border-color: #19e66b;
+            ring: 4px;
+            ring-color: rgba(25, 230, 107, 0.1);
+            outline: none;
+        }
+
+        .label-form {
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            font-weight: 800;
+            color: #6b7280;
+            margin-left: 0.5rem;
+            margin-bottom: 0.4rem;
+            display: block;
+            tracking-widest: 0.1em;
+        }
+
+        .photo-upload-zone {
+            border: 2.5px dashed #d1d5db;
+            background: #f9fafb;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .photo-upload-zone:hover {
+            border-color: #19e66b;
+            background: rgba(25, 230, 107, 0.03);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#1e293b] flex">
+
+    <div id="sidebar-container"></div>
+
+    <main class="flex-1 ml-64 p-10 space-y-10">
+        <header class="flex justify-between items-end">
+            <div>
+                <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 italic uppercase">Central de Empleados
+                </h1>
+                <p class="text-slate-500 font-medium text-lg mt-1">Gestión integral de expedientes digitales y talento
+                    humano.</p>
+            </div>
+            <div class="flex gap-4">
+                <button
+                    class="bg-white border border-slate-200 px-8 py-3.5 rounded-2xl font-bold flex items-center gap-2 text-base text-slate-600 hover:bg-slate-50 transition-all">
+                    <span class="material-symbols-outlined text-xl">download</span> Export Data
+                </button>
+                <button onclick="abrirModalNuevoEmpleado()"
+                    class="bg-primary text-black px-10 py-3.5 rounded-2xl font-black flex items-center gap-2 text-base shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined text-xl">person_add</span> Add New Employee
+                </button>
+            </div>
+        </header>
+
+        <div class="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-6">
+            <div class="flex-1 relative">
+                <span class="material-symbols-outlined absolute left-6 top-4 text-slate-300">search</span>
+                <input type="text" id="busquedaInput" oninput="filtrarEmpleados()"
+                    placeholder="Search by name, ID or position..."
+                    class="w-full pl-16 pr-8 py-4.5 bg-slate-50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-primary text-base font-bold text-slate-700">
+            </div>
+            <div class="flex gap-4 text-base">
+                <select
+                    class="bg-slate-50 border-none rounded-[1.5rem] px-8 py-4.5 text-sm font-black uppercase text-slate-500 focus:ring-primary">
+                    <option>All Status</option>
+                </select>
+                <select
+                    class="bg-slate-50 border-none rounded-[1.5rem] px-8 py-4.5 text-sm font-black uppercase text-slate-500 focus:ring-primary">
+                    <option>Branch: All</option>
+                </select>
+                <select
+                    class="bg-slate-50 border-none rounded-[1.5rem] px-8 py-4.5 text-sm font-black uppercase text-slate-500 focus:ring-primary">
+                    <option>Department</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="gridEmpleados" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-10"></div>
+    </main>
+
+    <div id="slideExpediente" class="slide-over">
+        <div class="p-8 border-b border-slate-50 flex justify-between items-start">
+            <h2 class="text-2xl font-black uppercase italic text-slate-900 tracking-tight">Expediente de Empleado</h2>
+            <button onclick="cerrarExpediente()"
+                class="size-10 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors">
+                <span class="material-symbols-outlined text-slate-400 text-2xl font-bold">close</span>
+            </button>
+        </div>
+
+        <div id="headerExpediente" class="px-8 pt-8 flex items-center gap-8"></div>
+
+        <div class="px-8 mt-7 flex gap-7 border-b border-slate-100 overflow-x-auto">
+            <button onclick="cambiarTabExpediente('personal')" class="tab-btn active"
+                id="tab-personal">Personal</button>
+            <button onclick="cambiarTabExpediente('empleo')" class="tab-btn" id="tab-empleo">Empleo</button>
+            <button onclick="cambiarTabExpediente('nomina')" class="tab-btn" id="tab-nomina">Nómina</button>
+            <button onclick="cambiarTabExpediente('expediente')" class="tab-btn" id="tab-expediente">Expediente</button>
+            <button onclick="cambiarTabExpediente('historial')" class="tab-btn" id="tab-historial">Historial</button>
+        </div>
+
+        <div id="detalleExpediente" class="flex-1 overflow-y-auto p-8 space-y-10"></div>
+
+        <div class="p-8 border-t border-slate-100">
+            <button id="btnEditarCompleto"
+                class="w-full bg-primary text-black py-6 rounded-[1.5rem] font-black uppercase text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-4">
+                <span class="material-symbols-outlined text-xl font-bold">edit</span> Editar Perfil Completo
+            </button>
+        </div>
+    </div>
+
+    <div id="modalNuevoEmpleado"
+        class="fixed inset-0 bg-slate-900/60 hidden z-[150] flex items-center justify-center backdrop-blur-md p-4">
+        <div class="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+            <div class="p-10 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
+                <div class="flex gap-6 items-center">
+                    <div id="stepCircle"
+                        class="size-16 bg-primary rounded-3xl flex items-center justify-center text-black font-black text-2xl shadow-lg">
+                        1</div>
+                    <div>
+                        <h3 class="text-3xl font-black uppercase italic text-slate-800" id="txtStepTitle">Identidad</h3>
+                        <p class="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">Paso <span
+                                id="currentStepText">1</span> de 4</p>
+                    </div>
+                </div>
+                <button onclick="cerrarModalNuevoEmpleado()"
+                    class="size-14 rounded-2xl hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"><span
+                        class="material-symbols-outlined font-bold text-4xl">close</span></button>
+            </div>
+
+            <form id="formEmpleado" class="flex-1 overflow-y-auto p-12 bg-white">
+                <input type="hidden" id="editEmpleadoId">
+                <div id="step1" class="step-content grid grid-cols-3 gap-12">
+                    <div class="col-span-1 flex flex-col items-center">
+                        <div onclick="document.getElementById('inputFoto').click()"
+                            class="size-52 rounded-[3.5rem] photo-upload-zone border-2 border-dashed border-slate-200 relative overflow-hidden group shadow-inner">
+                            <img id="previewFoto"
+                                src="https://ui-avatars.com/api/?name=User&background=f1f5f9&color=94a3b8"
+                                class="w-full h-full object-cover">
+                            <div
+                                class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white backdrop-blur-[2px]">
+                                <span class="material-symbols-outlined text-5xl">cloud_upload</span>
+                                <span class="text-xs font-black uppercase mt-3">Upload Photo</span>
+                            </div>
+                            <div id="loadingFoto"
+                                class="absolute inset-0 bg-black/50 hidden flex items-center justify-center">
+                                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                            </div>
+                        </div>
+                        <input type="file" id="inputFoto" class="hidden" accept="image/*"
+                            onchange="subirFotoStorage(this)">
+                    </div>
+                    <div class="col-span-2 space-y-8">
+                        <div><label class="label-form">Nombre Completo</label><input type="text" id="nombre_completo"
+                                class="input-form uppercase" placeholder="Ej: Juan Pérez López" required></div>
+                        <div class="grid grid-cols-2 gap-8">
+                            <div><label class="label-form">Fecha Nacimiento</label><input type="date"
+                                    id="fecha_nacimiento" class="input-form" onchange="calcularEdad(this.value)"></div>
+                            <div><label class="label-form">Edad</label><input type="number" id="edad"
+                                    class="input-form bg-slate-50 font-bold" readonly></div>
+                        </div>
+                    </div>
+                    <div class="col-span-1"><label class="label-form">Estado Civil</label><select id="estado_civil"
+                            class="input-form">
+                            <option>SOLTERO/A</option>
+                            <option>CASADO/A</option>
+                            <option>DIVORCIADO/A</option>
+                            <option>UNIÓN LIBRE</option>
+                        </select></div>
+                    <div class="col-span-1"><label class="label-form">CURP</label><input type="text" id="curp"
+                            class="input-form uppercase" placeholder="18 Caracteres"></div>
+                    <div class="col-span-1"><label class="label-form">RFC</label><input type="text" id="rfc"
+                            class="input-form uppercase" placeholder="13 Caracteres"></div>
+                    <div class="col-span-3"><label class="label-form">Número de Seguridad Social (NSS)</label><input
+                            type="text" id="nss" class="input-form" placeholder="11 Dígitos"></div>
+                </div>
+
+                <div id="step2" class="step-content hidden grid grid-cols-2 gap-10">
+                    <div class="col-span-2"><label class="label-form">Dirección Residencial Completa</label><input
+                            type="text" id="direccion_completa" class="input-form uppercase"
+                            placeholder="Calle, Número, Colonia, CP"></div>
+                    <div><label class="label-form">Correo Electrónico Personal</label><input type="email"
+                            id="correo_electronico" class="input-form" placeholder="ejemplo@correo.com"></div>
+                    <div><label class="label-form">Teléfono de Contacto</label><input type="tel" id="telefono"
+                            class="input-form" placeholder="10 Dígitos"></div>
+                    <div class="col-span-2"><label class="label-form">Último Grado de Escolaridad</label><select
+                            id="escolaridad" class="input-form">
+                            <option>SECUNDARIA</option>
+                            <option>BACHILLERATO</option>
+                            <option>LICENCIATURA</option>
+                            <option>INGENIERÍA</option>
+                            <option>POSTGRADO</option>
+                        </select></div>
+                </div>
+
+                <div id="step3" class="step-content hidden grid grid-cols-2 gap-10">
+                    <div><label class="label-form">Sucursal Asignada</label><select id="sucursal" class="input-form">
+                            <option>MATRIZ</option>
+                            <option>NORTE</option>
+                            <option>SUR</option>
+                        </select></div>
+                    <div><label class="label-form">Puesto / Cargo</label><input type="text" id="puesto"
+                            class="input-form uppercase" placeholder="Ej: Gerente de Ventas"></div>
+                    <div><label class="label-form">Fecha Oficial de Ingreso</label><input type="date" id="fecha_ingreso"
+                            class="input-form"></div>
+                    <div><label class="label-form">Modalidad de Contrato</label><select id="tipo_contrato"
+                            class="input-form">
+                            <option>DETERMINADO</option>
+                            <option>INDETERMINADO</option>
+                        </select></div>
+                    <div><label class="label-form">Institución Bancaria</label><input type="text" id="banco"
+                            class="input-form uppercase" placeholder="Ej: BBVA, Banamex"></div>
+                    <div><label class="label-form">N° de Cuenta o CLABE Interbancaria</label><input type="text"
+                            id="cuenta_banco" class="input-form" placeholder="18 Dígitos"></div>
+                    <div><label class="label-form">Sueldo Base Mensual ($)</label><input type="number" step="0.01"
+                            id="sueldo_base" class="input-form font-black text-right text-primary" placeholder="0.00"
+                            oninput="calcularSueldoQuincenal()"></div>
+                    <div><label class="label-form">Sueldo Quincenal (Estimado)</label><input type="text"
+                            id="sueldo_quincenal" class="input-form bg-gray-100 text-right font-black text-gray-500"
+                            placeholder="$0.00" disabled></div>
+                </div>
+
+                <div id="step4" class="step-content hidden">
+                    <p
+                        class="text-base font-black uppercase text-primary tracking-widest mb-10 border-b border-primary/20 pb-4">
+                        Prestaciones y Beneficios Activos</p>
+                    <div class="grid grid-cols-2 gap-6" id="contenedorPrestaciones">
+                        <label
+                            class="flex items-center gap-5 p-6 bg-slate-50 rounded-[1.5rem] cursor-pointer hover:bg-primary/5 transition-all border border-gray-200 hover:border-primary/30 shadow-sm">
+                            <input type="checkbox" name="prestacion" value="AGUINALDO"
+                                class="rounded text-primary focus:ring-primary size-6 border-gray-300">
+                            <span class="text-sm font-extrabold uppercase text-gray-700 tracking-wide">Aguinaldo</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-5 p-6 bg-white rounded-[1.5rem] cursor-pointer hover:bg-primary/5 transition-all border border-gray-200 hover:border-primary/30 shadow-sm">
+                            <input type="checkbox" name="prestacion" value="PRIMA VACACIONAL"
+                                class="rounded text-primary focus:ring-primary size-6 border-gray-300">
+                            <span class="text-sm font-extrabold uppercase text-gray-700 tracking-wide">Prima
+                                Vacacional</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-5 p-6 bg-white rounded-[1.5rem] cursor-pointer hover:bg-primary/5 transition-all border border-gray-200 hover:border-primary/30 shadow-sm">
+                            <input type="checkbox" name="prestacion" value="SEGURO SOCIAL"
+                                class="rounded text-primary focus:ring-primary size-6 border-gray-300">
+                            <span class="text-sm font-extrabold uppercase text-gray-700 tracking-wide">Seguro Social
+                                (IMSS)</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-5 p-6 bg-white rounded-[1.5rem] cursor-pointer hover:bg-primary/5 transition-all border border-gray-200 hover:border-primary/30 shadow-sm">
+                            <input type="checkbox" name="prestacion" value="SGMM"
+                                class="rounded text-primary focus:ring-primary size-6 border-gray-300">
+                            <span class="text-sm font-extrabold uppercase text-gray-700 tracking-wide">Gastos Médicos
+                                Mayores</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-5 p-6 bg-white rounded-[1.5rem] cursor-pointer hover:bg-primary/5 transition-all border border-gray-200 hover:border-primary/30 shadow-sm">
+                            <input type="checkbox" name="prestacion" value="APOYO GASOLINA"
+                                class="rounded text-primary focus:ring-primary size-6 border-gray-300">
+                            <span class="text-sm font-extrabold uppercase text-gray-700 tracking-wide">Apoyo
+                                Gasolina</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-5 p-6 bg-white rounded-[1.5rem] cursor-pointer hover:bg-primary/5 transition-all border border-gray-200 hover:border-primary/30 shadow-sm">
+                            <input type="checkbox" name="prestacion" value="BONOS PRODUCTIVIDAD"
+                                class="rounded text-primary focus:ring-primary size-6 border-gray-300">
+                            <span class="text-sm font-extrabold uppercase text-gray-700 tracking-wide">Bonos
+                                Productividad</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-5 p-6 bg-white rounded-[1.5rem] cursor-pointer hover:bg-primary/5 transition-all border border-gray-200 hover:border-primary/30 shadow-sm">
+                            <input type="checkbox" name="prestacion" value="COMISIONES"
+                                class="rounded text-primary focus:ring-primary size-6 border-gray-300">
+                            <span class="text-sm font-extrabold uppercase text-gray-700 tracking-wide">Comisiones</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-5 p-6 bg-white rounded-[1.5rem] cursor-pointer hover:bg-primary/5 transition-all border border-gray-200 hover:border-primary/30 shadow-sm">
+                            <input type="checkbox" name="prestacion" value="CELULAR EMPRESARIAL"
+                                class="rounded text-primary focus:ring-primary size-6 border-gray-300">
+                            <span class="text-sm font-extrabold uppercase text-gray-700 tracking-wide">Celular
+                                Empresarial</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-5 p-6 bg-white rounded-[1.5rem] cursor-pointer hover:bg-primary/5 transition-all border border-gray-200 hover:border-primary/30 shadow-sm col-span-2">
+                            <input type="checkbox" name="prestacion" value="VEHICULO EMPRESA"
+                                class="rounded text-primary focus:ring-primary size-6 border-slate-300">
+                            <span class="text-sm font-black uppercase text-slate-700">Vehículo de la Empresa</span>
+                        </label>
+                    </div>
+                </div>
+            </form>
+
+            <div class="p-10 bg-slate-50 border-t border-slate-100 flex gap-6">
+                <button id="btnAnterior" onclick="cambiarPaso(-1)"
+                    class="hidden flex-1 py-5 text-base font-black uppercase text-gray-400 hover:text-gray-600 transition-all">Anterior</button>
+                <button id="btnSiguiente" onclick="cambiarPaso(1)"
+                    class="flex-[2] bg-slate-900 text-white py-6 rounded-[1.5rem] font-black uppercase text-sm tracking-[0.1em] shadow-lg">Siguiente
+                    Paso</button>
+                <button id="btnGuardar" onclick="guardarNuevoEmpleado()"
+                    class="hidden flex-[2] bg-primary text-black py-6 rounded-2xl font-black uppercase text-sm tracking-[0.1em] shadow-lg shadow-primary/20 hover:scale-105 transition-all flex items-center justify-center gap-3">
+                    <span class="material-symbols-outlined font-black text-xl">verified</span> Finalizar Registro
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js?v=3"></script>
+    <script src="menu.js?v=3"></script>
+    <script src="export_helper.js"></script>
+    <script src="rrhh_empleados.js?v=3"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // alert("SISTEMA ACTUALIZADO (V3) - Intenta subir la foto."); // Removed
+
+            inyectarMenu('rrhh');
+            inyectarSubmenuRRHH('central'); // Única adición para navegación
+            cargarEmpleados();
+        });
+    </script>
+</body>
+
+</html>

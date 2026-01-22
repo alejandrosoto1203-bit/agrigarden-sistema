@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Módulo de Préstamos - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "#19e66b", background: "#f8faf9" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8faf9;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .card {
+            background: white;
+            border-radius: 1.25rem;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-prestamo {
+            background: #f3f4f6;
+            border: none;
+            border-radius: 0.75rem;
+            padding: 0.75rem;
+            font-weight: 600;
+            width: 100%;
+            font-size: 0.85rem;
+        }
+
+        .input-prestamo:focus {
+            background: white;
+            ring: 2px;
+            ring-color: #19e66b;
+            outline: none;
+        }
+
+        .input-table {
+            border: none;
+            background: transparent;
+            padding: 2px;
+            font-weight: 800;
+            width: 100%;
+            text-align: center;
+            font-size: 0.75rem;
+        }
+
+        .input-table:focus {
+            background: white;
+            ring: 1px;
+            ring-color: #19e66b;
+            outline: none;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#111814] flex">
+
+    <div id="sidebar-container"></div>
+
+    <main class="flex-1 ml-64 p-10 space-y-8 min-w-0">
+        <header class="flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Módulo de Préstamos</h1>
+                <p class="text-gray-400 font-medium">Seguimiento de estructura de deuda y financiamientos externos</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="abrirModalNuevoPrestamo()"
+                    class="bg-primary text-black px-6 py-3 rounded-xl font-extrabold text-sm hover:brightness-105 transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">add_circle</span> Nuevo Préstamo
+                </button>
+                <button onclick="exportarPrestamos()"
+                    class="bg-white border border-gray-300 px-5 py-3 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-gray-50 transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-lg">download</span> Exportar
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="card p-8 border-l-4 border-black">
+                <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Capital Pendiente Total
+                </p>
+                <span id="kpiCapitalPendiente" class="text-3xl font-black text-gray-900">$0.00</span>
+                <div class="mt-2 text-[10px] font-black text-primary flex items-center gap-1">
+                    <span class="material-symbols-outlined text-xs">trending_up</span> +2.5% vs mes pasado
+                </div>
+            </div>
+            <div class="card p-8 border-l-4 border-orange-400">
+                <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Intereses Acumulados</p>
+                <span id="kpiInteresAcumulado" class="text-3xl font-black text-gray-900">$0.00</span>
+                <div class="mt-2 text-[10px] font-black text-red-400 flex items-center gap-1">
+                    <span class="material-symbols-outlined text-xs">trending_down</span> -1.2% en comisiones
+                </div>
+            </div>
+            <div class="card p-8 border-l-4 border-primary">
+                <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Próximo Vencimiento</p>
+                <span id="kpiProximoPago" class="text-3xl font-black text-gray-900">-- / --</span>
+                <div class="mt-2 text-[10px] font-black text-gray-400 flex items-center gap-1">
+                    <span class="material-symbols-outlined text-xs text-primary">notifications_active</span>
+                    Recordatorio en 5 días
+                </div>
+            </div>
+        </div>
+
+        <div class="card overflow-hidden shadow-sm">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+                <h3 class="font-black text-sm text-gray-700 uppercase tracking-tight italic">Debt Structure Tracking
+                </h3>
+                <div class="flex gap-2 bg-gray-50 rounded-lg border border-gray-100 p-1">
+                    <select id="filtroSucursalPrestamo" onchange="aplicarFiltrosPrestamos()"
+                        class="bg-transparent border-none text-[10px] font-black uppercase text-gray-500 focus:ring-0">
+                        <option value="Todos">Todas las Sucursales</option>
+                        <option value="Matriz">Matriz</option>
+                        <option value="Norte">Norte</option>
+                        <option value="Sur">Sur</option>
+                    </select>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead
+                        class="bg-gray-50 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-gray-100">
+                        <tr>
+                            <th class="px-6 py-5">Fecha</th>
+                            <th class="px-6 py-5">Prestamista</th>
+                            <th class="px-6 py-5">Descripción</th>
+                            <th class="px-6 py-5 text-right">Capital</th>
+                            <th class="px-6 py-5 text-right">Tasa (Anual)</th>
+                            <th class="px-6 py-5 text-center">Plazo</th>
+                            <th class="px-6 py-5 text-right">Mensualidad</th>
+                            <th class="px-6 py-5 text-center">Estatus</th>
+                            <th class="px-6 py-5 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaPrestamos" class="divide-y divide-gray-50 font-bold"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <div id="modalNuevoPrestamo"
+        class="fixed inset-0 bg-black/60 hidden z-[150] flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <div>
+                    <h3 class="text-xl font-black uppercase italic tracking-tight">Configurar Nuevo Préstamo</h3>
+                    <p class="text-[10px] text-primary font-black uppercase mt-1 tracking-widest text-emerald-500">
+                        Simulación y Amortización en Cascada</p>
+                </div>
+                <button onclick="cerrarModalNuevoPrestamo()"
+                    class="size-10 rounded-full hover:bg-gray-200 transition-colors flex items-center justify-center">
+                    <span class="material-symbols-outlined text-gray-400">close</span>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-8 grid grid-cols-12 gap-8">
+                <form id="formNuevoPrestamo" class="col-span-4 space-y-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Fecha de Obtención</label>
+                        <input type="date" id="fechaPrestamo" class="input-prestamo" required>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Prestamista /
+                            Institución</label>
+                        <input type="text" id="prestamista" class="input-prestamo uppercase"
+                            placeholder="Ej: Banco Nacional" required>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Descripción del
+                            Crédito</label>
+                        <input type="text" id="descPrestamo" class="input-prestamo uppercase"
+                            placeholder="Ej: Capital de Trabajo" required>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Capital ($)</label>
+                            <input type="number" step="0.01" id="capitalPrestamo" class="input-prestamo font-black"
+                                oninput="simularAmortizacion()" required>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Tasa Anual (%)</label>
+                            <input type="number" step="0.01" id="tasaPrestamo" class="input-prestamo"
+                                oninput="simularAmortizacion()" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Plazo (Meses)</label>
+                            <input type="number" id="plazoPrestamo" class="input-prestamo"
+                                oninput="simularAmortizacion()" required>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Periodicidad</label>
+                            <select id="periodicidad" class="input-prestamo" onchange="simularAmortizacion()">
+                                <option value="Mensual">Mensual</option>
+                                <option value="Semanal">Semanal</option>
+                                <option value="Diario">Diario</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-[9px] font-black uppercase text-emerald-600">Mensualidad Pactada
+                                ($)</label>
+                            <input type="number" step="0.01" id="inputMensualidad"
+                                class="bg-white border-none rounded-lg text-right font-black text-emerald-700 w-32 focus:ring-1 focus:ring-emerald-500"
+                                oninput="simularAmortizacion()">
+                        </div>
+                        <div id="alertaInteres"
+                            class="hidden text-[8px] font-black text-red-500 uppercase mt-2 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[10px]">warning</span> Pago insuficiente para
+                            intereses
+                        </div>
+                        <div class="flex justify-between items-center mt-2 pt-2 border-t border-emerald-100/50">
+                            <span class="text-[9px] font-black uppercase text-emerald-600">Total a Pagar</span>
+                            <span id="txtTotalPagar" class="text-sm font-black text-emerald-700">$0.00</span>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Sucursal</label>
+                        <select id="sucursalPrestamo" class="input-prestamo">
+                            <option value="Matriz">Matriz</option>
+                            <option value="Norte">Norte</option>
+                            <option value="Sur">Sur</option>
+                        </select>
+                    </div>
+                </form>
+
+                <div class="col-span-8 flex flex-col space-y-4">
+                    <h4 class="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">event_repeat</span> Tabla de Amortización
+                        Sugerida
+                    </h4>
+                    <div class="flex-1 border border-gray-100 rounded-3xl overflow-hidden bg-gray-50/50">
+                        <div class="max-h-[400px] overflow-y-auto">
+                            <table class="w-full text-center text-[10px]">
+                                <thead class="bg-gray-100 sticky top-0 font-black uppercase text-gray-500">
+                                    <tr>
+                                        <th class="py-3 px-2">#</th>
+                                        <th class="py-3 px-2">Fecha Pago</th>
+                                        <th class="py-3 px-2">Capital</th>
+                                        <th class="py-3 px-2">Interés</th>
+                                        <th class="py-3 px-2">Cuota Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cuerpoAmortizacion">
+                                    <tr>
+                                        <td colspan="5" class="py-10 text-gray-300 italic font-bold">Ingresa los datos
+                                            para calcular...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-8 bg-gray-50/50 border-t border-gray-100 flex gap-4">
+                <button onclick="cerrarModalNuevoPrestamo()"
+                    class="flex-1 py-4 text-[11px] font-black uppercase text-gray-400 hover:text-gray-600 transition-all">Cancelar</button>
+                <button onclick="guardarPrestamo()"
+                    class="flex-[2] bg-black text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-[0.15em] shadow-lg hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-sm">save</span> Confirmar y Generar Gastos
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalAvancePrestamo"
+        class="fixed inset-0 bg-black/60 hidden z-[180] flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="p-8 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-black uppercase italic tracking-tight" id="txtAvanceTitulo">Avance de Pago
+                    </h3>
+                    <p class="text-[10px] text-gray-400 font-black uppercase mt-1 tracking-widest">Seguimiento de cuotas
+                        liquidadas vs pendientes</p>
+                </div>
+                <button onclick="document.getElementById('modalAvancePrestamo').classList.add('hidden')"
+                    class="size-10 rounded-full hover:bg-gray-200 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-gray-400">close</span>
+                </button>
+            </div>
+
+            <div class="p-8 space-y-8 overflow-y-auto">
+                <div class="space-y-3">
+                    <div class="flex justify-between items-end">
+                        <span class="text-[10px] font-black uppercase text-gray-400">Porcentaje de Liquidación</span>
+                        <span class="text-2xl font-black text-primary" id="txtPorcentajeLiq">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-100 h-4 rounded-full overflow-hidden border border-gray-200">
+                        <div id="barraProgresoLiq"
+                            class="bg-primary h-full transition-all duration-700 shadow-[0_0_15px_rgba(25,230,107,0.4)]"
+                            style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between text-[9px] font-black uppercase text-gray-400">
+                        <span id="txtCuotasPagadas">0 PAGADAS</span>
+                        <span id="txtCapitalRestante">CAPITAL RESTANTE: $0.00</span>
+                    </div>
+                </div>
+
+                <div class="border border-gray-100 rounded-3xl overflow-hidden">
+                    <table class="w-full text-[10px]">
+                        <thead class="bg-gray-50 text-gray-400 font-black uppercase tracking-widest">
+                            <tr>
+                                <th class="py-4 px-4 text-left">Cuota</th>
+                                <th class="py-4 px-4">Fecha Pactada</th>
+                                <th class="py-4 px-4 text-right">Capital</th>
+                                <th class="py-4 px-4 text-right">Interés</th>
+                                <th class="py-4 px-4 text-center">Estatus</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoAvanceHistorial" class="divide-y divide-gray-50 font-bold"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalLiquidarPrestamo"
+        class="fixed inset-0 bg-black/60 hidden z-[160] flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6">
+            <div class="text-center">
+                <h3 class="text-xl font-black uppercase italic tracking-tight">Liquidación Anticipada</h3>
+                <p id="txtLiquidarInfo" class="text-[10px] text-gray-400 font-black uppercase mt-1 tracking-widest">
+                    Cierre total de deuda proyectada</p>
+            </div>
+
+            <div class="space-y-4">
+                <div class="space-y-1 text-center bg-primary/10 p-4 rounded-2xl border border-primary/20">
+                    <span class="text-[10px] font-black uppercase text-primary">Fecha Efectiva</span>
+                    <input type="date" id="fechaLiquidacion" class="input-prestamo text-center mt-1">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-black uppercase text-gray-400 ml-1">Capital Final ($)</label>
+                        <input type="number" step="0.01" id="liqCapital" class="input-prestamo font-black text-center">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-black uppercase text-gray-400 ml-1">Interés Final ($)</label>
+                        <input type="number" step="0.01" id="liqInteres" class="input-prestamo font-black text-center">
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Método de Pago</label>
+                    <select id="metodoLiquidacion" class="input-prestamo">
+                        <option value="Transferencia BBVA">Transferencia BBVA</option>
+                        <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
+                        <option value="Efectivo">Efectivo</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('modalLiquidarPrestamo').classList.add('hidden')"
+                    class="flex-1 py-4 text-[10px] font-black uppercase text-gray-400">Cancelar</button>
+                <button onclick="confirmarLiquidacion()"
+                    class="flex-1 bg-black text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Liquidar
+                    Todo</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="auth.js"></script>
+    <script src="menu.js"></script>
+    <script src="export_helper.js"></script>
+    <script src="prestamos.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            inyectarMenu('prestamos');
+            if (typeof cargarPrestamos === 'function') cargarPrestamos();
+            document.getElementById('fechaPrestamo').value = new Date().toISOString().split('T')[0];
+        });
+
+        function abrirModalNuevoPrestamo() {
+            document.getElementById('modalNuevoPrestamo').classList.remove('hidden');
+        }
+
+        function cerrarModalNuevoPrestamo() {
+            document.getElementById('modalNuevoPrestamo').classList.add('hidden');
+            document.getElementById('formNuevoPrestamo').reset();
+            document.getElementById('cuerpoAmortizacion').innerHTML = `<tr><td colspan="5" class="py-10 text-gray-300 italic font-bold">Ingresa los datos para calcular...</td></tr>`;
+            document.getElementById('alertaInteres').classList.add('hidden');
+        }
+    </script>
+</body>
+
+</html>

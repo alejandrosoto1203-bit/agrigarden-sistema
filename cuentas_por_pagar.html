@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Cuentas por Pagar - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "#10b981", background: "#f3f7f5", sidebar: "#ffffff" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f3f7f5;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .card {
+            background: white;
+            border-radius: 0.75rem;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+
+        .tab-active {
+            color: #10b981;
+            border-bottom: 2px solid #10b981;
+        }
+
+        #historialNotasProv::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #historialNotasProv::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        #historialNotasProv::-webkit-scrollbar-thumb {
+            background: #10b981;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#111814] flex">
+
+    <div id="sidebar-container"></div>
+
+    <main class="flex-1 ml-64 p-10 space-y-8 min-w-0">
+        <header class="flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight italic uppercase">Cuentas por Pagar</h1>
+                <p class="text-gray-400 font-medium">Administra y rastrea las obligaciones financieras de tu empresa</p>
+            </div>
+            <div>
+                <button onclick="sincronizarPagosHistoricos()" id="btnSyncHistory"
+                    class="bg-black text-white px-5 py-3 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-gray-800 transition-all shadow-lg shadow-black/20">
+                    <span class="material-symbols-outlined text-lg">history</span> Sincronizar Historial
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="card p-6">
+                <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Total Pendiente</p>
+                <span id="kpiTotalPagar" class="text-3xl font-black text-gray-800">$0.00</span>
+            </div>
+            <div class="card p-6">
+                <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Vence Hoy</p>
+                <span id="kpiVenceHoy" class="text-3xl font-black text-gray-800">$0.00</span>
+            </div>
+            <div class="card p-6">
+                <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Monto Vencido</p>
+                <span id="kpiMontoVencido" class="text-3xl font-black text-red-600">$0.00</span>
+            </div>
+        </div>
+
+        <div class="flex gap-8 border-b border-gray-200">
+            <button id="tabPorPagar" onclick="cambiarPestañaPagar('pendiente')"
+                class="pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all">Por Pagar</button>
+            <button id="tabPagado" onclick="cambiarPestañaPagar('pagado')"
+                class="pb-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all">Pagado</button>
+        </div>
+
+        <div class="card overflow-hidden shadow-sm">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+                <h3 class="font-black text-sm text-gray-700 uppercase tracking-tight">Obligaciones Recientes</h3>
+                <div
+                    class="bg-gray-50 rounded-lg flex items-center px-3 border border-gray-200 focus-within:border-emerald-500 transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-gray-400 text-sm">search</span>
+                    <input type="text" id="busquedaProveedor" placeholder="Buscar proveedor..."
+                        class="bg-transparent border-none focus:ring-0 text-xs font-bold w-48 uppercase">
+                </div>
+                <div
+                    class="bg-gray-50 rounded-lg flex items-center px-3 border border-gray-200 focus-within:border-emerald-500 transition-all shadow-sm ml-2">
+                    <select id="filtroSucursalPago" onchange="aplicarFiltrosPagos()"
+                        class="bg-transparent border-none focus:ring-0 text-xs font-bold w-32 uppercase text-gray-500">
+                        <option value="Todos">Todas</option>
+                        <option value="Norte">Norte</option>
+                        <option value="Sur">Sur</option>
+                        <option value="Matriz">Matriz</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead
+                        class="bg-gray-50 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-4">Fecha</th>
+                            <th class="px-6 py-4">Proveedor</th>
+                            <th class="px-6 py-4 text-center">Monto Original</th>
+                            <th class="px-6 py-4 text-center text-emerald-600">Saldo Pendiente</th>
+                            <th class="px-6 py-4 text-center">Fecha Límite</th>
+                            <th class="px-6 py-4 text-center">Estado</th>
+                            <th class="px-6 py-4 text-center">Sucursal</th>
+                            <th class="px-6 py-4 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaCuentasPagar" class="divide-y divide-gray-100"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <div id="modalAbonoProv"
+        class="fixed inset-0 bg-black/60 hidden z-[110] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 space-y-6">
+            <h3 class="text-lg font-black uppercase italic text-center">Registrar Pago</h3>
+            <p id="infoAbonoProv" class="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center"></p>
+
+            <div id="desglosePagoLote" class="hidden bg-emerald-50 p-4 rounded-2xl border border-emerald-100 space-y-1">
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Fecha de Pago (Efectiva)</label>
+                    <input type="date" id="fechaEfectivaPagoProv"
+                        class="w-full bg-gray-50 border-none rounded-2xl py-4 text-sm font-bold text-center focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Monto a Pagar</label>
+                    <input type="number" id="montoAbonoProv"
+                        class="w-full bg-gray-50 border-none rounded-2xl py-4 text-xl font-black text-center focus:ring-2 focus:ring-emerald-500"
+                        placeholder="0.00">
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Método de salida</label>
+                    <select id="metodoPagoProv" onchange="checkMetodoPagoProv(this.value)"
+                        class="w-full bg-gray-50 border-none rounded-2xl py-4 text-sm font-bold focus:ring-2 focus:ring-emerald-500">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
+                        <option value="Transferencia BBVA">Transferencia BBVA</option>
+                        <option value="Tarjeta de credito Hey Banco">Tarjeta de credito Hey Banco</option>
+                        <option value="Tarjeta de credito BBVA">Tarjeta de credito BBVA</option>
+                        <option value="Otros">Otros (Escribir)</option>
+                    </select>
+                </div>
+
+                <div id="extraMetodoProv" class="hidden animate-in fade-in slide-in-from-top-2">
+                    <label class="text-[10px] font-black uppercase text-gray-400 block mb-2 ml-2">Especifique
+                        Método</label>
+                    <input type="text" id="otroMetodoProv"
+                        class="w-full bg-gray-50 border-none rounded-2xl py-4 text-sm font-bold focus:ring-2 focus:ring-emerald-500 uppercase text-center"
+                        placeholder="¿Cuál método?">
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="cerrarModalAbonoProv()"
+                    class="flex-1 py-4 text-gray-400 font-black uppercase text-[10px]">Cancelar</button>
+                <button onclick="guardarAbonoProv()"
+                    class="flex-1 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px] shadow-lg">Aplicar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalProrroga"
+        class="fixed inset-0 bg-black/60 hidden z-[110] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 space-y-6">
+            <div class="text-center">
+                <h3 class="text-lg font-black uppercase italic">Aplicar Prórroga</h3>
+                <p id="infoProrroga" class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1"></p>
+            </div>
+
+            <div>
+                <label class="text-[10px] font-black uppercase text-gray-400 ml-2 mb-2 block">Nueva Fecha de
+                    Pago</label>
+                <input type="date" id="nuevaFechaProrroga"
+                    class="w-full bg-gray-50 border-none rounded-2xl py-4 text-sm font-bold text-center focus:ring-2 focus:ring-orange-500">
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="cerrarModalProrroga()"
+                    class="flex-1 py-4 text-gray-400 font-black uppercase text-[10px]">Cancelar</button>
+                <button onclick="guardarProrroga()"
+                    class="flex-1 bg-orange-500 text-white rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-orange-500/20">Actualizar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalBitacoraProv"
+        class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden">
+            <div class="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <div>
+                    <h3 class="text-xl font-black uppercase italic">Bitácora de Proveedor</h3>
+                    <p id="nombreProveedorBitacora"
+                        class="text-[10px] text-emerald-500 font-black uppercase mt-1 tracking-widest"></p>
+                </div>
+                <button onclick="cerrarBitacoraProv()"
+                    class="size-10 rounded-full hover:bg-gray-200 flex items-center justify-center"><span
+                        class="material-symbols-outlined text-gray-400">close</span></button>
+            </div>
+            <div class="p-8 space-y-6">
+                <textarea id="notaProv"
+                    class="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm font-semibold focus:ring-2 focus:ring-emerald-500 min-h-[100px] uppercase"
+                    placeholder="Nota de seguimiento..."></textarea>
+                <div id="historialNotasProv" class="space-y-3 max-h-[200px] overflow-y-auto pr-2"></div>
+            </div>
+            <div class="p-8 bg-gray-50/50 border-t border-gray-100"><button onclick="guardarNotaProv()"
+                    class="w-full bg-black text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest">Guardar
+                    Gestión</button></div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="auth.js"></script>
+    <script src="menu.js"></script>
+    <script src="export_helper.js"></script>
+    <script src="cobranza.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            inyectarMenu('pagar');
+            cargarCuentasPorPagar();
+            const busq = document.getElementById('busquedaProveedor');
+            if (busq) busq.addEventListener('input', aplicarFiltrosPagos);
+        });
+        function cerrarModalAbonoProv() {
+            if (typeof itemsLotePagoProv !== 'undefined') itemsLotePagoProv = [];
+            document.getElementById('modalAbonoProv').classList.add('hidden');
+        }
+        function cerrarBitacoraProv() { document.getElementById('modalBitacoraProv').classList.add('hidden'); }
+    </script>
+</body>
+
+</html>
