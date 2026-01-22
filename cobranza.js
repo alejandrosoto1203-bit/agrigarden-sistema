@@ -719,7 +719,27 @@ async function guardarGestion() {
     } catch (e) { alert("Error."); }
 }
 
-function cambiarPestaña(tipo) { pestañaActualCobros = tipo; aplicarFiltrosCobros(); }
+function cambiarPestaña(tipo) {
+    pestañaActualCobros = tipo;
+
+    // UI Feedback
+    const btnPend = document.getElementById('tabPendiente');
+    const btnPag = document.getElementById('tabPagado');
+
+    if (tipo === 'pendiente') {
+        btnPend.classList.add('tab-active');
+        btnPend.classList.remove('text-gray-400');
+        btnPag.classList.remove('tab-active');
+        btnPag.classList.add('text-gray-400');
+    } else {
+        btnPag.classList.add('tab-active');
+        btnPag.classList.remove('text-gray-400');
+        btnPend.classList.remove('tab-active');
+        btnPend.classList.add('text-gray-400');
+    }
+
+    aplicarFiltrosCobros();
+}
 function cambiarPestañaPagar(tipo) { pestañaActualPagos = tipo; aplicarFiltrosPagos(); }
 
 function aplicarFiltrosCobros() {
