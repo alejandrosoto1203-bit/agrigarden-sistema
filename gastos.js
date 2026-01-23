@@ -313,7 +313,7 @@ async function guardarLoteGastos() {
         const subcatBase = fila.querySelector('.row-subcat').value;
         const subcatExtra = fila.querySelector('.row-subcat-extra').value;
         datosParaEnviar.push({
-            created_at: fila.querySelector('.row-fecha').value,
+            created_at: fila.querySelector('.row-fecha').value + 'T12:00:00',
             proveedor: fila.querySelector('.row-proveedor').value.toUpperCase(),
             categoria: fila.querySelector('.row-categoria').value,
             subcategoria: subcatBase === 'otros:' ? subcatExtra.toUpperCase() : subcatBase,
@@ -360,7 +360,7 @@ async function actualizarGasto() {
     const monto = parseFloat(document.getElementById('editMonto').value);
     const metodo = document.getElementById('editMetodo').value;
     const datos = {
-        created_at: document.getElementById('editFecha').value,
+        created_at: document.getElementById('editFecha').value + 'T12:00:00',
         proveedor: document.getElementById('editProveedor').value.toUpperCase(),
         categoria: document.getElementById('editCategoria').value,
         sucursal: document.getElementById('editSucursalGasto').value,
