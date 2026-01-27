@@ -16,7 +16,8 @@ function inyectarMenu(paginaActiva) {
         { id: 'inventario', nombre: 'Inventario', icon: 'inventory_2', link: 'inventario.html' },
         { id: 'flotilla', nombre: 'Control de Flotillas', icon: 'directions_car', link: 'flotilla.html' },
         { id: 'efectivo', nombre: 'Control de Efectivo', icon: 'local_atm', link: 'control_efectivo.html' },
-        { id: 'reportes', nombre: 'Reportes', icon: 'bar_chart', link: '#' },
+        { id: 'estado_resultados', nombre: 'Estado de Resultados', icon: 'trending_up', link: 'estado_resultados.html' },
+        { id: 'reportes', nombre: 'Reportes', icon: 'bar_chart', link: 'reportes.html' },
         { id: 'configuracion', nombre: 'Configuración', icon: 'settings', link: 'configuracion.html' }
     ];
 

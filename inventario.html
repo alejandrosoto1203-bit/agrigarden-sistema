@@ -76,14 +76,22 @@
             </div>
         </header>
 
-        <!-- KPI SUMMARY ROWS (Optional: maybe Last Month's Variation, Average Value?) -->
-        <!-- Keeping it simple as requested: Just the list for now, or maybe small cards -->
+        <!-- COSTO DE VENTAS CARDS -->
+        <section>
+            <h3 class="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">Costo de Ventas por Mes</h3>
+            <div id="costoVentasContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="text-center p-8 text-gray-400 italic text-sm col-span-full">
+                    Cargando datos...
+                </div>
+            </div>
+        </section>
 
-        <!-- DATA TABLE -->
-        <div class="card overflow-hidden shadow-sm">
-            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+
+        <!-- HISTÓRICO DE INVENTARIO -->
+        <section class="space-y-4">
+            <div class="flex justify-between items-center">
                 <h3 class="font-extrabold text-sm uppercase tracking-widest text-gray-500">Histórico de Inventario</h3>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 bg-white rounded-xl px-4 py-2 shadow-sm border border-gray-100">
                     <span class="material-symbols-outlined text-gray-400 text-sm">filter_list</span>
                     <select id="filtroSucursal" onchange="cargarInventario()"
                         class="bg-transparent text-xs font-bold text-gray-600 focus:outline-none uppercase">
@@ -100,26 +108,11 @@
                     </select>
                 </div>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead class="bg-gray-50 text-gray-400 font-black text-[10px] uppercase tracking-wider">
-                        <tr>
-                            <th class="p-4 pl-6">Mes</th>
-                            <th class="p-4">Sucursal</th>
-                            <th class="p-4">Tipo de Inventario</th>
-                            <th class="p-4 text-right">Monto</th>
-                            <th class="p-4 text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tablaInventario" class="divide-y divide-gray-100 text-sm">
-                        <!-- JS Injection -->
-                        <tr>
-                            <td colspan="5" class="p-10 text-center text-gray-400 italic">Cargando registros...</td>
-                        </tr>
-                    </tbody>
-                </table>
+
+            <div id="historicoContainer">
+                <div class="text-center p-10 text-gray-400 italic">Cargando registros...</div>
             </div>
-        </div>
+        </section>
     </main>
 
     <!-- MODAL -->

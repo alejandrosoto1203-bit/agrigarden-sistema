@@ -104,6 +104,7 @@ window.guardarComisiones = async function () {
         // Update local helper
         currentComisiones = newTasas;
         if (window.CONFIG_NEGOCIO) window.CONFIG_NEGOCIO.tasasComision = newTasas;
+
         alert("Comisiones actualizadas correctamente.");
 
     } catch (e) {

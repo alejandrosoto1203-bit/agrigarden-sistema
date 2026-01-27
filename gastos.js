@@ -98,6 +98,7 @@ function renderizarTablaGastos(datos) {
         let badgeStyle = 'bg-gray-100 text-gray-700';
         if (principal.categoria === 'Costo') badgeStyle = 'bg-blue-100 text-blue-700';
         if (principal.categoria === 'Gasto Financiero') badgeStyle = 'bg-orange-100 text-orange-700';
+        if (principal.categoria === 'Gasto Contable') badgeStyle = 'bg-red-100 text-red-700';
         if (principal.categoria === 'Pago de Pasivo') badgeStyle = 'bg-purple-100 text-purple-700';
 
         const filaId = `fila-${principal.id}`;
@@ -267,8 +268,8 @@ function agregarFilaGasto() {
     tr.innerHTML = `
         <td class="p-1"><input type="date" class="input-capture row-fecha" value="${new Date().toISOString().split('T')[0]}"></td>
         <td class="p-1"><input type="text" class="input-capture row-proveedor text-center uppercase" placeholder="Proveedor"></td>
-        <td class="p-1"><select class="input-capture row-categoria text-center"><option value="Gasto">Gasto</option><option value="Costo">Costo</option><option value="Gasto Financiero">Gasto Financiero</option><option value="Pago de Pasivo">Pago de Pasivo</option></select></td>
-        <td class="p-1"><select class="input-capture row-subcat text-center" onchange="verificarExtrasGasto(this)"><option value="Mantenimiento">Mantenimiento</option><option value="Marketing">Marketing</option><option value="Administrativos">Administrativos</option><option value="Mercancia">Mercancia</option><option value="Nomina">Nomina</option><option value="Combustible">Combustible</option><option value="Servicios">Servicios</option><option value="Taller">Taller</option><option value="Limpieza">Limpieza</option><option value="Papeleria">Papeleria</option><option value="Sistemas">Sistemas</option><option value="Renta">Renta</option><option value="Intereses">Intereses Financieros</option><option value="Abono Capital">Abono a Capital</option><option value="otros:">otros:</option></select><input type="text" class="input-capture row-subcat-extra hidden input-others text-center" placeholder="¿Cuál?"></td>
+        <td class="p-1"><select class="input-capture row-categoria text-center"><option value="Gasto">Gasto</option><option value="Costo">Costo</option><option value="Gasto Financiero">Gasto Financiero</option><option value="Gasto Contable">Gasto Contable</option><option value="Pago de Pasivo">Pago de Pasivo</option></select></td>
+        <td class="p-1"><select class="input-capture row-subcat text-center" onchange="verificarExtrasGasto(this)"><option value="Mantenimiento">Mantenimiento</option><option value="Marketing">Marketing</option><option value="Administrativos">Administrativos</option><option value="Mercancia">Mercancia</option><option value="Nomina">Nomina</option><option value="Combustible">Combustible</option><option value="Servicios">Servicios</option><option value="Taller">Taller</option><option value="Limpieza">Limpieza</option><option value="Papeleria">Papeleria</option><option value="Sistemas">Sistemas</option><option value="Renta">Renta</option><option value="Intereses">Intereses Financieros</option><option value="Abono Capital">Abono a Capital</option><option value="Comisión Tarjeta">Comisión Tarjeta</option><option value="Depreciación">Depreciación</option><option value="otros:">otros:</option></select><input type="text" class="input-capture row-subcat-extra hidden input-others text-center" placeholder="¿Cuál?"></td>
         <td class="p-1">
             <select class="input-capture row-metodo text-center" onchange="verificarExtrasGasto(this); actualizarTotalesGastos()">
                 <option value="Efectivo">Efectivo</option>

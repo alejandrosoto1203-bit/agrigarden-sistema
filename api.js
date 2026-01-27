@@ -14,6 +14,8 @@ if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
 }
 
 // Default fallback configuration
+// NOTE: These are fallback values. The actual rates are loaded from sys_config table.
+// Setting to 0 ensures database values take priority.
 const DEFAULT_CONFIG = {
     metaMensual: 300000,
     tasasComision: {
@@ -21,9 +23,9 @@ const DEFAULT_CONFIG = {
         "Transferencia": 0,
         "Transferencia Hey Banco": 0,
         "Transferencia BBVA": 0,
-        "Tarjeta Mercado Pago": 0.035,
-        "Tarjeta Hey Banco": 0.021,
-        "Tarjeta BBVA": 0.025,
+        "Tarjeta Mercado Pago": 0,
+        "Tarjeta Hey Banco": 0,
+        "Tarjeta BBVA": 0,
         "Cheque": 0,
         "Otro": 0,
         "Crédito": 0

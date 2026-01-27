@@ -307,3 +307,121 @@ async function eliminarInversion(id, descripcion) {
         alert("Ocurrió un error al intentar eliminar el registro.");
     }
 }
+
+// =====================================================
+// DEPRECIACIÓN AUTOMÁTICA MENSUAL
+// =====================================================
+
+/**
+ * Verifica y genera automáticamente los registros de depreciación mensual
+ * para todos los activos fijos con estatus "Activo".
+ * Evita duplicados verificando si ya existe registro del mes actual.
+ */
+async function verificarYGenerarDepreciacionMensual() {
+    try {
+        // 1. Obtener activos activos
+        const activosActivos = datosCacheInversiones.filter(inv => inv.estatus === 'Activo');
+
+        if (activosActivos.length === 0) {
+            console.log('No hay activos activos para calcular depreciación.');
+            return;
+        }
+
+        // 2. Definir el periodo actual (primer día del mes actual)
+        const hoy = new Date();
+        const mesActual = hoy.getMonth();
+        const añoActual = hoy.getFullYear();
+        const fechaPeriodo = new Date(añoActual, mesActual, 1).toISOString().split('T')[0];
+        const nombreMes = new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric' }).format(hoy);
+
+        // 3. Verificar si ya existe depreciación registrada este mes
+        const resExistente = await fetch(
+            `${SUPABASE_URL}/rest/v1/gastos?subcategoria=eq.Depreciación&notas=ilike.*${nombreMes.toUpperCase()}*`,
+            {
+                method: 'GET',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' }
+            }
+        );
+        const existentes = await resExistente.json();
+
+        if (existentes && existentes.length >= activosActivos.length) {
+            console.log(`Depreciación de ${nombreMes} ya registrada. No se generan duplicados.`);
+            return; // Ya se registró este mes
+        }
+
+        // 4. Crear registros de depreciación para cada activo
+        const gastosDepreciacion = [];
+
+        for (const activo of activosActivos) {
+            // Verificar si este activo específico ya tiene depreciación del mes
+            const yaExiste = existentes.some(g => g.notas && g.notas.includes(activo.descripcion));
+            if (yaExiste) continue;
+
+            const años = parseInt(activo.vida_util) || 1;
+            const depMensual = parseFloat(activo.monto) / (años * 12);
+
+            gastosDepreciacion.push({
+                created_at: fechaPeriodo,
+                proveedor: 'DEPRECIACIÓN CONTABLE',
+                categoria: 'Gasto Contable',
+                subcategoria: 'Depreciación',
+                metodo_pago: 'N/A',
+                monto_total: depMensual,
+                saldo_pendiente: 0,
+                estado_pago: 'Pagado',
+                dias_credito: 0,
+                sucursal: activo.sucursal || 'Matriz',
+                notas: `DEPRECIACIÓN ${nombreMes.toUpperCase()} - ${activo.descripcion}`
+            });
+        }
+
+        if (gastosDepreciacion.length === 0) {
+            console.log('Todos los activos ya tienen depreciación registrada este mes.');
+            return;
+        }
+
+        // 5. Insertar en gastos
+        const resInsert = await fetch(`${SUPABASE_URL}/rest/v1/gastos`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify(gastosDepreciacion)
+        });
+
+        if (resInsert.ok) {
+            console.log(`✅ Depreciación de ${nombreMes} registrada: ${gastosDepreciacion.length} activo(s).`);
+        } else {
+            console.error('Error al insertar depreciación:', await resInsert.text());
+        }
+
+    } catch (error) {
+        console.error('Error en verificarYGenerarDepreciacionMensual:', error);
+    }
+}
+
+/**
+ * Función manual para forzar la generación de depreciación del mes actual.
+ * Muestra confirmación al usuario.
+ */
+async function generarDepreciacionManual() {
+    const activosActivos = datosCacheInversiones.filter(inv => inv.estatus === 'Activo');
+
+    if (activosActivos.length === 0) {
+        return alert('No hay activos activos para calcular depreciación.');
+    }
+
+    const hoy = new Date();
+    const nombreMes = new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric' }).format(hoy);
+
+    if (!confirm(`¿Generar depreciación para ${activosActivos.length} activo(s) del mes de ${nombreMes}?\n\nNota: Si ya existe, no se duplicará.`)) return;
+
+    await verificarYGenerarDepreciacionMensual();
+    alert(`Proceso de depreciación de ${nombreMes} completado.\nRevisa el módulo de Gastos para ver los registros.`);
+}
+
+// Exponer función globalmente para el botón
+window.generarDepreciacionManual = generarDepreciacionManual;

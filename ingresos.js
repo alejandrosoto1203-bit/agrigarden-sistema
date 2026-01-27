@@ -86,8 +86,6 @@ function renderizarTablaIngresos(datos) {
     tabla.innerHTML = "";
     datos.forEach(item => {
         const fecha = new Date(item.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
-        const comision = item.comision_bancaria || 0;
-        const neto = item.monto_neto || (item.monto - comision);
 
         const clienteInfo = item.nombre_cliente
             ? `<div class="flex flex-col"><span class="text-black font-black uppercase text-[11px]">${item.nombre_cliente}</span><span class="text-[10px] text-gray-400">${item.telefono_cliente || 'Sin tel'}</span></div>`
@@ -102,9 +100,7 @@ function renderizarTablaIngresos(datos) {
             <td class="px-6 py-6 text-center text-xs font-bold text-gray-500">${item.sucursal || '-'}</td>
             <td class="px-6 py-6 text-sm text-gray-500 text-center">${item.metodo_pago}</td>
             <td class="px-6 py-6 text-center">${clienteInfo}</td>
-            <td class="px-6 py-6 text-right text-xs text-red-400">-${formatMoney(comision)}</td>
-            <td class="px-6 py-6 text-right text-gray-400">${formatMoney(item.monto)}</td>
-            <td class="px-6 py-6 text-right text-lg text-primary font-black">${formatMoney(neto)}</td>
+            <td class="px-6 py-6 text-right text-lg text-primary font-black">${formatMoney(item.monto)}</td>
             <td class="px-6 py-6 text-center">
                 <div class="flex justify-center gap-2">
                     <button onclick='abrirModalEditarIngreso(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="p-2 bg-gray-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm">
@@ -145,7 +141,6 @@ async function actualizarIngreso() {
     const id = document.getElementById('editIngresoId').value;
     const monto = parseFloat(document.getElementById('editMonto').value);
     const metodo = document.getElementById('editMetodo').value;
-    const comision = monto * (CONFIG_NEGOCIO.tasasComision[metodo] || 0);
 
     const datos = {
         created_at: new Date(document.getElementById('editFecha').value + 'T12:00:00').toISOString(),
@@ -154,8 +149,8 @@ async function actualizarIngreso() {
         metodo_pago: metodo,
         nombre_cliente: document.getElementById('editCliente').value.toUpperCase(),
         monto: monto,
-        comision_bancaria: comision,
-        monto_neto: monto - comision,
+        comision_bancaria: 0,
+        monto_neto: monto, // Ingreso íntegro, sin restar comisión
         sucursal: document.getElementById('editSucursal').value,
         notas: document.getElementById('editNotas')?.value.toUpperCase() || ""
     };
@@ -305,11 +300,13 @@ function actualizarCalculosTotales() {
 async function procesarLote() {
     const filas = document.querySelectorAll('#filasCaptura .capture-row');
     const datosParaEnviar = [];
+
     filas.forEach(fila => {
         const monto = parseFloat(fila.querySelector('.row-monto').value) || 0;
         const metodoBase = fila.querySelector('.row-metodo').value;
         const metodoOtro = fila.querySelector('.row-metodo-otro').value;
         const metodoFinal = metodoBase === 'Otros' ? metodoOtro.toUpperCase() : metodoBase;
+
         datosParaEnviar.push({
             created_at: new Date(fila.querySelector('.row-fecha').value + 'T12:00:00').toISOString(),
             categoria: fila.querySelector('.row-txn').value.toUpperCase(),
@@ -318,23 +315,30 @@ async function procesarLote() {
             nombre_cliente: fila.querySelector('.row-nombre').value.toUpperCase(),
             telefono_cliente: fila.querySelector('.row-tel').value,
             monto: monto,
-            comision_bancaria: monto * (CONFIG_NEGOCIO.tasasComision[metodoFinal] || 0),
-            monto_neto: monto - (monto * (CONFIG_NEGOCIO.tasasComision[metodoFinal] || 0)),
+            comision_bancaria: 0,
+            monto_neto: monto, // Ingreso íntegro
             sucursal: fila.querySelector('.row-sucursal').value,
             notas: fila.querySelector('.row-notas').value.toUpperCase(),
             estado_cobro: metodoBase === 'Crédito' ? 'Pendiente' : 'Pagado',
             saldo_pendiente: metodoBase === 'Crédito' ? monto : 0
         });
     });
+
     if (datosParaEnviar.length === 0) return alert("Agrega al menos un ingreso.");
+
     try {
         const btn = document.getElementById('btnProcesar');
         if (btn) { btn.disabled = true; btn.innerText = "Guardando..."; }
+
         const response = await fetch(`${SUPABASE_URL}/rest/v1/transacciones`, {
             method: 'POST',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body: JSON.stringify(datosParaEnviar)
         });
-        if (response.ok) { alert("¡Ingresos guardados correctamente!"); window.location.href = "ingresos.html"; }
+
+        if (response.ok) {
+            alert("¡Ingresos guardados correctamente!");
+            window.location.href = "ingresos.html";
+        }
     } catch (error) { alert("Error al guardar."); }
 }
