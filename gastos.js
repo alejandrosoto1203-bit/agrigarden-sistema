@@ -5,8 +5,9 @@ let mostrarFuturosGastos = false; // Control de vista "Próximos Meses"
 
 // 1. CARGA DE TABLA PRINCIPAL DE GASTOS
 async function cargarGastos() {
-    const tabla = document.getElementById('tablaGastos');
-    if (!tabla) return;
+    const tablaSur = document.getElementById('tablaGastosSur');
+    const tablaNorte = document.getElementById('tablaGastosNorte');
+    if (!tablaSur && !tablaNorte) return;
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/gastos?select=*&order=created_at.desc`, {
             method: 'GET', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' }
@@ -76,85 +77,105 @@ window.exportarGastos = function () {
 }
 
 function renderizarTablaGastos(datos) {
-    const tabla = document.getElementById('tablaGastos');
-    if (!tabla) return;
-    tabla.innerHTML = "";
+    const tablaSur = document.getElementById('tablaGastosSur');
+    const tablaNorte = document.getElementById('tablaGastosNorte');
+    const contadorSur = document.getElementById('contadorGastosSur');
+    const contadorNorte = document.getElementById('contadorGastosNorte');
 
-    // Agrupación para Acordeón (Detectar capital e interés de la misma cuota)
-    const grupos = {};
-    datos.forEach(item => {
-        const esCuota = item.notas && item.notas.includes("CUOTA");
-        const llave = esCuota ? item.notas.split(') - ')[1] + item.created_at + item.proveedor : item.id;
-        if (!grupos[llave]) grupos[llave] = [];
-        grupos[llave].push(item);
-    });
+    if (!tablaSur || !tablaNorte) return;
 
-    Object.values(grupos).forEach(items => {
-        const principal = items[0];
-        const esGrupo = items.length > 1;
-        const montoTotalGrupo = items.reduce((s, i) => s + (i.monto_total || 0), 0);
-        const fecha = new Date(principal.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+    tablaSur.innerHTML = "";
+    tablaNorte.innerHTML = "";
 
-        let badgeStyle = 'bg-gray-100 text-gray-700';
-        if (principal.categoria === 'Costo') badgeStyle = 'bg-blue-100 text-blue-700';
-        if (principal.categoria === 'Gasto Financiero') badgeStyle = 'bg-orange-100 text-orange-700';
-        if (principal.categoria === 'Gasto Contable') badgeStyle = 'bg-red-100 text-red-700';
-        if (principal.categoria === 'Pago de Pasivo') badgeStyle = 'bg-purple-100 text-purple-700';
+    // Separar por sucursal
+    const datosSur = datos.filter(i => i.sucursal === 'Sur');
+    const datosNorte = datos.filter(i => i.sucursal === 'Norte' || !i.sucursal);
 
-        const filaId = `fila-${principal.id}`;
-        const fila = document.createElement('tr');
-        fila.className = "hover:bg-gray-50/80 transition-all border-b border-gray-50 font-bold group";
+    // Actualizar contadores
+    if (contadorSur) contadorSur.textContent = `(${datosSur.length} items)`;
+    if (contadorNorte) contadorNorte.textContent = `(${datosNorte.length} items)`;
 
-        fila.innerHTML = `
-            <td class="px-6 py-6 text-sm text-center text-gray-500">${fecha}</td>
-            <td class="px-6 py-6 text-sm text-center text-gray-800 uppercase">
-                <div class="flex items-center justify-center gap-2">
-                    ${esGrupo ? `<button onclick="toggleAcordeon('${filaId}')" class="text-primary hover:scale-110 transition-transform"><span class="material-symbols-outlined text-sm">keyboard_arrow_down</span></button>` : ''}
+    // Función helper para renderizar en una tabla específica
+    const renderizarEnTabla = (datosTabla, contenedor) => {
+        // Agrupación para Acordeón
+        const grupos = {};
+        datosTabla.forEach(item => {
+            const esCuota = item.notas && item.notas.includes("CUOTA");
+            const llave = esCuota ? item.notas.split(') - ')[1] + item.created_at + item.proveedor : item.id;
+            if (!grupos[llave]) grupos[llave] = [];
+            grupos[llave].push(item);
+        });
+
+        Object.values(grupos).forEach(items => {
+            const principal = items[0];
+            const esGrupo = items.length > 1;
+            const montoTotalGrupo = items.reduce((s, i) => s + (i.monto_total || 0), 0);
+            const fecha = new Date(principal.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+
+            let badgeStyle = 'bg-gray-100 text-gray-700';
+            if (principal.categoria === 'Costo') badgeStyle = 'bg-blue-100 text-blue-700';
+            if (principal.categoria === 'Gasto Financiero') badgeStyle = 'bg-orange-100 text-orange-700';
+            if (principal.categoria === 'Gasto Contable') badgeStyle = 'bg-red-100 text-red-700';
+            if (principal.categoria === 'Pago de Pasivo') badgeStyle = 'bg-purple-100 text-purple-700';
+
+            const filaId = `fila-${principal.id}`;
+            const fila = document.createElement('tr');
+            fila.className = "hover:bg-gray-50/80 transition-all border-b border-gray-50 font-bold group";
+
+            fila.innerHTML = `
+                <td class="px-2 py-3 text-center text-gray-500">${fecha}</td>
+                <td class="px-2 py-3 text-center text-gray-800 uppercase truncate max-w-[80px]" title="${principal.proveedor || ''}">
+                    ${esGrupo ? `<button onclick="toggleAcordeon('${filaId}')" class="text-primary hover:scale-110 transition-transform mr-1"><span class="material-symbols-outlined text-xs">keyboard_arrow_down</span></button>` : ''}
                     ${principal.proveedor || 'S/P'}
-                </div>
-            </td>
-            <td class="px-6 py-6 text-center"><span class="px-2 py-1 rounded text-[10px] uppercase ${badgeStyle}">${esGrupo ? 'INVERSIÓN' : principal.categoria}</span></td>
-            <td class="px-6 py-6 text-center text-sm text-gray-400">${esGrupo ? 'CUOTA AMORTIZADA' : principal.subcategoria || '-'}</td>
-            <td class="px-6 py-6 text-center text-sm text-gray-500">${principal.sucursal}</td>
-            <td class="px-6 py-6 text-center text-sm text-gray-600">${principal.metodo_pago || 'Efectivo'}</td>
-            <td class="px-6 py-6 text-center text-sm font-black text-blue-600">${principal.metodo_pago === 'Crédito' ? (principal.dias_credito || 0) + ' días' : '-'}</td>
-            <td class="px-6 py-6 text-right font-black text-lg ${esGrupo ? 'text-black' : 'text-red-600'}">${formatMoney(montoTotalGrupo)}</td>
-            <td class="px-6 py-6 text-center text-sm italic text-gray-400 max-w-[200px] truncate">${principal.notas || ''}</td>
-            <td class="px-6 py-6 text-center">
-                <div class="flex justify-center gap-2">
-                    <button onclick='abrirModalEdicion(${JSON.stringify(principal).replace(/'/g, "&apos;")})' class="p-2 bg-gray-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm">
-                        <span class="material-symbols-outlined text-sm">edit</span>
-                    </button>
-                    <button onclick="eliminarGasto('${principal.id}', '${principal.notas}')" class="p-2 bg-gray-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm">
-                        <span class="material-symbols-outlined text-sm">delete</span>
-                    </button>
-                </div>
-            </td>
-        `;
-        tabla.appendChild(fila);
-
-        if (esGrupo) {
-            const filaDetalle = document.createElement('tr');
-            filaDetalle.id = filaId;
-            filaDetalle.className = "hidden bg-gray-50/50 border-b border-gray-100";
-            filaDetalle.innerHTML = `
-                <td colspan="10" class="px-10 py-4">
-                    <div class="flex flex-col gap-2">
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Desglose de Amortización:</p>
-                        ${items.map(sub => `
-                            <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100">
-                                <span class="text-[10px] font-black uppercase text-gray-600">${sub.categoria} (${sub.subcategoria})</span>
-                                <span class="text-sm font-black text-slate-800">${formatMoney(sub.monto_total)}</span>
-                            </div>
-                        `).join('')}
+                </td>
+                <td class="px-2 py-3 text-center"><span class="px-1 py-0.5 rounded text-[8px] uppercase ${badgeStyle}">${esGrupo ? 'INV' : principal.categoria?.substring(0, 5) || '-'}</span></td>
+                <td class="px-2 py-3 text-center text-gray-400 truncate max-w-[60px]" title="${principal.subcategoria || ''}">${esGrupo ? 'CUOTA' : principal.subcategoria?.substring(0, 8) || '-'}</td>
+                <td class="px-2 py-3 text-center text-gray-600 truncate max-w-[50px]">${principal.metodo_pago?.substring(0, 6) || 'Efect.'}</td>
+                <td class="px-2 py-3 text-center font-bold text-blue-600">${principal.metodo_pago === 'Crédito' ? (principal.dias_credito || 0) + 'd' : '-'}</td>
+                <td class="px-2 py-3 text-right font-black ${esGrupo ? 'text-black' : 'text-red-600'}">${formatMoney(montoTotalGrupo)}</td>
+                <td class="px-2 py-3 text-center text-gray-400 truncate max-w-[50px] italic" title="${principal.notas || ''}">${principal.notas?.substring(0, 8) || '-'}</td>
+                <td class="px-2 py-3 text-center">
+                    <div class="flex justify-center gap-1">
+                        <button onclick='abrirModalEdicion(${JSON.stringify(principal).replace(/'/g, "&apos;")})' class="p-1 bg-gray-50 text-blue-600 rounded hover:bg-blue-600 hover:text-white transition-all">
+                            <span class="material-symbols-outlined text-xs">edit</span>
+                        </button>
+                        <button onclick="eliminarGasto('${principal.id}', '${principal.notas}')" class="p-1 bg-gray-50 text-red-600 rounded hover:bg-red-600 hover:text-white transition-all">
+                            <span class="material-symbols-outlined text-xs">delete</span>
+                        </button>
                     </div>
                 </td>
             `;
-            tabla.appendChild(filaDetalle);
-        }
-    });
+            contenedor.appendChild(fila);
 
-    renderizarBotonVerMas(tabla);
+            if (esGrupo) {
+                const filaDetalle = document.createElement('tr');
+                filaDetalle.id = filaId;
+                filaDetalle.className = "hidden bg-gray-50/50 border-b border-gray-100";
+                filaDetalle.innerHTML = `
+                                        <td colspan="9" class="px-6 py-3">
+                        <div class="flex flex-col gap-2">
+                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Desglose de Amortización:</p>
+                            ${items.map(sub => `
+                                <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100">
+                                    <span class="text-[10px] font-black uppercase text-gray-600">${sub.categoria} (${sub.subcategoria})</span>
+                                    <span class="text-sm font-black text-slate-800">${formatMoney(sub.monto_total)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </td>
+                `;
+                contenedor.appendChild(filaDetalle);
+            }
+        });
+
+        if (datosTabla.length === 0) {
+            contenedor.innerHTML = '<tr><td colspan="9" class="py-6 text-center text-gray-400 italic text-xs">Sin registros</td></tr>';
+        }
+    };
+
+    // Renderizar ambas tablas
+    renderizarEnTabla(datosSur, tablaSur);
+    renderizarEnTabla(datosNorte, tablaNorte);
 }
 
 function toggleAcordeon(id) {

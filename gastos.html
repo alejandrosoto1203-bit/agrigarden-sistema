@@ -185,26 +185,62 @@
             </button>
         </div>
 
-        <div class="card overflow-hidden shadow-sm">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead
-                        class="bg-[#f1f4f2] text-gray-500 text-[11px] font-black uppercase tracking-[0.2em] border-b border-gray-100">
-                        <tr>
-                            <th class="px-6 py-5 text-center rounded-l-xl">Fecha</th>
-                            <th class="px-6 py-5 text-center">Proveedor</th>
-                            <th class="px-6 py-5 text-center">Categoría</th>
-                            <th class="px-6 py-5 text-center">Subcategoría</th>
-                            <th class="px-6 py-5 text-center">Sucursal</th>
-                            <th class="px-6 py-5 text-center">Método</th>
-                            <th class="px-6 py-5 text-center text-blue-600">Días Crédito</th>
-                            <th class="px-6 py-5 text-right">Monto Total</th>
-                            <th class="px-6 py-5 text-center">Notas</th>
-                            <th class="px-6 py-5 text-center rounded-r-xl font-black">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tablaGastos" class="divide-y divide-gray-50"></tbody>
-                </table>
+        <!-- TABLAS LADO A LADO -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- TABLA SUCURSAL SUR (IZQUIERDA) -->
+            <div class="card overflow-hidden shadow-sm">
+                <div class="bg-emerald-50 px-6 py-4 border-b border-emerald-100 flex items-center gap-3">
+                    <span class="material-symbols-outlined text-emerald-600">storefront</span>
+                    <h3 class="font-black text-emerald-800 uppercase text-sm tracking-wide">Sucursal Sur</h3>
+                    <span id="contadorGastosSur" class="text-xs text-emerald-500 font-bold">(0 items)</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead
+                            class="bg-[#f1f4f2] text-gray-500 text-[10px] font-black uppercase tracking-wide border-b border-gray-100">
+                            <tr>
+                                <th class="px-2 py-3 text-center">Fecha</th>
+                                <th class="px-2 py-3 text-center">Proveedor</th>
+                                <th class="px-2 py-3 text-center">Cat.</th>
+                                <th class="px-2 py-3 text-center">Subcat.</th>
+                                <th class="px-2 py-3 text-center">Método</th>
+                                <th class="px-2 py-3 text-center text-blue-600">Créd.</th>
+                                <th class="px-2 py-3 text-right">Monto</th>
+                                <th class="px-2 py-3 text-center">Notas</th>
+                                <th class="px-2 py-3 text-center">Acc.</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaGastosSur" class="divide-y divide-gray-50"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TABLA SUCURSAL NORTE (DERECHA) -->
+            <div class="card overflow-hidden shadow-sm">
+                <div class="bg-blue-50 px-6 py-4 border-b border-blue-100 flex items-center gap-3">
+                    <span class="material-symbols-outlined text-blue-600">storefront</span>
+                    <h3 class="font-black text-blue-800 uppercase text-sm tracking-wide">Sucursal Norte</h3>
+                    <span id="contadorGastosNorte" class="text-xs text-blue-500 font-bold">(0 items)</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead
+                            class="bg-[#f1f4f2] text-gray-500 text-[10px] font-black uppercase tracking-wide border-b border-gray-100">
+                            <tr>
+                                <th class="px-2 py-3 text-center">Fecha</th>
+                                <th class="px-2 py-3 text-center">Proveedor</th>
+                                <th class="px-2 py-3 text-center">Cat.</th>
+                                <th class="px-2 py-3 text-center">Subcat.</th>
+                                <th class="px-2 py-3 text-center">Método</th>
+                                <th class="px-2 py-3 text-center text-blue-600">Créd.</th>
+                                <th class="px-2 py-3 text-right">Monto</th>
+                                <th class="px-2 py-3 text-center">Notas</th>
+                                <th class="px-2 py-3 text-center">Acc.</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaGastosNorte" class="divide-y divide-gray-50"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </main>

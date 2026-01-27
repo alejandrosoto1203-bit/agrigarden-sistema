@@ -34,19 +34,26 @@ async function calcularEstadoMes(mes, anio, sucursal) {
     const ultimoDia = new Date(anio, mes, 0, 23, 59, 59);
 
     try {
-        // 1. INGRESOS - desde transacciones
+        // 1. INGRESOS - desde transacciones (excluyendo abonos y rentas)
         const { data: ingresos } = await sbClientER
             .from('transacciones')
-            .select('tipo, monto')
+            .select('tipo, monto, categoria')
             .eq('sucursal', sucursal)
             .gte('created_at', primerDia.toISOString())
             .lte('created_at', ultimoDia.toISOString());
 
-        const ingresosVentas = (ingresos || [])
+        // Filtrar: excluir ABONO, COBRANZA y RENTA
+        const ingresosLimpios = (ingresos || []).filter(i =>
+            i.tipo !== 'ABONO' &&
+            i.categoria !== 'COBRANZA' &&
+            !(i.categoria && i.categoria.toUpperCase().includes('RENTA'))
+        );
+
+        const ingresosVentas = ingresosLimpios
             .filter(i => i.tipo === 'Venta Directa')
             .reduce((sum, i) => sum + (parseFloat(i.monto) || 0), 0);
 
-        const ingresosServicios = (ingresos || [])
+        const ingresosServicios = ingresosLimpios
             .filter(i => i.tipo === 'Servicio')
             .reduce((sum, i) => sum + (parseFloat(i.monto) || 0), 0);
 

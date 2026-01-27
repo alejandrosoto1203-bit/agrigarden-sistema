@@ -53,9 +53,12 @@ window.cargarReportes = async function () {
         const datosInventario = inventario.data || [];
         const datosCxC = cuentasCobrar.data || [];
 
-        // Separar por sucursal
-        const ingresosSur = datosIngresos.filter(i => i.sucursal === 'Sur');
-        const ingresosNorte = datosIngresos.filter(i => i.sucursal === 'Norte');
+        // Función para excluir abonos y rentas
+        const esExcluido = (i) => i.tipo === 'ABONO' || i.categoria === 'COBRANZA' || (i.categoria && i.categoria.toUpperCase().includes('RENTA'));
+
+        // Separar por sucursal (solo ventas, excluyendo abonos y rentas)
+        const ingresosSur = datosIngresos.filter(i => i.sucursal === 'Sur' && !esExcluido(i));
+        const ingresosNorte = datosIngresos.filter(i => i.sucursal === 'Norte' && !esExcluido(i));
         const gastosSur = datosGastos.filter(g => g.sucursal === 'Sur');
         const gastosNorte = datosGastos.filter(g => g.sucursal === 'Norte');
         const invSur = datosInventario.find(i => i.sucursal === 'Sur');
@@ -209,12 +212,15 @@ function renderizarGraficaIngresosDiarios(ingresos, mes, anio) {
     // Destruir gráfica anterior si existe
     if (chartIngresosDiarios) chartIngresosDiarios.destroy();
 
-    // Agrupar por día y sucursal
+    // Agrupar por día y sucursal (excluyendo abonos y rentas)
     const diasEnMes = new Date(anio, mes, 0).getDate();
     const datosSur = new Array(diasEnMes).fill(0);
     const datosNorte = new Array(diasEnMes).fill(0);
 
-    ingresos.forEach(i => {
+    // Función para excluir abonos y rentas
+    const esExcluido = (i) => i.tipo === 'ABONO' || i.categoria === 'COBRANZA' || (i.categoria && i.categoria.toUpperCase().includes('RENTA'));
+
+    ingresos.filter(i => !esExcluido(i)).forEach(i => {
         const dia = new Date(i.created_at).getDate() - 1;
         const monto = parseFloat(i.monto) || 0;
         if (i.sucursal === 'Sur') datosSur[dia] += monto;
@@ -330,7 +336,10 @@ async function renderizarGraficaTendenciaAnual(anio) {
     const gastosSurMes = new Array(12).fill(0);
     const gastosNorteMes = new Array(12).fill(0);
 
-    (ingresos.data || []).forEach(i => {
+    // Función para excluir abonos y rentas
+    const esExcluido = (i) => i.tipo === 'ABONO' || i.categoria === 'COBRANZA' || (i.categoria && i.categoria.toUpperCase().includes('RENTA'));
+
+    (ingresos.data || []).filter(i => !esExcluido(i)).forEach(i => {
         const m = new Date(i.created_at).getMonth();
         const monto = parseFloat(i.monto) || 0;
         if (i.sucursal === 'Sur') ingresosSurMes[m] += monto;

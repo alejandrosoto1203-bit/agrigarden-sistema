@@ -75,4 +75,5 @@ window.cargarConfiguracionSistema = async function () {
 cargarConfiguracionSistema();
 
 // Función para formatear dinero en todo el sistema
-const formatMoney = (n) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+// Función para formatear dinero en todo el sistema
+window.formatMoney = (n) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;

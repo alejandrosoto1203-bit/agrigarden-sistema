@@ -476,13 +476,25 @@ async function guardarAbono() {
     if (!monto || monto <= 0) return alert("Ingresa un monto válido.");
     if (monto > (saldoMaximoAbono + 0.01)) return alert("El abono no puede ser mayor al saldo pendiente.");
     try {
+        // 1. Obtener datos originales de la transacción para heredar sucursal
+        const resOriginal = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${idTransaccionAbono}&select=sucursal,nombre_cliente`, {
+            method: 'GET',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const dataOriginal = await resOriginal.json();
+        const sucursalOriginal = dataOriginal[0]?.sucursal || 'Norte';
+        const clienteOriginal = dataOriginal[0]?.nombre_cliente || 'CLIENTE';
+
+        // 2. Actualizar saldo pendiente de la cuenta original
         const nuevoSaldo = Math.max(0, saldoMaximoAbono - monto);
         const res = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${idTransaccionAbono}`, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ saldo_pendiente: nuevoSaldo, estado_cobro: nuevoSaldo <= 0 ? 'Pagado' : 'Pendiente' })
         });
+
         if (res.ok) {
+            // 3. Registrar en bitácora
             await fetch(`${SUPABASE_URL}/rest/v1/bitacora_cobranza`, {
                 method: 'POST',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
@@ -493,27 +505,34 @@ async function guardarAbono() {
                 })
             });
 
-            // NUEVO: Registrar Transacción de Ingreso (Entrada de Dinero)
-            await fetch(`${SUPABASE_URL}/rest/v1/transacciones`, {
+            // 4. Registrar Transacción de Ingreso (Abono) con sucursal CORRECTA
+            const resAbono = await fetch(`${SUPABASE_URL}/rest/v1/transacciones`, {
                 method: 'POST',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     tipo: 'ABONO',
                     categoria: 'COBRANZA',
                     monto: monto,
-                    monto_neto: monto, // Sin comisión en abonos directos
+                    monto_neto: monto,
                     metodo_pago: metodo,
-                    nombre_cliente: document.getElementById('abonoCliente').innerText.split(':')[1]?.split('(')[0]?.trim() || "CLIENTE",
-                    sucursal: 'Matriz', // Se podría mejorar pasando la sucursal original
+                    nombre_cliente: clienteOriginal,
+                    sucursal: sucursalOriginal, // ✅ Heredar sucursal correcta
                     notas: `ABONO A CUENTA (REF: ${idTransaccionAbono})`
                 })
             });
+
+            if (!resAbono.ok) {
+                console.error("Error al crear registro de abono:", await resAbono.text());
+            }
 
             cerrarModalAbono();
             cargarCuentasPorCobrar();
             alert("¡Pago registrado e ingreso generado!");
         }
-    } catch (e) { alert("Error al registrar el pago."); }
+    } catch (e) {
+        console.error("Error en guardarAbono:", e);
+        alert("Error al registrar el pago.");
+    }
 }
 
 function prepararAbonoProv(id, nombre, saldo, modo) {

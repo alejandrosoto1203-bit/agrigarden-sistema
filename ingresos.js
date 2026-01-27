@@ -4,8 +4,9 @@ let datosCacheIngresos = [];
 
 // 1. CARGA DE TABLA PRINCIPAL CON LÓGICA DE FILTROS
 async function cargarIngresos() {
-    const tabla = document.getElementById('tablaIngresos');
-    if (!tabla) return;
+    const tablaSur = document.getElementById('tablaIngresosSur');
+    const tablaNorte = document.getElementById('tablaIngresosNorte');
+    if (!tablaSur && !tablaNorte) return;
 
     // Force reload config to ensure fresh goal & commissions
     if (window.cargarConfiguracionSistema) {
@@ -81,39 +82,88 @@ window.exportarIngresos = function () {
 }
 
 function renderizarTablaIngresos(datos) {
-    const tabla = document.getElementById('tablaIngresos');
-    if (!tabla) return;
-    tabla.innerHTML = "";
-    datos.forEach(item => {
-        const fecha = new Date(item.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+    const tablaSur = document.getElementById('tablaIngresosSur');
+    const tablaNorte = document.getElementById('tablaIngresosNorte');
+    const contadorSur = document.getElementById('contadorSur');
+    const contadorNorte = document.getElementById('contadorNorte');
 
-        const clienteInfo = item.nombre_cliente
-            ? `<div class="flex flex-col"><span class="text-black font-black uppercase text-[11px]">${item.nombre_cliente}</span><span class="text-[10px] text-gray-400">${item.telefono_cliente || 'Sin tel'}</span></div>`
-            : '<span class="text-gray-300 italic">-</span>';
+    if (!tablaSur || !tablaNorte) return;
 
-        const fila = document.createElement('tr');
-        fila.className = "hover:bg-gray-50/80 transition-all border-b border-gray-50 font-bold";
-        fila.innerHTML = `
-            <td class="px-6 py-6 text-sm text-gray-600">${fecha}</td>
-            <td class="px-6 py-6 text-sm text-gray-800 text-center uppercase">${item.categoria || '#S/N'}</td>
-            <td class="px-6 py-6 text-center"><span class="bg-green-50 text-green-700 px-3 py-1 rounded-lg text-[10px] font-black uppercase">${item.tipo}</span></td>
-            <td class="px-6 py-6 text-center text-xs font-bold text-gray-500">${item.sucursal || '-'}</td>
-            <td class="px-6 py-6 text-sm text-gray-500 text-center">${item.metodo_pago}</td>
-            <td class="px-6 py-6 text-center">${clienteInfo}</td>
-            <td class="px-6 py-6 text-right text-lg text-primary font-black">${formatMoney(item.monto)}</td>
-            <td class="px-6 py-6 text-center">
-                <div class="flex justify-center gap-2">
-                    <button onclick='abrirModalEditarIngreso(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="p-2 bg-gray-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm">
-                        <span class="material-symbols-outlined text-sm">edit</span>
-                    </button>
-                    <button onclick="eliminarIngreso('${item.id}')" class="p-2 bg-gray-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm">
-                        <span class="material-symbols-outlined text-sm">delete</span>
-                    </button>
-                </div>
-            </td>
+    // Separar por sucursal - excluyendo ABONOS de los KPIs
+    const datosSur = datos.filter(i => i.sucursal === 'Sur');
+    const datosNorte = datos.filter(i => i.sucursal === 'Norte');
+
+    // Filtrar ventas para KPIs (excluyendo abonos y rentas)
+    const esExcluido = (i) => i.tipo === 'ABONO' || i.categoria === 'COBRANZA' || (i.categoria && i.categoria.toUpperCase().includes('RENTA'));
+    const ventasSur = datosSur.filter(i => !esExcluido(i));
+    const ventasNorte = datosNorte.filter(i => !esExcluido(i));
+
+    // Actualizar contadores
+    if (contadorSur) contadorSur.textContent = `(${datosSur.length} registros)`;
+    if (contadorNorte) contadorNorte.textContent = `(${datosNorte.length} registros)`;
+
+    // Calcular y mostrar KPIs por sucursal
+    const totalSur = ventasSur.reduce((sum, i) => sum + (i.monto || 0), 0);
+    const totalNorte = ventasNorte.reduce((sum, i) => sum + (i.monto || 0), 0);
+    const ticketSur = ventasSur.length > 0 ? totalSur / ventasSur.length : 0;
+    const ticketNorte = ventasNorte.length > 0 ? totalNorte / ventasNorte.length : 0;
+
+    // Actualizar KPIs Sur
+    const kpiTotalSur = document.getElementById('kpiTotalSur');
+    const kpiTicketSur = document.getElementById('kpiTicketSur');
+    const kpiTxnSur = document.getElementById('kpiTxnSur');
+    if (kpiTotalSur) kpiTotalSur.textContent = formatMoney(totalSur);
+    if (kpiTicketSur) kpiTicketSur.textContent = formatMoney(ticketSur);
+    if (kpiTxnSur) kpiTxnSur.textContent = ventasSur.length;
+
+    // Actualizar KPIs Norte
+    const kpiTotalNorte = document.getElementById('kpiTotalNorte');
+    const kpiTicketNorte = document.getElementById('kpiTicketNorte');
+    const kpiTxnNorte = document.getElementById('kpiTxnNorte');
+    if (kpiTotalNorte) kpiTotalNorte.textContent = formatMoney(totalNorte);
+    if (kpiTicketNorte) kpiTicketNorte.textContent = formatMoney(ticketNorte);
+    if (kpiTxnNorte) kpiTxnNorte.textContent = ventasNorte.length;
+
+    // Función para generar fila compacta
+    const generarFila = (item) => {
+        const fecha = new Date(item.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+        const esAbono = item.tipo === 'ABONO' || item.categoria === 'COBRANZA';
+        const tipoBadge = esAbono
+            ? 'bg-purple-100 text-purple-700'
+            : 'bg-green-50 text-green-700';
+        const tipoLabel = esAbono ? 'Abono' : (item.tipo === 'Venta Directa' ? 'Venta' : item.tipo);
+
+        return `
+            <tr class="hover:bg-gray-50/80 transition-all border-b border-gray-50 font-bold ${esAbono ? 'bg-purple-50/30' : ''}">
+                <td class="px-4 py-3 text-gray-600">${fecha}</td>
+                <td class="px-4 py-3 text-center text-xs text-gray-400 font-mono">#${item.categoria || 'S/N'}</td>
+                <td class="px-4 py-3 text-center"><span class="${tipoBadge} px-2 py-0.5 rounded text-[9px] font-black uppercase">${tipoLabel}</span></td>
+                <td class="px-4 py-3 text-center text-gray-500">${item.metodo_pago}</td>
+                <td class="px-4 py-3 text-center text-gray-600 truncate max-w-[100px]" title="${item.nombre_cliente || ''}">${item.nombre_cliente || '-'}</td>
+                <td class="px-4 py-3 text-right ${esAbono ? 'text-purple-600' : 'text-primary'} font-black">${formatMoney(item.monto)}</td>
+                <td class="px-4 py-3 text-center">
+                    <div class="flex justify-center gap-1">
+                        <button onclick='abrirModalEditarIngreso(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="p-1.5 bg-gray-50 text-blue-600 rounded hover:bg-blue-600 hover:text-white transition-all">
+                            <span class="material-symbols-outlined text-sm">edit</span>
+                        </button>
+                        <button onclick="eliminarIngreso('${item.id}')" class="p-1.5 bg-gray-50 text-red-600 rounded hover:bg-red-600 hover:text-white transition-all">
+                            <span class="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
         `;
-        tabla.appendChild(fila);
-    });
+    };
+
+    // Renderizar Sur
+    tablaSur.innerHTML = datosSur.length > 0
+        ? datosSur.map(generarFila).join('')
+        : '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400 italic">Sin registros</td></tr>';
+
+    // Renderizar Norte
+    tablaNorte.innerHTML = datosNorte.length > 0
+        ? datosNorte.map(generarFila).join('')
+        : '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400 italic">Sin registros</td></tr>';
 }
 
 // 2. EDICIÓN Y ELIMINACIÓN (CORREGIDO)

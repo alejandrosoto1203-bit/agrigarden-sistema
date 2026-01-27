@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sincronizar Pagos Históricos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,100..700,0..1"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white rounded-3xl shadow-xl p-8 mb-6">
+            <h1 class="text-2xl font-black uppercase mb-2">🔄 Sincronizar Pagos Históricos</h1>
+            <p class="text-gray-500 text-sm mb-6">Esta herramienta busca pagos registrados en la bitácora de cobranza
+                que no tienen su registro correspondiente en Ingresos.</p>
+
+            <div class="flex gap-4 mb-6">
+                <button onclick="buscarPagosFaltantes()"
+                    class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center gap-2">
+                    <span class="material-symbols-outlined">search</span>
+                    Buscar Pagos Faltantes
+                </button>
+                <button onclick="sincronizarTodos()" id="btnSync" disabled
+                    class="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span class="material-symbols-outlined">sync</span>
+                    Sincronizar Todos
+                </button>
+            </div>
+
+            <div id="stats" class="grid grid-cols-3 gap-4 mb-6 hidden">
+                <div class="bg-blue-50 p-4 rounded-xl text-center">
+                    <p class="text-3xl font-black text-blue-600" id="totalPagos">0</p>
+                    <p class="text-xs text-gray-500 uppercase font-bold">Pagos en Bitácora</p>
+                </div>
+                <div class="bg-red-50 p-4 rounded-xl text-center">
+                    <p class="text-3xl font-black text-red-600" id="faltantes">0</p>
+                    <p class="text-xs text-gray-500 uppercase font-bold">Sin Registro</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-xl text-center">
+                    <p class="text-3xl font-black text-green-600" id="existentes">0</p>
+                    <p class="text-xs text-gray-500 uppercase font-bold">Ya Sincronizados</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="log" class="bg-gray-900 text-gray-300 rounded-2xl p-6 font-mono text-xs max-h-[500px] overflow-y-auto">
+            <p class="text-gray-500">Esperando acción...</p>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+        const headers = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
+
+        let pagosFaltantes = [];
+
+        function log(msg, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const colors = { info: 'text-gray-300', success: 'text-green-400', error: 'text-red-400', warning: 'text-yellow-400' };
+            const p = document.createElement('p');
+            p.className = colors[type] || 'text-gray-300';
+            p.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logDiv.prepend(p);
+        }
+
+        async function buscarPagosFaltantes() {
+            log('🔍 Buscando pagos en bitácora de cobranza...', 'info');
+            pagosFaltantes = [];
+
+            try {
+                // 1. Obtener todos los registros de bitácora que contienen "PAGO"
+                const resBitacora = await fetch(`${SUPABASE_URL}/rest/v1/bitacora_cobranza?nota=ilike.*PAGO*&order=created_at.desc`, { headers });
+                const bitacora = await resBitacora.json();
+                log(`📋 Encontrados ${bitacora.length} registros de pago en bitácora`, 'info');
+
+                // 2. Obtener todas las transacciones tipo ABONO
+                const resAbonos = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?tipo=eq.ABONO&categoria=eq.COBRANZA&select=notas`, { headers });
+                const abonos = await resAbonos.json();
+                const refExistentes = new Set(abonos.map(a => a.notas));
+                log(`✅ Ya existen ${abonos.length} registros de abono sincronizados`, 'info');
+
+                let faltantesCount = 0;
+                let existentesCount = 0;
+
+                for (const nota of bitacora) {
+                    if (!nota.nota.includes('PAGO RECIBIDO')) continue;
+
+                    const refBuscada = `ABONO A CUENTA (REF: ${nota.transaccion_id})`;
+                    const yaExiste = [...refExistentes].some(n => n && n.includes(`REF: ${nota.transaccion_id}`));
+
+                    if (yaExiste) {
+                        existentesCount++;
+                    } else {
+                        // Extraer monto y método de la nota
+                        const montoMatch = nota.nota.match(/\$([0-9,]+\.?\d*)/);
+                        const metodoMatch = nota.nota.match(/vía\s+(\w+)/i);
+
+                        if (montoMatch) {
+                            const monto = parseFloat(montoMatch[1].replace(/,/g, ''));
+                            const metodo = metodoMatch ? metodoMatch[1].toUpperCase() : 'EFECTIVO';
+
+                            pagosFaltantes.push({
+                                transaccion_id: nota.transaccion_id,
+                                monto: monto,
+                                metodo: metodo,
+                                fecha: nota.created_at,
+                                nota_original: nota.nota
+                            });
+                            faltantesCount++;
+                            log(`❌ Faltante: ID ${nota.transaccion_id} - $${monto.toLocaleString()} vía ${metodo}`, 'warning');
+                        }
+                    }
+                }
+
+                document.getElementById('stats').classList.remove('hidden');
+                document.getElementById('totalPagos').innerText = bitacora.filter(n => n.nota.includes('PAGO RECIBIDO')).length;
+                document.getElementById('faltantes').innerText = faltantesCount;
+                document.getElementById('existentes').innerText = existentesCount;
+
+                if (faltantesCount > 0) {
+                    document.getElementById('btnSync').disabled = false;
+                    log(`⚠️ Se encontraron ${faltantesCount} pagos sin registro de abono`, 'warning');
+                } else {
+                    log('✅ Todos los pagos ya están sincronizados', 'success');
+                }
+
+            } catch (e) {
+                log('❌ Error: ' + e.message, 'error');
+            }
+        }
+
+        async function sincronizarTodos() {
+            if (pagosFaltantes.length === 0) return alert('No hay pagos para sincronizar');
+
+            log('🚀 Iniciando sincronización...', 'info');
+            let creados = 0, errores = 0;
+
+            for (const pago of pagosFaltantes) {
+                try {
+                    // 1. Obtener datos de la transacción original
+                    const resTx = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${pago.transaccion_id}&select=sucursal,nombre_cliente`, { headers });
+                    const txData = await resTx.json();
+
+                    if (!txData.length) {
+                        log(`⚠️ No se encontró transacción original ID ${pago.transaccion_id}`, 'warning');
+                        continue;
+                    }
+
+                    const sucursal = txData[0].sucursal || 'Norte';
+                    const cliente = txData[0].nombre_cliente || 'CLIENTE';
+
+                    // 2. Crear registro de abono
+                    const resCreate = await fetch(`${SUPABASE_URL}/rest/v1/transacciones`, {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({
+                            tipo: 'ABONO',
+                            categoria: 'COBRANZA',
+                            monto: pago.monto,
+                            monto_neto: pago.monto,
+                            metodo_pago: pago.metodo,
+                            nombre_cliente: cliente,
+                            sucursal: sucursal,
+                            created_at: pago.fecha,
+                            notas: `ABONO A CUENTA (REF: ${pago.transaccion_id}) - SYNC HISTORICO`
+                        })
+                    });
+
+                    if (resCreate.ok) {
+                        creados++;
+                        log(`✅ Creado abono: ${cliente} - $${pago.monto.toLocaleString()} (${sucursal}) vía ${pago.metodo}`, 'success');
+                    } else {
+                        errores++;
+                        log(`❌ Error al crear abono ID ${pago.transaccion_id}: ${await resCreate.text()}`, 'error');
+                    }
+
+                } catch (e) {
+                    errores++;
+                    log(`❌ Error procesando ID ${pago.transaccion_id}: ${e.message}`, 'error');
+                }
+            }
+
+            log(`🎉 Sincronización completada: ${creados} creados, ${errores} errores`, creados > 0 ? 'success' : 'warning');
+
+            // Actualizar contadores
+            document.getElementById('faltantes').innerText = errores;
+            document.getElementById('existentes').innerText = parseInt(document.getElementById('existentes').innerText) + creados;
+
+            if (errores === 0) {
+                document.getElementById('btnSync').disabled = true;
+            }
+
+            pagosFaltantes = [];
+        }
+    </script>
+</body>
+
+</html>
+</CodeContent>
+<parameter name="EmptyFile">false
