@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Migrador de Datos - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet" />
+    <style>
+        body {
+            font-family: 'Manrope', sans-serif;
+            background: #f8faf9;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #19e66b 0%, #15bb56 100%);
+        }
+
+        .card {
+            background: white;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        }
+
+        .progress-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: #e5e7eb;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+
+<body class="p-8 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-2xl card p-10 space-y-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-black text-gray-900 uppercase italic">Sincronizador de Datos</h1>
+                <p class="text-gray-400 font-bold text-xs uppercase tracking-widest mt-1">Producción 🟢 ➜ Pruebas 🔴</p>
+            </div>
+            <div class="p-3 bg-red-50 text-red-600 rounded-2xl">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                    </path>
+                </svg>
+            </div>
+        </div>
+
+        <div class="bg-gray-50 border border-gray-100 rounded-3xl p-6 relative overflow-hidden">
+            <div class="relative z-10">
+                <h2 class="text-sm font-black text-gray-800 uppercase mb-4">Estado de la Conexión</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        <span class="text-[10px] font-bold text-gray-400 uppercase">PROD: gajhfqfu...</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                        <span class="text-[10px] font-bold text-gray-400 uppercase">TEST: hvokszba...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tableList" class="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+            <!-- Tables will be injected here -->
+        </div>
+
+        <div class="pt-4 border-t border-gray-100 flex flex-col gap-4">
+            <button id="btnSync" onclick="startSync()"
+                class="w-full gradient-bg text-background-dark font-black py-4 rounded-2xl shadow-xl shadow-green-200 hover:scale-[1.02] transition-all uppercase tracking-widest text-sm">
+                Iniciar Clonación de Datos
+            </button>
+
+            <div id="diagnosticPanel" class="hidden bg-slate-900 rounded-3xl p-6 text-white space-y-4">
+                <h3 class="font-bold border-b border-gray-700 pb-2">Diagnóstico de Datos en Staging 🧐</h3>
+                <div id="diagnosticResults" class="font-mono text-xs space-y-2 max-h-40 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <p id="statusMsg"
+            class="text-center text-[10px] font-bold text-gray-300 uppercase tracking-widest animate-pulse"></p>
+    </div>
+
+    <script>
+        const CONFIG = {
+            PROD: {
+                URL: 'https://gajhfqfuvzotppnmzbuc.supabase.co',
+                KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ'
+            },
+            TEST: {
+                URL: 'https://hvokszbaganuvkqypgiq.supabase.co',
+                KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2b2tzemJhZ2FudXZrcXlwZ2lxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MzMxNTAsImV4cCI6MjA4NTIwOTE1MH0.8NN5_rgDqn701aa-pCFY1sFar9RPWLqSTfumm5oJHkQ'
+            }
+        };
+
+        const TABLES = [
+            'sys_usuarios', 'sys_config', 'sys_metas_ingresos', 'lista_proveedores',
+            'empleados', 'productos', 'compras_agrigarden', 'compras_items',
+            'inversiones', 'prestamos', 'flotilla_vehiculos', 'transacciones',
+            'caja_sesiones', 'caja_movimientos', 'venta_items', 'gastos',
+            'bitacora_cobranza', 'bitacora_proveedores', 'rrhh_tareas',
+            'rrhh_nomina', 'rrhh_vacaciones', 'estados_resultados',
+            'inventario_mensual', 'movimientos_stock', 'transferencias_stock',
+            'rrhh_historial_puestos', 'rrhh_tarea_bitacora'
+        ];
+
+        const prodClient = supabase.createClient(CONFIG.PROD.URL, CONFIG.PROD.KEY);
+        const testClient = supabase.createClient(CONFIG.TEST.URL, CONFIG.TEST.KEY);
+
+        function init() {
+            const list = document.getElementById('tableList');
+            TABLES.forEach(table => {
+                const div = document.createElement('div');
+                div.className = 'space-y-2';
+                div.innerHTML = `
+                    <div class="flex justify-between items-center px-1">
+                        <span class="text-[10px] font-black uppercase text-gray-500 tracking-wider">${table}</span>
+                        <span id="label-${table}" class="text-[9px] font-bold text-gray-300 uppercase">Esperando...</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progress-${table}" class="progress-fill bg-gray-200"></div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        async function fetchAllRecords(table) {
+            let allData = [];
+            let from = 0;
+            const step = 1000;
+            let done = false;
+
+            while (!done) {
+                const { data, error } = await prodClient
+                    .from(table)
+                    .select('*')
+                    .range(from, from + step - 1);
+
+                if (error) throw error;
+                if (data.length > 0) {
+                    allData = allData.concat(data);
+                    from += step;
+                } else {
+                    done = true;
+                }
+
+                // Safety break to avoid infinite loops
+                if (from > 50000) done = true;
+            }
+            return allData;
+        }
+
+        async function startSync() {
+            const btn = document.getElementById('btnSync');
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'bg-gray-400');
+            btn.innerText = 'Sincronizando... No cierres esta ventana';
+
+            for (const table of TABLES) {
+                updateStatus(table, 'Conectando...', 'bg-blue-400', 10);
+
+                try {
+                    // 1. Obtener TODOS los datos de PROD (con paginación)
+                    const data = await fetchAllRecords(table);
+
+                    if (!data || data.length === 0) {
+                        updateStatus(table, 'Vacía en Prod (0)', 'bg-gray-300', 100);
+                        continue;
+                    }
+
+                    updateStatus(table, `Limpiando Staging...`, 'bg-yellow-400', 40);
+
+                    // 2. Limpiar TEST (con manejo de errores)
+                    const { error: delError } = await testClient.from(table).delete().neq('created_at', '2000-01-01');
+
+                    updateStatus(table, `Insertando ${data.length}...`, 'bg-yellow-500', 70);
+
+                    // 3. Insertar en TEST por bloques de 500 para evitar timeout
+                    for (let i = 0; i < data.length; i += 500) {
+                        const chunk = data.slice(i, i + 500);
+                        const { error: insError } = await testClient.from(table).insert(chunk);
+                        if (insError) {
+                            console.warn(`Error chunk en ${table}:`, insError);
+                            // Intentamos seguir o registramos el error
+                        }
+                    }
+
+                    updateStatus(table, `Éxito (${data.length})`, 'bg-green-500', 100);
+                } catch (e) {
+                    console.error(`Error crítico en ${table}:`, e);
+                    updateStatus(table, `Fallo: ${e.message || 'Error'}`, 'bg-red-500', 100);
+                }
+            }
+
+            async function runDiagnostics() {
+                const panel = document.getElementById('diagnosticPanel');
+                const results = document.getElementById('diagnosticResults');
+                panel.classList.remove('hidden');
+                results.innerHTML = '<span class="animate-pulse">Analizando fechas de registros...</span>';
+
+                try {
+                    // 1. Check Transacciones
+                    const { data: txns, error } = await testClient
+                        .from('transacciones')
+                        .select('created_at')
+                        .limit(2000);
+
+                    if (error) throw error;
+
+                    if (!txns || txns.length === 0) {
+                        results.innerHTML = '<span class="text-red-400">❌ Cero transacciones encontradas en Staging.</span>';
+                        return;
+                    }
+
+                    // Group by Year-Month
+                    const stats = {};
+                    txns.forEach(t => {
+                        const date = t.created_at.substring(0, 7); // YYYY-MM
+                        stats[date] = (stats[date] || 0) + 1;
+                    });
+
+                    let html = '<div class="grid gap-1">';
+                    html += `<div class="text-green-400 mb-2">✅ TOTAL ENCONTRADO: ${txns.length} Registros</div>`;
+
+                    Object.keys(stats).sort().reverse().forEach(date => {
+                        html += `
+                        <div class="flex justify-between border-b border-gray-800 pb-1">
+                            <span>📅 ${date}</span>
+                            <span class="font-bold text-yellow-500">${stats[date]} ventas</span>
+                        </div>`;
+                    });
+
+                    // Check if current month has data
+                    const currentMonth = new Date().toISOString().substring(0, 7);
+                    if (!stats[currentMonth]) {
+                        html += `
+                        <div class="mt-4 p-2 bg-yellow-900/50 rounded border border-yellow-700 text-yellow-200">
+                            ⚠️ ATENCIÓN: No hay ventas registradas en <b>${currentMonth}</b> (Mes Actual).
+                            <br>Por eso tu Dashboard muestra $0.00.
+                            <br>👉 Usa los filtros de fecha para ver meses anteriores.
+                        </div>`;
+                    }
+
+                    html += '</div>';
+                    results.innerHTML = html;
+
+                } catch (e) {
+                    results.innerHTML = `<span class="text-red-500">Error en diagnóstico: ${e.message}</span>`;
+                }
+            }
+
+            // Call diagnostics at the end of sync
+            await runDiagnostics();
+
+            btn.classList.remove('bg-gray-400');
+            btn.classList.add('bg-green-500', 'text-white');
+            btn.innerText = '¡Sincronización y Diagnóstico Completados!';
+        }
+
+        function updateStatus(table, text, colorClass, percent) {
+            const label = document.getElementById(`label-${table}`);
+            const bar = document.getElementById(`progress-${table}`);
+
+            label.innerText = text;
+            bar.style.width = `${percent}%`;
+            bar.className = `progress-fill ${colorClass}`;
+            if (colorClass === 'bg-green-500') label.classList.add('text-green-500');
+            if (colorClass === 'bg-red-500') label.classList.add('text-red-500');
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
