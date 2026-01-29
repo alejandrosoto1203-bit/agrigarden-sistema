@@ -16,9 +16,24 @@ let dashCache = {
 
 async function cargarDashboard() {
     try {
-        // Fallback robusto para evitar "SUPABASE_URL undefined"
+        // Fallback robusto
         const SB_URL = window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co';
         const SB_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+
+        // --- DEBUG STAGING: Create Panel ---
+        if (window.IS_TEST_ENV && !document.getElementById('debug-floating-panel')) {
+            const p = document.createElement('div');
+            p.id = 'debug-floating-panel';
+            p.style.cssText = "position:fixed; bottom:10px; right:10px; width:300px; background:rgba(0,0,0,0.9); color:#00ff00; font-family:monospace; font-size:10px; p:10px; z-index:99999; border:1px solid #00ff00; border-radius:5px; padding:10px; max-height:300px; overflow-y:auto;";
+            p.innerHTML = `<div style='border-bottom:1px solid #333; margin-bottom:5px; font-weight:bold'>🐛 STAGING DEBUGGER</div>
+                           <div>URL: ${SB_URL.substring(8, 20)}...</div>`;
+            document.body.appendChild(p);
+        }
+        const logDebug = (msg, isError = false) => {
+            const p = document.getElementById('debug-floating-panel');
+            if(p) p.innerHTML += `<div style='color:${isError?'red':'#0f0'}; border-bottom:1px solid #333; padding:2px 0;'>${msg}</div>`;
+        };
+        // ----------------------------------
 
         // 1. Fetch All Data
         const [resIngresos, resGastos, resEmpleados, resInversiones, resTareas] = await Promise.all([
@@ -29,15 +44,30 @@ async function cargarDashboard() {
             fetch(`${SB_URL}/rest/v1/rrhh_tareas?select=empleado_id,estado`, { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } })
         ]);
 
+        if(window.IS_TEST_ENV) {
+            logDebug(`Ingresos Status: ${resIngresos.status}`);
+            logDebug(`Gastos Status: ${resGastos.status}`);
+        }
+
         dashCache.ingresos = await resIngresos.json();
         dashCache.gastos = await resGastos.json();
         dashCache.empleados = await resEmpleados.json();
         dashCache.inversiones = await resInversiones.json();
         dashCache.tareas = await resTareas.json();
 
+        if(window.IS_TEST_ENV) {
+            logDebug(`Ingresos Count: ${dashCache.ingresos.length}`);
+            logDebug(`Gastos Count: ${dashCache.gastos.length}`);
+            if(dashCache.ingresos.length > 0) logDebug(`Last Ingreso: ${dashCache.ingresos[0].created_at.substring(0,10)}`);
+        }
+
         aplicarFiltrosDashboard();
 
     } catch (error) {
+        if(window.IS_TEST_ENV) {
+            const p = document.getElementById('debug-floating-panel');
+            if(p) p.innerHTML += `<div style='color:red; font-weight:bold'>ERROR CRITICO: ${error.message}</div>`;
+        }
         console.error("Error dashboard:", error);
     }
 }

@@ -328,16 +328,20 @@
             html += '<div class="mt-4 pt-4 border-t border-gray-700">';
             html += '<h4 class="text-xs font-bold text-blue-300 mb-2">🔍 INSPECCIÓN DE DATOS (Muestra 5 recientes)</h4>';
 
-            const tablesToInspect = ['transacciones', 'gastos'];
-            for (const tName of tablesToInspect) {
+            const tablesToInspect = [
+                { name: 'transacciones', cols: 'created_at, sucursal, monto' },
+                { name: 'gastos', cols: 'created_at, sucursal, monto_total' }
+            ];
+
+            for (const table of tablesToInspect) {
                 const { data: samples, error: sErr } = await testClient
-                    .from(tName)
-                    .select('created_at, sucursal, monto, monto_total')
+                    .from(table.name)
+                    .select(table.cols)
                     .order('created_at', { ascending: false })
                     .limit(5);
 
                 html += `<div class="mb-3 bg-slate-800 p-2 rounded text-[10px] font-mono">`;
-                html += `<strong class="text-yellow-400 uppercase">> ${tName}</strong>`;
+                html += `<strong class="text-yellow-400 uppercase">> ${table.name}</strong>`;
 
                 if (sErr) {
                     html += `<div class="text-red-400">Error fetch: ${sErr.message}</div>`;
@@ -345,7 +349,7 @@
                     html += `<div class="text-gray-500 italic">Sin registros para mostrar.</div>`;
                 } else {
                     samples.forEach(r => {
-                        const m = r.monto || r.monto_total || 0;
+                        const m = r.monto !== undefined ? r.monto : (r.monto_total !== undefined ? r.monto_total : 0);
                         const date = r.created_at ? r.created_at.substring(0, 10) : 'N/A';
                         const suc = r.sucursal || 'NULL';
                         html += `<div class="flex justify-between border-b border-gray-700 pb-1 mt-1 text-gray-300">
@@ -355,7 +359,7 @@
                     });
 
                     // Range check
-                    const dates = samples.map(s => s.created_at.substring(0, 4)); // YYYY
+                    const dates = samples.map(s => s.created_at ? s.created_at.substring(0, 4) : 'N/A');
                     const uniqueYears = [...new Set(dates)];
                     html += `<div class="mt-1 text-blue-200">Años detectados: ${uniqueYears.join(', ')}</div>`;
                 }
