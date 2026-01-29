@@ -667,6 +667,8 @@ function gestionarSolicitudTaller(solicitud) {
     document.getElementById('gesTituloPieza').innerText = solicitud.nombre_pieza;
     document.getElementById('gesFechaSol').innerText = new Date(solicitud.created_at).toLocaleDateString();
     document.getElementById('gesFechaLim').innerText = new Date(solicitud.fecha_limite_cotizacion).toLocaleDateString();
+    document.getElementById('gesFechaCot').innerText = solicitud.fecha_cotizacion ? new Date(solicitud.fecha_cotizacion).toLocaleDateString() : '-';
+    document.getElementById('gesFechaAce').innerText = solicitud.fecha_aceptacion ? new Date(solicitud.fecha_aceptacion).toLocaleDateString() : '-';
     document.getElementById('gesCantidad').innerText = solicitud.cantidad;
     document.getElementById('gesPrecio').value = solicitud.precio_cliente || '';
     document.getElementById('gesDetalles').innerText = `${solicitud.marca} - ${solicitud.referencias || 'Sin ref'} (${solicitud.proveedor || 'Prov. Desconocido'})`;
