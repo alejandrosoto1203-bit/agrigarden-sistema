@@ -71,52 +71,59 @@
                     agrícolas.</p>
             </div>
             <button onclick="window.location.href='nueva_compra.html'"
-                class="w-full lg:w-auto bg-[#19e66b] text-black px-6 py-3 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg shadow-[#19e66b]/20 hover:brightness-105 transition-all">
-                <span class="material-symbols-outlined text-lg">shopping_cart_checkout</span> Nueva Solicitud de Compra
+                class="w-full lg:w-auto bg-[#19e66b] text-black px-4 py-3 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg shadow-[#19e66b]/20 hover:brightness-105 transition-all">
+                <span class="material-symbols-outlined text-lg">shopping_cart_checkout</span> Nueva Solicitud
             </button>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-            <div class="card p-6 flex items-center justify-between">
-                <div>
-                    <p id="lblKpi1" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Pedidos
+            <div class="card p-4 lg:p-6 flex items-center justify-between">
+                <div class="min-w-0">
+                    <p id="lblKpi1" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1 truncate">
+                        Pedidos
                         Pendientes</p>
                     <span id="kpiPendientes" class="text-2xl font-black">0</span>
                     <div id="subKpi1" class="text-[9px] font-bold text-green-500 mt-1">--</div>
                 </div>
-                <span class="material-symbols-outlined text-primary bg-primary/10 p-3 rounded-xl">assignment_late</span>
+                <span
+                    class="material-symbols-outlined text-primary bg-primary/10 p-3 rounded-xl shrink-0">assignment_late</span>
             </div>
-            <div class="card p-6 flex items-center justify-between">
-                <div>
-                    <p id="lblKpi2" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Órdenes
+            <div class="card p-4 lg:p-6 flex items-center justify-between">
+                <div class="min-w-0">
+                    <p id="lblKpi2" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1 truncate">
+                        Órdenes
                         en Camino</p>
                     <span id="kpiCamino" class="text-2xl font-black">0</span>
                     <div id="subKpi2" class="text-[9px] font-bold text-gray-400 mt-1">--</div>
                 </div>
-                <span class="material-symbols-outlined text-blue-500 bg-blue-50 p-3 rounded-xl">local_shipping</span>
+                <span
+                    class="material-symbols-outlined text-blue-500 bg-blue-50 p-3 rounded-xl shrink-0">local_shipping</span>
             </div>
-            <div class="card p-6 flex items-center justify-between">
-                <div>
-                    <p id="lblKpi3" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Recibidas
+            <div class="card p-4 lg:p-6 flex items-center justify-between">
+                <div class="min-w-0">
+                    <p id="lblKpi3" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1 truncate">
+                        Recibidas
                         Parcialmente
                     </p>
                     <span id="kpiParcial" class="text-2xl font-black">0</span>
                     <div id="subKpi3" class="text-[9px] font-bold text-orange-500 mt-1">--</div>
                 </div>
-                <span class="material-symbols-outlined text-orange-500 bg-orange-50 p-3 rounded-xl">inventory_2</span>
+                <span
+                    class="material-symbols-outlined text-orange-500 bg-orange-50 p-3 rounded-xl shrink-0">inventory_2</span>
             </div>
-            <div class="card p-6 flex items-center justify-between">
-                <div>
-                    <p id="lblKpi4" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Retrasos
+            <div class="card p-4 lg:p-6 flex items-center justify-between">
+                <div class="min-w-0">
+                    <p id="lblKpi4" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1 truncate">
+                        Retrasos
                         Críticos</p>
                     <span id="kpiRetrasos" class="text-2xl font-black text-red-500">0</span>
                     <div id="subKpi4" class="text-[9px] font-bold text-red-400 mt-1">--</div>
                 </div>
-                <span class="material-symbols-outlined text-red-500 bg-red-50 p-3 rounded-xl">warning</span>
+                <span class="material-symbols-outlined text-red-500 bg-red-50 p-3 rounded-xl shrink-0">warning</span>
             </div>
         </div>
 
-        <div class="flex gap-4 lg:p-8 border-b border-gray-200 px-2 overflow-x-auto no-scrollbar">
+        <div class="flex gap-4 border-b border-gray-200 px-2 overflow-x-auto no-scrollbar">
             <button id="tabProceso" onclick="cambiarPestañaCompras('proceso')"
                 class="pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all whitespace-nowrap">En
                 Proceso</button>
@@ -308,7 +315,8 @@
     <!-- MODAL: NUEVA SOLICITUD TALLER -->
     <div id="modalSolicitudTaller"
         class="fixed inset-0 bg-black/80 hidden z-[110] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-3xl max-w-lg w-full p-4 lg:p-4 lg:p-8 max-h-[90vh] overflow-y-auto mx-0 lg:mx-auto">
+        <div
+            class="bg-white rounded-3xl max-w-lg w-full p-4 lg:p-4 lg:p-8 max-h-[90vh] overflow-y-auto mx-0 lg:mx-auto">
             <h2 class="text-2xl font-black italic uppercase mb-2">Solicitud de Cotización</h2>
             <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-6">Taller Mecánico</p>
 

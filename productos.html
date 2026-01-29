@@ -60,7 +60,8 @@
             position: fixed;
             right: -100%;
             top: 0;
-            width: 520px;
+            width: 100%;
+            max-width: 520px;
             height: 100%;
             background: white;
             transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -91,28 +92,29 @@
 <body class="min-h-screen text-[#1e293b] flex">
     <div id="sidebar-container"></div>
 
-    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8">
+    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8 min-w-0">
         <!-- HEADER -->
-        <header class="flex justify-between items-end">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 lg:gap-0">
             <div>
                 <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 italic uppercase">Productos</h1>
                 <p class="text-slate-500 font-medium text-lg mt-1">Gestión de inventario físico y catálogo de productos.
                 </p>
             </div>
-            <div class="flex gap-4">
+            <div class="flex flex-col lg:flex-row gap-4 w-full lg:w-auto">
                 <button onclick="abrirModalImportar()"
-                    class="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 text-sm text-slate-600 hover:bg-slate-50 transition-all">
+                    class="w-full lg:w-auto bg-white border border-slate-200 px-6 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 text-sm text-slate-600 hover:bg-slate-50 transition-all">
                     <span class="material-symbols-outlined text-lg">upload_file</span> Importar Excel
                 </button>
                 <button onclick="abrirModalProducto()"
-                    class="bg-primary text-black px-8 py-3 rounded-2xl font-black flex items-center gap-2 text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
+                    class="w-full lg:w-auto bg-primary text-black px-8 py-3 rounded-2xl font-black flex items-center justify-center gap-2 text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
                     <span class="material-symbols-outlined text-lg">add</span> Nuevo Producto
                 </button>
             </div>
         </header>
 
         <!-- FILTROS -->
-        <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+        <div
+            class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center gap-4">
             <div class="flex-1 relative">
                 <span class="material-symbols-outlined absolute left-5 top-3 text-slate-300">search</span>
                 <input type="text" id="busquedaProducto" oninput="filtrarProductos()"
@@ -120,11 +122,11 @@
                     class="w-full pl-14 pr-6 py-3.5 bg-slate-50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-primary text-sm font-bold text-slate-700">
             </div>
             <select id="filtroCategoria" onchange="filtrarProductos()"
-                class="bg-slate-50 border-none rounded-[1.5rem] px-6 py-3.5 text-xs font-black uppercase text-slate-500 focus:ring-primary">
+                class="w-full lg:w-auto bg-slate-50 border-none rounded-[1.5rem] px-6 py-3.5 text-xs font-black uppercase text-slate-500 focus:ring-primary">
                 <option value="Todos">Todas las Categorías</option>
             </select>
             <select id="filtroSucursal" onchange="filtrarProductos()"
-                class="bg-slate-50 border-none rounded-[1.5rem] px-6 py-3.5 text-xs font-black uppercase text-slate-500 focus:ring-primary">
+                class="w-full lg:w-auto bg-slate-50 border-none rounded-[1.5rem] px-6 py-3.5 text-xs font-black uppercase text-slate-500 focus:ring-primary">
                 <option value="Todos">Todas las Sucursales</option>
                 <option value="Norte">Norte</option>
                 <option value="Sur">Sur</option>
@@ -133,7 +135,7 @@
         </div>
 
         <!-- KPIs RÁPIDOS -->
-        <div class="grid grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             <div class="bg-white p-6 rounded-2xl border border-slate-100">
                 <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Productos</p>
                 <p id="kpiTotalProductos" class="text-3xl font-black text-slate-800 mt-1">0</p>
@@ -155,22 +157,24 @@
 
         <!-- TABLA PRODUCTOS -->
         <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50/80 border-b border-slate-100">
-                    <tr class="text-[10px] font-black uppercase text-slate-400 tracking-widest">
-                        <th class="px-4 py-4 text-left">Imagen</th>
-                        <th class="px-4 py-4 text-left">Producto</th>
-                        <th class="px-4 py-4 text-center">SKU</th>
-                        <th class="px-4 py-4 text-center">Categoría</th>
-                        <th class="px-4 py-4 text-center">Stock Norte</th>
-                        <th class="px-4 py-4 text-center">Stock Sur</th>
-                        <th class="px-4 py-4 text-center">Stock Total</th>
-                        <th class="px-4 py-4 text-right">Precio Público</th>
-                        <th class="px-4 py-4 text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="tablaProductos"></tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50/80 border-b border-slate-100">
+                        <tr class="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                            <th class="px-4 py-4 text-left">Imagen</th>
+                            <th class="px-4 py-4 text-left">Producto</th>
+                            <th class="px-4 py-4 text-center">SKU</th>
+                            <th class="px-4 py-4 text-center">Categoría</th>
+                            <th class="px-4 py-4 text-center">Stock Norte</th>
+                            <th class="px-4 py-4 text-center">Stock Sur</th>
+                            <th class="px-4 py-4 text-center">Stock Total</th>
+                            <th class="px-4 py-4 text-right">Precio Público</th>
+                            <th class="px-4 py-4 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaProductos"></tbody>
+                </table>
+            </div>
             <div id="emptyState" class="hidden py-16 text-center">
                 <span class="material-symbols-outlined text-6xl text-slate-200">inventory_2</span>
                 <p class="text-slate-400 font-bold mt-4">No hay productos registrados</p>
@@ -217,8 +221,8 @@
                 <input type="hidden" id="editProductoId">
 
                 <!-- SECCIÓN: IMAGEN -->
-                <div class="flex gap-4 lg:p-8">
-                    <div class="w-40">
+                <div class="flex flex-col lg:flex-row gap-4 lg:p-8">
+                    <div class="w-full lg:w-40 flex justify-center lg:block">
                         <div onclick="document.getElementById('inputImagenProducto').click()"
                             class="size-40 rounded-3xl photo-upload-zone relative overflow-hidden group">
                             <img id="previewImagenProducto"
@@ -244,7 +248,7 @@
                             <input type="text" id="nombreProducto" class="input-form uppercase"
                                 placeholder="Ej: Fertilizante Orgánico 5kg" required>
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             <div>
                                 <label class="label-form">SKU</label>
                                 <input type="text" id="skuProducto" class="input-form uppercase font-mono"
@@ -265,7 +269,7 @@
                 </div>
 
                 <!-- SECCIÓN: CATEGORIZACIÓN -->
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div>
                         <label class="label-form">Categoría</label>
                         <input type="text" id="categoriaProducto" class="input-form uppercase"
@@ -290,7 +294,7 @@
                 </div>
 
                 <!-- SECCIÓN: CONFIGURACIÓN PRODUCTO -->
-                <div class="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-2xl">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-2xl">
                     <label class="flex items-center gap-3 cursor-pointer">
                         <input type="checkbox" id="esServicio"
                             class="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary">
@@ -313,7 +317,7 @@
                     <p class="text-xs font-black uppercase text-blue-600 tracking-widest mb-4 flex items-center gap-2">
                         <span class="material-symbols-outlined text-lg">location_on</span> Sucursal Norte
                     </p>
-                    <div class="grid grid-cols-4 gap-4">
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <label class="label-form">Stock</label>
                             <input type="number" id="stockNorte" class="input-form text-center font-black text-lg"
@@ -343,7 +347,7 @@
                         class="text-xs font-black uppercase text-emerald-600 tracking-widest mb-4 flex items-center gap-2">
                         <span class="material-symbols-outlined text-lg">location_on</span> Sucursal Sur
                     </p>
-                    <div class="grid grid-cols-4 gap-4">
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <label class="label-form">Stock</label>
                             <input type="number" id="stockSur" class="input-form text-center font-black text-lg"
@@ -372,7 +376,7 @@
                     <p class="text-xs font-black uppercase text-primary tracking-widest mb-4 flex items-center gap-2">
                         <span class="material-symbols-outlined text-lg">payments</span> Precios de Venta
                     </p>
-                    <div class="grid grid-cols-5 gap-4">
+                    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
                         <div>
                             <label class="label-form">Precio Público</label>
                             <div class="relative">
@@ -417,23 +421,24 @@
                 </div>
 
                 <!-- SECCIÓN: IMPUESTOS Y SAT -->
-                <div class="grid grid-cols-4 gap-4">
-                    <label class="flex items-center gap-3 cursor-pointer bg-slate-50 p-4 rounded-2xl">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <label
+                        class="flex items-center gap-3 cursor-pointer bg-slate-50 p-4 rounded-2xl col-span-2 lg:col-span-1">
                         <input type="checkbox" id="aplicaImpuestos"
                             class="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary" checked>
                         <span class="text-sm font-bold text-slate-600">Aplica Impuestos</span>
                     </label>
-                    <div>
+                    <div class="col-span-1">
                         <label class="label-form">IVA %</label>
                         <input type="number" id="ivaPorcentaje" class="input-form text-center font-bold" value="16"
                             min="0" max="100">
                     </div>
-                    <div>
+                    <div class="col-span-1">
                         <label class="label-form">IEPS %</label>
                         <input type="number" id="iepsPorcentaje" class="input-form text-center font-bold" value="0"
                             min="0" max="100">
                     </div>
-                    <div>
+                    <div class="col-span-2 lg:col-span-1">
                         <label class="label-form">Clave SAT</label>
                         <input type="text" id="claveSat" class="input-form text-center font-mono"
                             placeholder="43211501">

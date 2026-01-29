@@ -52,8 +52,7 @@
 
         .input-edit:focus {
             background: white;
-            ring: 2px;
-            ring-color: #19e66b;
+            box-shadow: 0 0 0 2px #19e66b;
             outline: none;
         }
 
@@ -82,18 +81,19 @@
     <div id="sidebar-container"></div>
 
     <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8 min-w-0">
-        <header class="flex justify-between items-center">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-0">
             <div>
-                <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Módulo de Gastos</h1>
-                <p class="text-gray-400 font-medium">Control de egresos y facturación de Agrigarden</p>
+                <nav class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Inicio > Egresos</nav>
+                <h1 class="text-3xl lg:text-3xl font-extrabold tracking-tight italic uppercase">Módulo de Gastos</h1>
+                <p class="text-gray-500 text-sm font-medium">Control de egresos y facturación de Agrigarden</p>
             </div>
-            <div class="flex items-center gap-4">
-                <a href="registro_gastos.html"
-                    class="bg-primary text-black px-6 py-3 rounded-xl font-extrabold text-sm hover:brightness-105 transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
+            <div class="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
+                <button onclick="mostrarModalGasto()"
+                    class="w-full lg:w-auto bg-[#e63946] text-white px-6 py-3 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg shadow-[#e63946]/20 hover:brightness-110 transition-all">
                     <span class="material-symbols-outlined text-lg">add_circle</span> Registrar Nuevo Gasto
-                </a>
+                </button>
                 <button onclick="exportarGastos()"
-                    class="bg-white border border-gray-300 px-5 py-3 rounded-vl font-bold flex items-center gap-2 text-sm hover:bg-gray-50 transition-all shadow-sm">
+                    class="w-full lg:w-auto bg-white border-2 border-gray-100 text-gray-600 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-xs hover:border-gray-200 transition-all">
                     <span class="material-symbols-outlined text-lg">download</span> Exportar
                 </button>
             </div>

@@ -56,7 +56,8 @@
             position: fixed;
             right: -100%;
             top: 0;
-            width: 500px;
+            width: 100%;
+            max-width: 500px;
             height: 100%;
             background: white;
             transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -130,8 +131,7 @@
         .input-form:focus {
             background: #ffffff;
             border-color: #19e66b;
-            ring: 4px;
-            ring-color: rgba(25, 230, 107, 0.1);
+            box-shadow: 0 0 0 4px rgba(25, 230, 107, 0.1);
             outline: none;
         }
 
@@ -171,50 +171,52 @@
 
     <div id="sidebar-container"></div>
 
-    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-10">
-        <header class="flex justify-between items-end">
+    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-10 min-w-0">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 lg:gap-0">
             <div>
                 <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 italic uppercase">Central de Empleados
                 </h1>
                 <p class="text-slate-500 font-medium text-lg mt-1">Gestión integral de expedientes digitales y talento
                     humano.</p>
             </div>
-            <div class="flex gap-4">
+            <div class="flex flex-col lg:flex-row gap-4 w-full lg:w-auto">
                 <button
-                    class="bg-white border border-slate-200 px-8 py-3.5 rounded-2xl font-bold flex items-center gap-2 text-base text-slate-600 hover:bg-slate-50 transition-all">
+                    class="w-full lg:w-auto bg-white border border-slate-200 px-8 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 text-base text-slate-600 hover:bg-slate-50 transition-all">
                     <span class="material-symbols-outlined text-xl">download</span> Export Data
                 </button>
                 <button onclick="abrirModalNuevoEmpleado()"
-                    class="bg-primary text-black px-10 py-3.5 rounded-2xl font-black flex items-center gap-2 text-base shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
+                    class="w-full lg:w-auto bg-primary text-black px-10 py-3.5 rounded-2xl font-black flex items-center justify-center gap-2 text-base shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
                     <span class="material-symbols-outlined text-xl">person_add</span> Add New Employee
                 </button>
             </div>
         </header>
 
-        <div class="bg-white p-4 lg:p-8 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-6">
+        <div
+            class="bg-white p-4 lg:p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center gap-6">
             <div class="flex-1 relative">
                 <span class="material-symbols-outlined absolute left-6 top-4 text-slate-300">search</span>
                 <input type="text" id="busquedaInput" oninput="filtrarEmpleados()"
                     placeholder="Search by name, ID or position..."
                     class="w-full pl-16 pr-8 py-4.5 bg-slate-50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-primary text-base font-bold text-slate-700">
             </div>
-            <div class="flex gap-4 text-base">
+            <div class="flex flex-col lg:flex-row gap-4 text-base">
                 <select
-                    class="bg-slate-50 border-none rounded-[1.5rem] px-8 py-4.5 text-sm font-black uppercase text-slate-500 focus:ring-primary">
+                    class="w-full lg:w-auto bg-slate-50 border-none rounded-[1.5rem] px-8 py-4.5 text-sm font-black uppercase text-slate-500 focus:ring-primary">
                     <option>All Status</option>
                 </select>
                 <select
-                    class="bg-slate-50 border-none rounded-[1.5rem] px-8 py-4.5 text-sm font-black uppercase text-slate-500 focus:ring-primary">
+                    class="w-full lg:w-auto bg-slate-50 border-none rounded-[1.5rem] px-8 py-4.5 text-sm font-black uppercase text-slate-500 focus:ring-primary">
                     <option>Branch: All</option>
                 </select>
                 <select
-                    class="bg-slate-50 border-none rounded-[1.5rem] px-8 py-4.5 text-sm font-black uppercase text-slate-500 focus:ring-primary">
+                    class="w-full lg:w-auto bg-slate-50 border-none rounded-[1.5rem] px-8 py-4.5 text-sm font-black uppercase text-slate-500 focus:ring-primary">
                     <option>Department</option>
                 </select>
             </div>
         </div>
 
-        <div id="gridEmpleados" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:p-10"></div>
+        <div id="gridEmpleados" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:p-10">
+        </div>
     </main>
 
     <div id="slideExpediente" class="slide-over">
@@ -251,24 +253,25 @@
         class="fixed inset-0 bg-slate-900/60 hidden z-[150] flex items-center justify-center backdrop-blur-md p-4">
         <div class="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
             <div class="p-4 lg:p-10 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
-                <div class="flex gap-6 items-center">
+                <div class="flex gap-4 lg:gap-6 items-center">
                     <div id="stepCircle"
-                        class="size-16 bg-primary rounded-3xl flex items-center justify-center text-black font-black text-2xl shadow-lg">
+                        class="size-12 lg:size-16 bg-primary rounded-3xl flex items-center justify-center text-black font-black text-xl lg:text-2xl shadow-lg">
                         1</div>
                     <div>
-                        <h3 class="text-3xl font-black uppercase italic text-slate-800" id="txtStepTitle">Identidad</h3>
+                        <h3 class="text-xl lg:text-3xl font-black uppercase italic text-slate-800" id="txtStepTitle">
+                            Identidad</h3>
                         <p class="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">Paso <span
                                 id="currentStepText">1</span> de 4</p>
                     </div>
                 </div>
                 <button onclick="cerrarModalNuevoEmpleado()"
-                    class="size-14 rounded-2xl hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"><span
-                        class="material-symbols-outlined font-bold text-4xl">close</span></button>
+                    class="size-10 lg:size-14 rounded-2xl hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"><span
+                        class="material-symbols-outlined font-bold text-3xl lg:text-4xl">close</span></button>
             </div>
 
-            <form id="formEmpleado" class="flex-1 overflow-y-auto p-12 bg-white">
+            <form id="formEmpleado" class="flex-1 overflow-y-auto p-6 lg:p-12 bg-white">
                 <input type="hidden" id="editEmpleadoId">
-                <div id="step1" class="step-content grid grid-cols-3 gap-12">
+                <div id="step1" class="step-content grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-12">
                     <div class="col-span-1 flex flex-col items-center">
                         <div onclick="document.getElementById('inputFoto').click()"
                             class="size-52 rounded-[3.5rem] photo-upload-zone border-2 border-dashed border-slate-200 relative overflow-hidden group shadow-inner">
@@ -288,7 +291,7 @@
                         <input type="file" id="inputFoto" class="hidden" accept="image/*"
                             onchange="subirFotoStorage(this)">
                     </div>
-                    <div class="col-span-2 space-y-8">
+                    <div class="col-span-1 lg:col-span-2 space-y-8">
                         <div><label class="label-form">Nombre Completo</label><input type="text" id="nombre_completo"
                                 class="input-form uppercase" placeholder="Ej: Juan Pérez López" required></div>
                         <div class="grid grid-cols-2 gap-4 lg:p-8">
@@ -309,20 +312,20 @@
                             class="input-form uppercase" placeholder="18 Caracteres"></div>
                     <div class="col-span-1"><label class="label-form">RFC</label><input type="text" id="rfc"
                             class="input-form uppercase" placeholder="13 Caracteres"></div>
-                    <div class="col-span-3"><label class="label-form">Número de Seguridad Social (NSS)</label><input
-                            type="text" id="nss" class="input-form" placeholder="11 Dígitos"></div>
+                    <div class="col-span-1 lg:col-span-3"><label class="label-form">Número de Seguridad Social
+                            (NSS)</label><input type="text" id="nss" class="input-form" placeholder="11 Dígitos"></div>
                 </div>
 
-                <div id="step2" class="step-content hidden grid grid-cols-2 gap-4 lg:p-10">
-                    <div class="col-span-2"><label class="label-form">Dirección Residencial Completa</label><input
-                            type="text" id="direccion_completa" class="input-form uppercase"
+                <div id="step2" class="step-content hidden grid grid-cols-1 lg:grid-cols-2 gap-4 lg:p-10">
+                    <div class="col-span-1 lg:col-span-2"><label class="label-form">Dirección Residencial
+                            Completa</label><input type="text" id="direccion_completa" class="input-form uppercase"
                             placeholder="Calle, Número, Colonia, CP"></div>
                     <div><label class="label-form">Correo Electrónico Personal</label><input type="email"
                             id="correo_electronico" class="input-form" placeholder="ejemplo@correo.com"></div>
                     <div><label class="label-form">Teléfono de Contacto</label><input type="tel" id="telefono"
                             class="input-form" placeholder="10 Dígitos"></div>
-                    <div class="col-span-2"><label class="label-form">Último Grado de Escolaridad</label><select
-                            id="escolaridad" class="input-form">
+                    <div class="col-span-1 lg:col-span-2"><label class="label-form">Último Grado de
+                            Escolaridad</label><select id="escolaridad" class="input-form">
                             <option>SECUNDARIA</option>
                             <option>BACHILLERATO</option>
                             <option>LICENCIATURA</option>
@@ -331,7 +334,7 @@
                         </select></div>
                 </div>
 
-                <div id="step3" class="step-content hidden grid grid-cols-2 gap-4 lg:p-10">
+                <div id="step3" class="step-content hidden grid grid-cols-1 lg:grid-cols-2 gap-4 lg:p-10">
                     <div><label class="label-form">Sucursal Asignada</label><select id="sucursal" class="input-form">
                             <option>MATRIZ</option>
                             <option>NORTE</option>
@@ -362,7 +365,7 @@
                     <p
                         class="text-base font-black uppercase text-primary tracking-widest mb-10 border-b border-primary/20 pb-4">
                         Prestaciones y Beneficios Activos</p>
-                    <div class="grid grid-cols-2 gap-6" id="contenedorPrestaciones">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="contenedorPrestaciones">
                         <label
                             class="flex items-center gap-5 p-6 bg-slate-50 rounded-[1.5rem] cursor-pointer hover:bg-primary/5 transition-all border border-gray-200 hover:border-primary/30 shadow-sm">
                             <input type="checkbox" name="prestacion" value="AGUINALDO"

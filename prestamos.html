@@ -52,8 +52,7 @@
 
         .input-prestamo:focus {
             background: white;
-            ring: 2px;
-            ring-color: #19e66b;
+            box-shadow: 0 0 0 2px #19e66b;
             outline: none;
         }
 
@@ -68,9 +67,7 @@
         }
 
         .input-table:focus {
-            background: white;
-            ring: 1px;
-            ring-color: #19e66b;
+            box-shadow: 0 0 0 1px #19e66b;
             outline: none;
             border-radius: 4px;
         }
@@ -82,21 +79,26 @@
     <div id="sidebar-container"></div>
 
     <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8 min-w-0">
-        <header class="flex justify-between items-center">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-0">
             <div>
-                <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Módulo de Préstamos</h1>
-                <p class="text-gray-400 font-medium">Seguimiento de estructura de deuda y financiamientos externos</p>
+                <nav class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Inicio > Financiamiento
+                </nav>
+                <h1 class="text-3xl lg:text-3xl font-extrabold tracking-tight italic uppercase">Control de Préstamos
+                </h1>
+                <p class="text-gray-500 text-sm font-medium">Gestión de créditos y amortizaciones.</p>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
                 <button onclick="abrirModalNuevoPrestamo()"
-                    class="bg-primary text-black px-6 py-3 rounded-xl font-extrabold text-sm hover:brightness-105 transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-lg">add_circle</span> Nuevo Préstamo
-                </button>
-                <button onclick="exportarPrestamos()"
-                    class="bg-white border border-gray-300 px-5 py-3 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-gray-50 transition-all shadow-sm">
-                    <span class="material-symbols-outlined text-lg">download</span> Exportar
+                    class="w-full lg:w-auto bg-black text-white px-6 py-3 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg hover:scale-105 transition-transform">
+                    <span class="material-symbols-outlined text-lg">add_card</span> Nuevo Préstamo
                 </button>
             </div>
+        </header>button onclick="exportarPrestamos()"
+        class="bg-white border border-gray-300 px-5 py-3 rounded-xl font-bold flex items-center gap-2 text-sm
+        hover:bg-gray-50 transition-all shadow-sm">
+        <span class="material-symbols-outlined text-lg">download</span> Exportar
+        </button>
+        </div>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -52,8 +52,7 @@
 
         .input-inv:focus {
             background: white;
-            ring: 2px;
-            ring-color: #00e676;
+            box-shadow: 0 0 0 2px #19e66b;
             outline: none;
         }
     </style>
@@ -64,27 +63,23 @@
     <div id="sidebar-container"></div>
 
     <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-8 space-y-8">
-        <header class="flex justify-between items-center">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-0">
             <div>
                 <nav class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Gestión Financiera /
                     Módulo de Inversiones</nav>
-                <h1 class="text-3xl font-extrabold tracking-tight">Módulo de Inversiones</h1>
+                <h1 class="text-3xl lg:text-3xl font-extrabold tracking-tight">Módulo de Inversiones</h1>
                 <p class="text-gray-500 text-sm font-medium">Registre sus activos fijos y gastos de capital para el
                     cálculo automático.</p>
             </div>
-            <div class="flex gap-3">
+            <div class="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
                 <button
-                    class="bg-white border border-gray-200 px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 text-xs hover:bg-gray-50 transition-all">
+                    class="w-full lg:w-auto bg-white border border-gray-200 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-xs hover:bg-gray-50 transition-all">
                     <span class="material-symbols-outlined text-lg text-gray-400">download</span> Exportar
-                </button>
-                <button
-                    class="bg-primary text-black px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 text-xs shadow-lg shadow-primary/20">
-                    <span class="material-symbols-outlined text-lg">add_circle</span> Nueva Inversión
                 </button>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
             <div class="card p-6 relative overflow-hidden text-black font-black">
                 <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Valor Total Invertido</p>
                 <span id="totalInvertido" class="text-2xl font-extrabold text-slate-800">$0.00</span>
@@ -115,13 +110,17 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-12 gap-4 lg:p-8">
-            <div class="col-span-8 card overflow-hidden flex flex-col">
-                <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+        <!-- Layout Responsive: Mobile (Columna) / Desktop (Grid 12 cols) -->
+        <div class="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-8">
+
+            <!-- LISTADO (Ocupa 8 cols en desktop, order-2 en mobile para que el form salga primero? No, listado primero) -->
+            <div class="lg:col-span-8 card overflow-hidden flex flex-col order-2 lg:order-1">
+                <div
+                    class="p-4 lg:p-6 border-b border-gray-100 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                     <h2 class="font-bold text-sm uppercase tracking-tight">Listado de Activos</h2>
-                    <div class="flex gap-2 bg-gray-50 rounded-lg border border-gray-100 p-1">
+                    <div class="flex gap-2 bg-gray-50 rounded-lg border border-gray-100 p-1 w-full lg:w-auto">
                         <select id="filtroSucursalInversion" onchange="aplicarFiltrosInversiones()"
-                            class="bg-transparent border-none text-[10px] font-black uppercase text-gray-500 focus:ring-0">
+                            class="w-full lg:w-auto bg-transparent border-none text-[10px] font-black uppercase text-gray-500 focus:ring-0">
                             <option value="Todos">Todas las Sucursales</option>
                             <option value="Matriz">Matriz</option>
                             <option value="Sucursal Norte">Norte</option>
@@ -130,7 +129,7 @@
                     </div>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left">
+                    <table class="w-full text-left min-w-[800px]"> <!-- min-w para forzar scroll -->
                         <thead class="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest">
                             <tr>
                                 <th class="px-6 py-4">Fecha</th>
@@ -148,7 +147,9 @@
                 </div>
             </div>
 
-            <aside class="col-span-4 card p-6 space-y-6 self-start sticky top-4 lg:p-8">
+            <!-- FORMULARIO (Ocupa 4 cols en desktop, order-1 en mobile para registrar rapido) -->
+            <!-- Decisión: Poner el formulario AL FINAL en mobile para no estorbar la vista de datos -->
+            <aside class="lg:col-span-4 card p-4 lg:p-6 space-y-6 lg:self-start lg:sticky lg:top-4 order-1 lg:order-2">
                 <div class="flex items-center gap-2 text-primary">
                     <span class="material-symbols-outlined font-bold">add_box</span>
                     <h2 class="font-extrabold text-sm uppercase tracking-tight text-black">Nueva Inversión</h2>
