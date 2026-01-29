@@ -581,6 +581,50 @@ function toggleMotivoUrgencia(esUrgente) {
     document.getElementById('divMotivoUrgencia').classList.toggle('hidden', !esUrgente);
 }
 
+// --- HELPER: Compresión de Imágenes ---
+async function comprimirImagen(file, calidad = 0.5, maxWidth = 800) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        reject(new Error('Error al comprimir la imagen'));
+                        return;
+                    }
+                    // Crear nuevo archivo con el blob comprimido
+                    const compressedFile = new File([blob], file.name, {
+                        type: 'image/jpeg',
+                        lastModified: Date.now(),
+                    });
+
+                    console.log(`📸 Compresión: Original ${(file.size / 1024).toFixed(2)}KB -> ${(compressedFile.size / 1024).toFixed(2)}KB`);
+                    resolve(compressedFile);
+                }, 'image/jpeg', calidad);
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+}
+
 async function guardarSolicitudTaller() {
     // Garantizar cliente Supabase
     const supabase = window.sb || (window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null);
@@ -608,7 +652,15 @@ async function guardarSolicitudTaller() {
 
     try {
         if (fileInput.files.length > 0) {
-            const file = fileInput.files[0];
+            let file = fileInput.files[0];
+
+            // ⚡️ Compresión de imagen
+            try {
+                file = await comprimirImagen(file);
+            } catch (compError) {
+                console.warn("Falló la compresión, subiendo original:", compError);
+            }
+
             const fileExt = file.name.split('.').pop();
             const fileName = `evidencia_${Date.now()}.${fileExt}`;
             const filePath = `${fileName}`;
