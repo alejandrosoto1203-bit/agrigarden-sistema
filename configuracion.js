@@ -245,6 +245,7 @@ async function cargarUsuariosUI() {
         if (error) throw error;
         currentUsers = data || [];
         renderUsuarios(currentUsers);
+        cargarEmpleadosDropdown(); // Nueva función para vincular RRHH
 
     } catch (e) {
         console.error(e);
@@ -272,8 +273,14 @@ function renderUsuarios(list) {
         }
                 </div>
                 <h4 class="font-bold text-lg leading-tight mb-1">${u.nombre}</h4>
-                <p class="text-xs text-gray-400 font-mono mb-4">${u.email}</p>
+                <p class="text-xs text-gray-400 font-mono mb-2">${u.email}</p>
                 
+                ${u.empleado_id ? `
+                    <div class="flex items-center gap-1.5 mb-4 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-md w-fit">
+                        <span class="material-symbols-outlined text-[12px]">verified_user</span> VINCULADO A RRHH
+                    </div>
+                ` : ''}
+
                 <div class="bg-gray-50 rounded-lg p-2 flex items-center gap-2">
                     <span class="material-symbols-outlined text-gray-300 text-sm">key</span>
                     <span class="text-xs font-mono text-gray-500 tracking-widest">••••••</span>
@@ -286,6 +293,28 @@ function renderUsuarios(list) {
             </button>
         </div>
     `).join('');
+}
+
+async function cargarEmpleadosDropdown() {
+    const select = document.getElementById('userEmpleadoId');
+    if (!select) return;
+
+    try {
+        const client = getClient();
+        const { data, error } = await client
+            .from('empleados')
+            .select('id, nombre_completo')
+            .eq('estatus', 'Activo')
+            .order('nombre_completo');
+
+        if (error) throw error;
+
+        select.innerHTML = '<option value="">Sin vincular</option>' +
+            data.map(e => `<option value="${e.id}">${e.nombre_completo}</option>`).join('');
+
+    } catch (e) {
+        console.error("Error cargando empleados:", e);
+    }
 }
 
 window.abrirModalUsuario = function (user = null) {
@@ -304,6 +333,7 @@ window.abrirModalUsuario = function (user = null) {
         document.getElementById('userPass').value = user.password;
         document.getElementById('userRol').value = user.rol;
         document.getElementById('userSucursal').value = user.sucursal || 'Ambas';
+        document.getElementById('userEmpleadoId').value = user.empleado_id || '';
 
         // Llenar checkboxes de permisos
         const permisos = user.permisos || {};
@@ -336,6 +366,7 @@ window.guardarUsuario = async function (e) {
     const password = document.getElementById('userPass').value;
     const rol = document.getElementById('userRol').value;
     const sucursal = document.getElementById('userSucursal').value;
+    const empleado_id = document.getElementById('userEmpleadoId').value || null;
 
     // Recolectar permisos
     const permisos = {};
@@ -346,7 +377,7 @@ window.guardarUsuario = async function (e) {
         };
     });
 
-    const payload = { nombre, email, password, rol, sucursal, permisos };
+    const payload = { nombre, email, password, rol, sucursal, permisos, empleado_id };
 
     try {
         let error;
