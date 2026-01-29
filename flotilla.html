@@ -89,7 +89,7 @@
                 <p class="text-gray-400 font-medium">Gestión de mantenimiento y documentación vehicular</p>
             </div>
 
-            <button onclick="abrirModal()"
+            <button onclick="abrirModal()" data-permiso-editar="flotilla"
                 class="btn-primary flex items-center gap-3 px-6 py-3 rounded-xl font-bold text-sm shadow-xl shadow-gray-200">
                 <span class="material-symbols-outlined text-xl">directions_car</span> Nuevo Vehículo
             </button>
@@ -192,7 +192,7 @@
                         class="hidden px-6 py-4 text-red-500 font-bold text-xs hover:bg-red-50 rounded-xl transition-colors">
                         ELIMINAR
                     </button>
-                    <button type="submit"
+                    <button type="submit" data-permiso-editar="flotilla"
                         class="flex-1 btn-primary py-4 rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-gray-200">
                         GUARDAR DATOS
                     </button>
@@ -235,6 +235,7 @@
     <!-- SCRIPTS -->
     <script src="api.js"></script>
     <script src="auth.js"></script>
+    <script src="permisos.js"></script>
     <script src="menu.js"></script>
     <script src="flotilla.js"></script>
     <script>

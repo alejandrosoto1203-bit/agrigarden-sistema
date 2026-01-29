@@ -259,6 +259,17 @@ function renderUsuarios(list) {
         return;
     }
 
+    const roleNames = {
+        'admin': 'Administrador',
+        'ventas_norte': 'Ventas Norte',
+        'ventas_sur': 'Ventas Sur',
+        'jefe_taller': 'Jefe Taller',
+        'mecanico': 'Mecánico',
+        'vendedor_ruta': 'Vendedor Ruta',
+        'repartidor': 'Repartidor',
+        'viewer': 'Solo Lectura'
+    };
+
     grid.innerHTML = list.map(u => `
         <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow group">
             <div>
@@ -266,10 +277,10 @@ function renderUsuarios(list) {
                     <div class="size-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-lg">
                         ${u.nombre.charAt(0)}
                     </div>
-                    ${u.rol === 'admin'
-            ? '<span class="px-2 py-1 btn btn-xs rounded-md bg-black text-white text-[10px] font-bold uppercase">ADMIN</span>'
-            : '<span class="px-2 py-1 btn btn-xs rounded-md bg-gray-100 text-gray-500 text-[10px] font-bold uppercase">READER</span>'
-        }
+                    <div class="flex flex-col items-end gap-1">
+                        <span class="px-2 py-1 rounded-md bg-black text-white text-[9px] font-bold uppercase">${roleNames[u.rol] || u.rol}</span>
+                        <span class="px-2 py-0.5 rounded-md bg-gray-100 text-gray-500 text-[8px] font-bold uppercase tracking-wider">${u.sucursal || 'Ambas'}</span>
+                    </div>
                 </div>
                 <h4 class="font-bold text-lg leading-tight mb-1">${u.nombre}</h4>
                 <p class="text-xs text-gray-400 font-mono mb-4">${u.email}</p>
@@ -282,7 +293,7 @@ function renderUsuarios(list) {
             </div>
 
             <button onclick='abrirModalUsuario(${JSON.stringify(u)})' class="mt-6 w-full py-2 rounded-lg border border-gray-200 text-xs font-bold hover:bg-black hover:text-white transition-colors">
-                EDITAR ACCESO
+                GESTIONAR PERMISOS
             </button>
         </div>
     `).join('');
@@ -296,8 +307,27 @@ window.guardarUsuario = async function (e) {
     const email = document.getElementById('userEmail').value;
     const password = document.getElementById('userPass').value;
     const rol = document.getElementById('userRol').value;
+    const sucursal = document.getElementById('userSucursal').value;
 
-    const payload = { nombre, email, password, rol };
+    // Recolectar permisos de la matriz
+    const permisos = {};
+    document.querySelectorAll('.chk-permiso-ver').forEach(chk => {
+        const mod = chk.dataset.mod;
+        if (!permisos[mod]) permisos[mod] = { ver: false, editar: false };
+        permisos[mod].ver = chk.checked;
+    });
+    document.querySelectorAll('.chk-permiso-editar').forEach(chk => {
+        const mod = chk.dataset.mod;
+        if (!permisos[mod]) permisos[mod] = { ver: false, editar: false };
+        permisos[mod].editar = chk.checked;
+    });
+
+    const payload = { nombre, email, password, rol, sucursal, permisos };
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.innerText;
+    btn.innerText = "Guardando...";
+    btn.disabled = true;
 
     try {
         let error;
@@ -311,13 +341,24 @@ window.guardarUsuario = async function (e) {
 
         if (error) throw error;
 
+        // Si es el usuario actual, actualizar sessionStorage
+        if (id == sessionStorage.getItem('userId')) {
+            sessionStorage.setItem('userPermisos', JSON.stringify(permisos));
+            sessionStorage.setItem('userSucursal', sucursal);
+            sessionStorage.setItem('userRole', rol);
+            sessionStorage.setItem('userName', nombre);
+        }
+
         cerrarModalUsuario();
         cargarUsuariosUI();
-        alert("Usuario guardado.");
+        alert("Usuario guardado correctamente.");
 
     } catch (err) {
         console.error(err);
         alert("Error: " + err.message);
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
     }
 }
 

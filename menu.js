@@ -111,7 +111,12 @@ function inyectarMenu(paginaActiva) {
             </div>
             
             <nav class="flex-1 p-4 lg:p-6 overflow-y-auto">
-                ${items.map(renderItem).join('')}
+                ${items.filter(item => {
+        // El admin ve todo por defecto
+        if (sessionStorage.getItem('userRole') === 'admin') return true;
+        // Los demás dependen de sus permisos configurados
+        return typeof Permisos !== 'undefined' ? Permisos.puedeVer(item.id) : true;
+    }).map(renderItem).join('')}
             </nav>
 
             <div class="p-4 lg:p-6 border-t border-gray-100">

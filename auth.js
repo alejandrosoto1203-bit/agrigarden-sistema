@@ -48,6 +48,10 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
             sessionStorage.setItem('userRole', data.rol || 'viewer');
             sessionStorage.setItem('userName', data.nombre);
             sessionStorage.setItem('userId', data.id);
+            // PERSISTIR PERMISOS Y SUCURSAL
+            sessionStorage.setItem('userPermisos', JSON.stringify(data.permisos || {}));
+            sessionStorage.setItem('userSucursal', data.sucursal || 'Ambas');
+
             window.location.href = "dashboard.html";
         } else {
             // Check hardcoded fallback if DB check fails/returns empty but credentials match legacy

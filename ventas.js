@@ -69,6 +69,15 @@ async function cargarEstadoCajas() {
 // SELECCIÓN Y APERTURA DE CAJA
 // =====================================================
 async function seleccionarCaja(sucursal) {
+    // RESTRICCIÓN POR SUCURSAL
+    const userRole = sessionStorage.getItem('userRole');
+    const userSuc = sessionStorage.getItem('userSucursal') || 'Ambas';
+
+    if (userRole !== 'admin' && userSuc !== 'Ambas' && userSuc !== sucursal) {
+        alert(`Tu usuario está restringido a la sucursal ${userSuc}. No puedes operar en ${sucursal}.`);
+        return;
+    }
+
     const hoy = new Date().toISOString().split('T')[0];
 
     try {

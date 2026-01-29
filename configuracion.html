@@ -54,7 +54,7 @@
         .input-config:focus {
             outline: none;
             border-color: black;
-            ring: 1px solid black;
+            box-shadow: 0 0 0 1px black;
         }
     </style>
 </head>
@@ -230,50 +230,85 @@
     <!-- MODAL USUARIO -->
     <div id="modalUsuario"
         class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden z-[100] flex items-center justify-center opacity-0 transition-opacity duration-300">
-        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl transform scale-95 transition-all duration-300 p-4 lg:p-8">
+        <div
+            class="bg-white w-full max-w-lg rounded-2xl shadow-2xl transform scale-95 transition-all duration-300 p-4 lg:p-6 overflow-y-auto max-h-[90vh]">
             <h3 class="text-2xl font-bold mb-1">Usuario</h3>
-            <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-6">Credenciales de Acceso</p>
+            <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-6">Credenciales y Permisos</p>
 
             <form onsubmit="guardarUsuario(event)" class="space-y-4">
                 <input type="hidden" id="userId">
-                <div>
-                    <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Nombre</label>
-                    <input type="text" id="userNombre" required class="input-config" placeholder="Nombre completo">
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase block mb-1">Nombre</label>
+                        <input type="text" id="userNombre" required class="input-config" placeholder="Nombre completo">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase block mb-1">Email (Usuario)</label>
+                        <input type="email" id="userEmail" required class="input-config"
+                            placeholder="correo@agrigarden.com">
+                    </div>
                 </div>
-                <div>
-                    <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Email (Usuario)</label>
-                    <input type="email" id="userEmail" required class="input-config"
-                        placeholder="correo@agrigarden.com">
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase block mb-1">Rol / Tipo de
+                            Usuario</label>
+                        <select id="userRol" class="input-config bg-white">
+                            <option value="admin">Administrador</option>
+                            <option value="ventas_norte">Ventas mostrador Norte</option>
+                            <option value="ventas_sur">Ventas mostrador Sur</option>
+                            <option value="jefe_taller">Jefe de Taller</option>
+                            <option value="mecanico">Mecánico</option>
+                            <option value="vendedor_ruta">Vendedor en ruta</option>
+                            <option value="repartidor">Repartidor</option>
+                            <option value="viewer">Solo Lectura</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase block mb-1">Sucursal
+                            Asignada</label>
+                        <select id="userSucursal" class="input-config bg-white">
+                            <option value="Ambas">Todas las Sucursales</option>
+                            <option value="Norte">Sucursal Norte</option>
+                            <option value="Sur">Sucursal Sur</option>
+                        </select>
+                    </div>
                 </div>
+
                 <div>
-                    <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Contraseña</label>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase block mb-1">Contraseña</label>
                     <input type="text" id="userPass" required class="input-config" placeholder="******">
                 </div>
-                <div>
-                    <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Rol</label>
-                    <select id="userRol" class="input-config bg-white">
-                        <option value="admin">Administrador (Acceso Total)</option>
-                        <option value="viewer">Visualizador (Solo Lectura)</option>
-                    </select>
+
+                <!-- MATRIZ DE PERMISOS -->
+                <div class="pt-4 border-t border-gray-100">
+                    <p class="text-[10px] font-black text-gray-400 uppercase mb-4 tracking-tighter">Matriz de Permisos
+                        por Módulo</p>
+                    <div id="matrizPermisos" class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <!-- JS Injection -->
+                    </div>
                 </div>
 
                 <div class="flex gap-3 mt-8 pt-4 border-t border-gray-100">
                     <button type="button" onclick="cerrarModalUsuario()"
                         class="flex-1 py-3 text-gray-400 font-bold text-xs hover:text-black">CANCELAR</button>
                     <button type="submit"
-                        class="flex-1 bg-black text-white py-3 rounded-xl font-bold text-xs hover:bg-gray-800">GUARDAR</button>
+                        class="flex-1 bg-black text-white py-3 rounded-xl font-bold text-xs hover:bg-gray-800">GUARDAR
+                        USUARIO</button>
                 </div>
             </form>
             <div class="mt-4 pt-4 border-t border-gray-100 hidden" id="divEliminarUser">
                 <button onclick="eliminarUsuario()"
                     class="w-full text-red-500 font-bold text-xs hover:bg-red-50 py-2 rounded-lg transition-colors">ELIMINAR
-                    USUARIO</button>
+                    PERMANENTEMENTE</button>
             </div>
         </div>
     </div>
 
     <script src="api.js"></script>
     <script src="auth.js"></script>
+    <script src="permisos.js"></script>
     <script src="menu.js"></script>
     <script src="configuracion.js"></script>
     <script>
@@ -310,10 +345,16 @@
                 document.getElementById('userEmail').value = u.email;
                 document.getElementById('userPass').value = u.password;
                 document.getElementById('userRol').value = u.rol || 'admin';
+                document.getElementById('userSucursal').value = u.sucursal || 'Ambas';
+
+                // Rellenar matriz de permisos
+                cargarMatrizPermisos(u.permisos || {});
+
                 divDel.classList.remove('hidden');
             } else {
                 document.getElementById('userId').value = '';
                 document.querySelector('form').reset();
+                cargarMatrizPermisos({}); // Limpio
                 divDel.classList.add('hidden');
             }
         }
@@ -321,6 +362,46 @@
             modal.classList.add('opacity-0');
             modal.firstElementChild.classList.add('scale-95');
             setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        // Matriz de Permisos UI Helper
+        function cargarMatrizPermisos(permisosExistentes) {
+            const modulos = [
+                { id: 'dashboard', n: 'Dashboard' },
+                { id: 'ventas', n: 'Punto de Venta' },
+                { id: 'ingresos', n: 'Ingresos / Cxc' },
+                { id: 'gastos', n: 'Gastos / Compras / Cxp' },
+                { id: 'rrhh', n: 'Recursos Humanos' },
+                { id: 'inventario', n: 'Inventario / Productos' },
+                { id: 'inversiones', n: 'Inversiones / Préstamos' },
+                { id: 'flotilla', n: 'Control de Flotillas' },
+                { id: 'efectivo', n: 'Control de Efectivo' },
+                { id: 'reportes', n: 'Reportes' },
+                { id: 'configuracion', n: 'Configuración' }
+            ];
+
+            const container = document.getElementById('matrizPermisos');
+            container.innerHTML = `
+                <div class="grid grid-cols-12 gap-2 mb-2 text-[10px] font-bold text-gray-400 uppercase">
+                    <div class="col-span-6">Módulo</div>
+                    <div class="col-span-3 text-center">Ver</div>
+                    <div class="col-span-3 text-center">Edi.</div>
+                </div>
+                ${modulos.map(m => {
+                const p = permisosExistentes[m.id] || { ver: false, editar: false };
+                return `
+                    <div class="grid grid-cols-12 gap-2 items-center py-2 border-b border-gray-50 last:border-0">
+                        <div class="col-span-6 text-xs font-bold text-gray-700">${m.n}</div>
+                        <div class="col-span-3 text-center">
+                            <input type="checkbox" class="chk-permiso-ver" data-mod="${m.id}" ${p.ver ? 'checked' : ''}>
+                        </div>
+                        <div class="col-span-3 text-center">
+                            <input type="checkbox" class="chk-permiso-editar" data-mod="${m.id}" ${p.editar ? 'checked' : ''}>
+                        </div>
+                    </div>
+                    `;
+            }).join('')}
+            `;
         }
     </script>
 </body>

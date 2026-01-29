@@ -184,9 +184,9 @@
                     class="w-full lg:w-auto bg-white border border-slate-200 px-8 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 text-base text-slate-600 hover:bg-slate-50 transition-all">
                     <span class="material-symbols-outlined text-xl">download</span> Export Data
                 </button>
-                <button onclick="abrirModalNuevoEmpleado()"
-                    class="w-full lg:w-auto bg-primary text-black px-10 py-3.5 rounded-2xl font-black flex items-center justify-center gap-2 text-base shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
-                    <span class="material-symbols-outlined text-xl">person_add</span> Add New Employee
+                <button onclick="nuevoEmpleado()" data-permiso-editar="rrhh"
+                    class="w-full lg:w-auto bg-[#111814] text-white px-8 py-3.5 rounded-2xl font-black flex items-center justify-center gap-3 text-sm shadow-xl hover:bg-black transition-all">
+                    <span class="material-symbols-outlined">person_add</span> Registrar Nuevo Ingreso
                 </button>
             </div>
         </header>
@@ -444,9 +444,10 @@
         </div>
     </div>
 
-    <script src="api.js?v=3"></script>
-    <script src="menu.js?v=3"></script>
-    <script src="export_helper.js"></script>
+    <script src="api.js"></script>
+    <script src="auth.js"></script>
+    <script src="permisos.js"></script>
+    <script src="menu.js"></script>
     <script src="rrhh_empleados.js?v=3"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
