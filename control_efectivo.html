@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Control de Efectivo - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "var(--theme-color)", background: "#f8faf9", sidebar: "#ffffff" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8faf9;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .card {
+            background: white;
+            border-radius: 1.25rem;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#111814] flex">
+
+    <div id="sidebar-container"></div>
+
+    <main class="flex-1 ml-64 p-10 space-y-8 min-w-0">
+
+        <header class="flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Control de Efectivo</h1>
+                <p class="text-gray-400 font-medium">Monitoreo de flujo de caja por sucursal</p>
+            </div>
+            <div>
+                <button onclick="window.location.reload()"
+                    class="p-3 bg-white px-6 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all text-gray-500 font-bold text-xs uppercase flex items-center gap-2 shadow-sm">
+                    <span class="material-symbols-outlined text-lg">refresh</span> Actualizar
+                </button>
+            </div>
+        </header>
+
+        <!-- DEBUG PANEL -->
+        <div id="debugContent"
+            class="bg-slate-900 p-4 rounded-xl font-mono text-[10px] text-gray-400 max-h-32 overflow-y-auto mb-4 hidden md:block">
+            <div>Esperando inicio del script...</div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            <!-- COLUMNA NORTE -->
+            <div class="space-y-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-4 h-4 rounded-full bg-purple-500 shadow-lg shadow-purple-200"></div>
+                    <h2 class="text-xl font-black uppercase italic tracking-wider text-purple-900">Sucursal Norte</h2>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="card p-6 bg-purple-50 border-purple-100">
+                        <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1">Saldo Inicial
+                        </p>
+                        <p id="kpiSaldo_Norte" class="text-2xl font-black text-purple-700">$0.00</p>
+                    </div>
+                    <div class="card p-6 border-emerald-100">
+                        <p class="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Entradas
+                            (Ventas)</p>
+                        <p id="kpiEntradas_Norte" class="text-2xl font-black text-emerald-600">$0.00</p>
+                    </div>
+                    <div class="card p-6 border-red-100">
+                        <p class="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">Salidas (Gastos)
+                        </p>
+                        <p id="kpiSalidas_Norte" class="text-2xl font-black text-red-600">$0.00</p>
+                    </div>
+                    <div class="card p-6 bg-gray-900 text-white border-none shadow-xl shadow-gray-200">
+                        <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Disponible Real
+                        </p>
+                        <p id="kpiDisponible_Norte" class="text-3xl font-black text-white">$0.00</p>
+                    </div>
+                </div>
+
+                <div class="card overflow-hidden h-[600px] flex flex-col">
+                    <div class="bg-gray-50 border-b border-gray-100 p-4">
+                        <h3 class="text-xs font-black uppercase text-gray-500 tracking-widest">Movimientos Recientes
+                        </h3>
+                    </div>
+                    <div class="overflow-y-auto flex-1">
+                        <table class="w-full text-left">
+                            <tbody id="tablaMovimientos_Norte" class="divide-y divide-gray-50 text-xs">
+                                <!-- JS inserts rows here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMNA SUR -->
+            <div class="space-y-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-4 h-4 rounded-full bg-blue-500 shadow-lg shadow-blue-200"></div>
+                    <h2 class="text-xl font-black uppercase italic tracking-wider text-blue-900">Sucursal Sur</h2>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="card p-6 bg-blue-50 border-blue-100">
+                        <p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Saldo Inicial</p>
+                        <p id="kpiSaldo_Sur" class="text-2xl font-black text-blue-700">$0.00</p>
+                    </div>
+                    <div class="card p-6 border-emerald-100">
+                        <p class="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Entradas
+                            (Ventas)</p>
+                        <p id="kpiEntradas_Sur" class="text-2xl font-black text-emerald-600">$0.00</p>
+                    </div>
+                    <div class="card p-6 border-red-100">
+                        <p class="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">Salidas (Gastos)
+                        </p>
+                        <p id="kpiSalidas_Sur" class="text-2xl font-black text-red-600">$0.00</p>
+                    </div>
+                    <div class="card p-6 bg-gray-900 text-white border-none shadow-xl shadow-gray-200">
+                        <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Disponible Real
+                        </p>
+                        <p id="kpiDisponible_Sur" class="text-3xl font-black text-white">$0.00</p>
+                    </div>
+                </div>
+
+                <div class="card overflow-hidden h-[600px] flex flex-col">
+                    <div class="bg-gray-50 border-b border-gray-100 p-4">
+                        <h3 class="text-xs font-black uppercase text-gray-500 tracking-widest">Movimientos Recientes
+                        </h3>
+                    </div>
+                    <div class="overflow-y-auto flex-1">
+                        <table class="w-full text-left">
+                            <tbody id="tablaMovimientos_Sur" class="divide-y divide-gray-50 text-xs">
+                                <!-- JS inserts rows here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <footer class="text-center py-10 text-gray-400 text-[10px] font-bold uppercase tracking-widest">
+            © 2026 Agrigarden Financial Systems
+        </footer>
+
+    </main>
+
+    <script src="api.js"></script>
+    <script src="auth.js"></script>
+    <script src="menu.js"></script>
+    <script src="control_efectivo.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            inyectarMenu('cortecaja'); // Assuming 'cortecaja' is the menu ID for this page
+            if (typeof cargarControlEfectivo === 'function') cargarControlEfectivo();
+        });
+    </script>
+</body>
+
+</html>
