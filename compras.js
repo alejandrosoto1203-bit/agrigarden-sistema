@@ -508,6 +508,14 @@ function renderizarTablaTaller(datos) {
         const fechaLim = new Date(s.fecha_limite_cotizacion);
         const diasRestantes = Math.ceil((fechaLim - hoy) / (1000 * 60 * 60 * 24));
 
+        // Tracking Fechas
+        const fCot = s.fecha_cotizacion
+            ? `<div class="text-[9px] font-bold text-blue-500 mt-1">COT: ${new Date(s.fecha_cotizacion).toLocaleDateString()}</div>`
+            : '';
+        const fAce = s.fecha_aceptacion
+            ? `<div class="text-[9px] font-bold text-green-500 mt-1">ACE: ${new Date(s.fecha_aceptacion).toLocaleDateString()}</div>`
+            : '';
+
         let badgeTiempo = '';
         if (s.estatus === 'Pendiente') {
             if (diasRestantes < 0) badgeTiempo = `<span class="bg-red-500 text-white px-2 py-0.5 rounded text-[9px] font-black">VENCIDO (${diasRestantes}d)</span>`;
@@ -520,8 +528,10 @@ function renderizarTablaTaller(datos) {
         return `
             <tr class="hover:bg-gray-50 transition-colors border-b border-gray-50">
                 <td class="px-6 py-4">
-                    <div class="text-xs font-bold text-gray-700">${fechaSol}</div>
-                    <div class="mt-1">${badgeTiempo}</div>
+                    <div class="text-xs font-bold text-gray-700">SOL: ${fechaSol}</div>
+                    ${fCot}
+                    ${fAce}
+                    <div class="mt-2">${badgeTiempo}</div>
                 </td>
                 <td class="px-6 py-4">
                     <div class="font-black text-xs uppercase">${s.nombre_pieza}</div>
