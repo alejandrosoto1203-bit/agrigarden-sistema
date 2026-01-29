@@ -478,8 +478,8 @@ async function cargarSolicitudesTaller() {
         solicitudesTallerCache = await res.json();
         renderizarTablaTaller(solicitudesTallerCache);
     } catch (e) {
-        console.error(e);
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-red-400 font-bold">Error al cargar datos.</td></tr>';
+        console.error("Error loading requests:", e);
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-red-500 font-bold">Error: ${e.message}</td></tr>`;
     }
 }
 
