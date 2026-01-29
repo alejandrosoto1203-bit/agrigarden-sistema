@@ -1,7 +1,10 @@
-const SUPABASE_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
-window.SUPABASE_URL = SUPABASE_URL;
-window.SUPABASE_KEY = SUPABASE_KEY;
+// api.js - Cliente Global de Supabase
+// Prioridad: 1. Configuración Dinámica (config.js) 2. Fallback Producción
+const SUPABASE_URL = window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+const SUPABASE_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+
+console.log(`🔌 api.js inicializando con URL: ${SUPABASE_URL}`);
+
 
 // Inicializar cliente si la librería está cargada
 let supabase;
