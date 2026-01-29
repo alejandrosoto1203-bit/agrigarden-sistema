@@ -125,31 +125,19 @@ if (CURRENT_ENV.IS_TEST) {
 // AUTOMATIC PWA ICON SWITCHER (PROD vs TEST)
 // =====================================================
 function updatePWAIcons() {
-    // 1. Determine which Manifest and Icons to use
-    const manifestFile = CURRENT_ENV.IS_TEST ? 'manifest-test.json' : 'manifest.json';
-    const icon192 = CURRENT_ENV.IS_TEST ? 'icon-test-192.png' : 'icon-prod-192.png';
-    const icon512 = CURRENT_ENV.IS_TEST ? 'icon-test-512.png' : 'icon-prod-512.png'; // If used in HTML
+    const isTest = CURRENT_ENV.IS_TEST;
+    const manifestFile = isTest ? 'manifest-test.json' : 'manifest.json';
+    const iconFile = isTest ? 'icon-test-192.png' : 'icon-prod-192.png';
 
-    // 2. Update Manifest Link
-    let manifestLink = document.querySelector('link[rel="manifest"]');
-    if (!manifestLink) {
-        manifestLink = document.createElement('link');
-        manifestLink.rel = 'manifest';
-        document.head.appendChild(manifestLink);
-    }
-    manifestLink.href = manifestFile;
+    // Update existing elements by ID
+    const manifestLink = document.getElementById('pwa-manifest');
+    const appleIcon = document.getElementById('apple-icon');
 
-    // 3. Update Apple Touch Icon
-    let appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
-    if (!appleIcon) {
-        appleIcon = document.createElement('link');
-        appleIcon.rel = 'apple-touch-icon';
-        document.head.appendChild(appleIcon);
-    }
-    appleIcon.href = icon192; // Use 192px as base for Apple
+    if (manifestLink) manifestLink.href = manifestFile;
+    if (appleIcon) appleIcon.href = iconFile;
 
-    console.log(`📱 PWA Configurado: ${manifestFile}`);
+    console.log(`📱 PWA Configurado: ${manifestFile} (${isTest ? 'TEST' : 'PROD'})`);
 }
 
-// Executar configuración PWA
+// Ejecutar configuración PWA
 updatePWAIcons();
