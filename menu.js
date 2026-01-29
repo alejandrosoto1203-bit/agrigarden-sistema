@@ -5,6 +5,16 @@ function inyectarMenu(paginaActiva) {
 
     const items = [
         { id: 'dashboard', nombre: 'Dashboard', icon: 'dashboard', link: 'dashboard.html' },
+        {
+            id: 'ventas',
+            nombre: 'Punto de Venta',
+            icon: 'point_of_sale',
+            link: '#',
+            subItems: [
+                { id: 'pos_terminal', nombre: 'Terminal POS', link: 'ventas.html' },
+                { id: 'pos_cortes', nombre: 'Historial de Cortes', link: 'cortes_caja.html' }
+            ]
+        },
         { id: 'ingresos', nombre: 'Ingresos', icon: 'payments', link: 'ingresos.html' },
         { id: 'cobrar', nombre: 'Por Cobrar', icon: 'account_balance_wallet', link: 'cuentas_por_cobrar.html' },
         { id: 'gastos', nombre: 'Gastos', icon: 'shopping_cart', link: 'gastos.html' },
@@ -14,12 +24,53 @@ function inyectarMenu(paginaActiva) {
         { id: 'prestamos', nombre: 'Préstamos', icon: 'real_estate_agent', link: 'prestamos.html' },
         { id: 'rrhh', nombre: 'Recursos Humanos', icon: 'groups', link: 'rrhh_empleados.html' },
         { id: 'inventario', nombre: 'Inventario', icon: 'inventory_2', link: 'inventario.html' },
+        { id: 'productos', nombre: 'Productos', icon: 'category', link: 'productos.html' },
         { id: 'flotilla', nombre: 'Control de Flotillas', icon: 'directions_car', link: 'flotilla.html' },
         { id: 'efectivo', nombre: 'Control de Efectivo', icon: 'local_atm', link: 'control_efectivo.html' },
         { id: 'estado_resultados', nombre: 'Estado de Resultados', icon: 'trending_up', link: 'estado_resultados.html' },
         { id: 'reportes', nombre: 'Reportes', icon: 'bar_chart', link: 'reportes.html' },
         { id: 'configuracion', nombre: 'Configuración', icon: 'settings', link: 'configuracion.html' }
     ];
+
+    const renderItem = (item) => {
+        // Verificar si el item actual o alguno de sus subitems está activo
+        const isActive = item.id === paginaActiva || (item.subItems && item.subItems.some(sub => sub.id === paginaActiva));
+        /* 
+           Si es 'ventas' (el grupo), paginaActiva podría ser 'pos_terminal' o 'pos_cortes'. 
+           En esos casos, queremos que el grupo se muestre "activo" y desplegado.
+        */
+
+        if (item.subItems) {
+            // Es un item con submenú (Acordeón)
+            const isOpen = isActive; // Si está activo, inicia abierto
+
+            return `
+                <div class="mb-1">
+                    <button onclick="toggleSubmenu('${item.id}')" 
+                        class="w-full flex items-center justify-between p-3 text-sm font-bold transition-all rounded-xl ${isActive ? 'bg-gray-50 text-gray-800' : 'text-gray-500 hover:bg-gray-50'}">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined">${item.icon}</span> ${item.nombre}
+                        </div>
+                        <span class="material-symbols-outlined text-xs transition-transform duration-200" id="arrow-${item.id}" style="${isOpen ? 'transform: rotate(180deg);' : ''}">expand_more</span>
+                    </button>
+                    <div id="submenu-${item.id}" class="${isOpen ? '' : 'hidden'} pl-11 space-y-1 mt-1 font-medium text-xs">
+                        ${item.subItems.map(sub => `
+                            <a href="${sub.link}" class="block py-2 px-3 rounded-lg border-l-2 ${paginaActiva === sub.id ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-200'}">
+                                ${sub.nombre}
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            // Item normal
+            return `
+                <a href="${item.link}" class="${paginaActiva === item.id ? 'bg-[#19e66b15] text-[#19e66b] font-black border border-[#19e66b30]' : 'text-gray-500 hover:bg-gray-50'} flex items-center gap-3 p-3 text-sm font-bold transition-all rounded-xl mb-1">
+                    <span class="material-symbols-outlined">${item.icon}</span> ${item.nombre}
+                </a>
+            `;
+        }
+    };
 
     let html = `
         <aside class="w-64 bg-white border-r border-gray-200 flex flex-col fixed h-full z-50">
@@ -30,12 +81,8 @@ function inyectarMenu(paginaActiva) {
                 <span class="text-xl font-extrabold tracking-tight">Agrigarden</span>
             </div>
             
-            <nav class="flex-1 p-6 space-y-2 overflow-y-auto">
-                ${items.map(item => `
-                    <a href="${item.link}" class="${paginaActiva === item.id ? 'bg-[#19e66b15] text-[#19e66b] font-black border border-[#19e66b30]' : 'text-gray-500 hover:bg-gray-50'} flex items-center gap-3 p-3 text-sm font-bold transition-all rounded-xl">
-                        <span class="material-symbols-outlined">${item.icon}</span> ${item.nombre}
-                    </a>
-                `).join('')}
+            <nav class="flex-1 p-6 overflow-y-auto">
+                ${items.map(renderItem).join('')}
             </nav>
 
             <div class="p-6 border-t border-gray-100">
@@ -48,6 +95,19 @@ function inyectarMenu(paginaActiva) {
 
     sidebar.innerHTML = html;
 }
+
+// Función global para abrir/cerrar submenús
+window.toggleSubmenu = function (id) {
+    const submenu = document.getElementById(`submenu-${id}`);
+    const arrow = document.getElementById(`arrow-${id}`);
+
+    if (submenu) {
+        submenu.classList.toggle('hidden');
+        if (arrow) {
+            arrow.style.transform = submenu.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+    }
+};
 
 /**
  * Nueva Función: Inyecta una barra de pestañas horizontal para navegación interna de RRHH
