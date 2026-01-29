@@ -203,6 +203,7 @@ function cambiarPestañaCompras(tab) {
     if (tab === 'taller') {
         cargarSolicitudesTaller();
     } else {
+        actualizarKPIs(comprasCache, 'compras');
         filtrarCompras();
     }
 }
@@ -266,11 +267,63 @@ function getColorEstado(e) {
     return 'bg-gray-100 text-gray-700';
 }
 
-function actualizarKPIs(d) {
-    if (document.getElementById('kpiPendientes')) document.getElementById('kpiPendientes').innerText = d.filter(x => x.estado === 'Pendiente').length;
-    if (document.getElementById('kpiCamino')) document.getElementById('kpiCamino').innerText = d.filter(x => x.estado === 'Ordenado').length;
-    if (document.getElementById('kpiParcial')) document.getElementById('kpiParcial').innerText = d.filter(x => x.estado === 'Parcial').length;
-    if (document.getElementById('kpiRetrasos')) document.getElementById('kpiRetrasos').innerText = d.filter(x => x.estado === 'Retrasado').length;
+function actualizarKPIs(d, origen = 'compras') {
+    if (origen === 'taller') {
+        // --- MODO TALLER ---
+        const hoy = new Date();
+        const total = d.length;
+        const pendientes = d.filter(x => x.estatus === 'Pendiente').length;
+        const cotizados = d.filter(x => x.estatus === 'Cotizado').length;
+        const aceptados = d.filter(x => x.estatus === 'Aceptado').length;
+
+        const vencidas = d.filter(x => {
+            if (x.estatus !== 'Pendiente') return false;
+            const lim = new Date(x.fecha_limite_cotizacion);
+            const dias = Math.ceil((lim - hoy) / (1000 * 60 * 60 * 24));
+            return dias < 0;
+        }).length;
+
+        // KPI 1: Total
+        document.getElementById('lblKpi1').innerText = "Total Solicitudes";
+        document.getElementById('kpiPendientes').innerText = total;
+        document.getElementById('subKpi1').innerText = "Histórico";
+
+        // KPI 2: Pendientes (Activas)
+        document.getElementById('lblKpi2').innerText = "Pendientes por Cotizar";
+        document.getElementById('kpiCamino').innerText = pendientes;
+        document.getElementById('subKpi2').innerText = "Requieren acción";
+
+        // KPI 3: Cotizadas / Aceptadas
+        document.getElementById('lblKpi3').innerText = "Cotizadas / Aceptadas";
+        document.getElementById('kpiParcial').innerText = `${cotizados} / ${aceptados}`;
+        document.getElementById('subKpi3').innerText = `${cotizados} Cotiz. - ${aceptados} Acept.`;
+
+        // KPI 4: Vencidas
+        document.getElementById('lblKpi4').innerText = "Solicitudes Vencidas";
+        document.getElementById('kpiRetrasos').innerText = vencidas;
+        document.getElementById('subKpi4').innerText = vencidas > 0 ? "¡URGENTE!" : "Al día";
+
+    } else {
+        // --- MODO COMPRAS (DEFAULT) ---
+        // Restaurar Textos
+        document.getElementById('lblKpi1').innerText = "Pedidos Pendientes";
+        document.getElementById('lblKpi2').innerText = "Órdenes en Camino";
+        document.getElementById('lblKpi3').innerText = "Recibidas Parcialmente";
+        document.getElementById('lblKpi4').innerText = "Retrasos Críticos";
+
+        document.getElementById('subKpi1').innerText = "--";
+        document.getElementById('subKpi2').innerText = "--";
+        document.getElementById('subKpi3').innerText = "--";
+        document.getElementById('subKpi4').innerText = "Acción inmediata";
+
+        // Calcular valores
+        if (d) {
+            if (document.getElementById('kpiPendientes')) document.getElementById('kpiPendientes').innerText = d.filter(x => x.estado === 'Pendiente').length;
+            if (document.getElementById('kpiCamino')) document.getElementById('kpiCamino').innerText = d.filter(x => x.estado === 'Ordenado').length;
+            if (document.getElementById('kpiParcial')) document.getElementById('kpiParcial').innerText = d.filter(x => x.estado === 'Parcial').length;
+            if (document.getElementById('kpiRetrasos')) document.getElementById('kpiRetrasos').innerText = d.filter(x => x.estado === 'Retrasado').length;
+        }
+    }
 }
 
 // 6. FUNCIONES DE MODAL Y EDICIÓN
@@ -487,6 +540,7 @@ async function cargarSolicitudesTaller() {
         });
         solicitudesTallerCache = await res.json();
         renderizarTablaTaller(solicitudesTallerCache);
+        actualizarKPIs(solicitudesTallerCache, 'taller');
     } catch (e) {
         console.error("Error loading requests:", e);
         tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-red-500 font-bold">Error: ${e.message}</td></tr>`;

@@ -79,37 +79,40 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div class="card p-6 flex items-center justify-between">
                 <div>
-                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Pedidos Pendientes</p>
+                    <p id="lblKpi1" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Pedidos
+                        Pendientes</p>
                     <span id="kpiPendientes" class="text-2xl font-black">0</span>
-                    <div class="text-[9px] font-bold text-green-500 mt-1">+5% desde ayer</div>
+                    <div id="subKpi1" class="text-[9px] font-bold text-green-500 mt-1">--</div>
                 </div>
                 <span class="material-symbols-outlined text-primary bg-primary/10 p-3 rounded-xl">assignment_late</span>
             </div>
             <div class="card p-6 flex items-center justify-between">
                 <div>
-                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Órdenes en Camino</p>
+                    <p id="lblKpi2" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Órdenes
+                        en Camino</p>
                     <span id="kpiCamino" class="text-2xl font-black">0</span>
-                    <div class="text-[9px] font-bold text-gray-400 mt-1">Estable vs semana pasada</div>
+                    <div id="subKpi2" class="text-[9px] font-bold text-gray-400 mt-1">--</div>
                 </div>
                 <span class="material-symbols-outlined text-blue-500 bg-blue-50 p-3 rounded-xl">local_shipping</span>
             </div>
             <div class="card p-6 flex items-center justify-between">
                 <div>
-                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Recibidas Parcialmente
+                    <p id="lblKpi3" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Recibidas
+                        Parcialmente
                     </p>
                     <span id="kpiParcial" class="text-2xl font-black">0</span>
-                    <div class="text-[9px] font-bold text-orange-500 mt-1">Requiere atención</div>
+                    <div id="subKpi3" class="text-[9px] font-bold text-orange-500 mt-1">--</div>
                 </div>
-                <span
-                    class="material-symbols-outlined text-orange-500 bg-orange-50 p-3 rounded-xl">pending_actions</span>
+                <span class="material-symbols-outlined text-orange-500 bg-orange-50 p-3 rounded-xl">inventory_2</span>
             </div>
             <div class="card p-6 flex items-center justify-between">
                 <div>
-                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Retrasos Críticos</p>
+                    <p id="lblKpi4" class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Retrasos
+                        Críticos</p>
                     <span id="kpiRetrasos" class="text-2xl font-black text-red-500">0</span>
-                    <div class="text-[9px] font-bold text-red-400 mt-1">Acción inmediata</div>
+                    <div id="subKpi4" class="text-[9px] font-bold text-red-400 mt-1">--</div>
                 </div>
-                <span class="material-symbols-outlined text-red-500 bg-red-50 p-3 rounded-xl">error</span>
+                <span class="material-symbols-outlined text-red-500 bg-red-50 p-3 rounded-xl">warning</span>
             </div>
         </div>
 
