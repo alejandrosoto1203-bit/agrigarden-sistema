@@ -120,3 +120,36 @@ if (CURRENT_ENV.IS_TEST) {
         document.addEventListener('DOMContentLoaded', applyTestVisuals);
     }
 }
+
+// =====================================================
+// AUTOMATIC PWA ICON SWITCHER (PROD vs TEST)
+// =====================================================
+function updatePWAIcons() {
+    // 1. Determine which Manifest and Icons to use
+    const manifestFile = CURRENT_ENV.IS_TEST ? 'manifest-test.json' : 'manifest.json';
+    const icon192 = CURRENT_ENV.IS_TEST ? 'icon-test-192.png' : 'icon-prod-192.png';
+    const icon512 = CURRENT_ENV.IS_TEST ? 'icon-test-512.png' : 'icon-prod-512.png'; // If used in HTML
+
+    // 2. Update Manifest Link
+    let manifestLink = document.querySelector('link[rel="manifest"]');
+    if (!manifestLink) {
+        manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        document.head.appendChild(manifestLink);
+    }
+    manifestLink.href = manifestFile;
+
+    // 3. Update Apple Touch Icon
+    let appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+    if (!appleIcon) {
+        appleIcon = document.createElement('link');
+        appleIcon.rel = 'apple-touch-icon';
+        document.head.appendChild(appleIcon);
+    }
+    appleIcon.href = icon192; // Use 192px as base for Apple
+
+    console.log(`📱 PWA Configurado: ${manifestFile}`);
+}
+
+// Executar configuración PWA
+updatePWAIcons();
