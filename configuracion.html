@@ -235,7 +235,7 @@
             <h3 class="text-2xl font-bold mb-1">Usuario</h3>
             <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-6">Credenciales y Permisos</p>
 
-            <form onsubmit="guardarUsuario(event)" class="space-y-4">
+            <form id="formUsuario" onsubmit="guardarUsuario(event)" class="space-y-4">
                 <input type="hidden" id="userId">
 
                 <div class="mb-4">
@@ -339,84 +339,6 @@
             // Init Default
             switchTab('comisiones');
         });
-
-        // Modal Logic
-        const modal = document.getElementById('modalUsuario');
-        function abrirModalUsuario(u = null) {
-            modal.classList.remove('hidden');
-            setTimeout(() => { modal.classList.remove('opacity-0'); modal.firstElementChild.classList.remove('scale-95'); }, 10);
-
-            const divDel = document.getElementById('divEliminarUser');
-            if (u) {
-                document.getElementById('userId').value = u.id;
-                document.getElementById('userNombre').value = u.nombre;
-                document.getElementById('userEmail').value = u.email;
-                document.getElementById('userPass').value = u.password;
-                document.getElementById('userRol').value = u.rol || 'admin';
-                document.getElementById('userSucursal').value = u.sucursal || 'Ambas';
-                document.getElementById('userEmpleado').value = u.empleado_id || '';
-
-                // Rellenar matriz de permisos
-                cargarMatrizPermisos(u.permisos || {});
-
-                divDel.classList.remove('hidden');
-            } else {
-                document.getElementById('userId').value = '';
-                document.querySelector('form').reset();
-                cargarMatrizPermisos({}); // Limpio
-                divDel.classList.add('hidden');
-            }
-        }
-        function cerrarModalUsuario() {
-            modal.classList.add('opacity-0');
-            modal.firstElementChild.classList.add('scale-95');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
-
-        // Matriz de Permisos UI Helper
-        function cargarMatrizPermisos(permisosExistentes) {
-            const modulos = [
-                { id: 'dashboard', n: 'Dashboard' },
-                { id: 'ventas', n: 'Punto de Venta' },
-                { id: 'ingresos', n: 'Ingresos (Caja)' },
-                { id: 'cobrar', n: 'Cuentas por Cobrar (CxC)' },
-                { id: 'gastos', n: 'Gastos de Operación' },
-                { id: 'compras', n: 'Compras de Inventario' },
-                { id: 'pagar', n: 'Cuentas por Pagar (CxP)' },
-                { id: 'rrhh', n: 'Recursos Humanos' },
-                { id: 'inventario', n: 'Inventario (Mensual)' },
-                { id: 'productos', n: 'Catálogo de Productos' },
-                { id: 'inversiones', n: 'Inversiones' },
-                { id: 'prestamos', n: 'Préstamos' },
-                { id: 'flotilla', n: 'Control de Flotillas' },
-                { id: 'efectivo', n: 'Control de Efectivo' },
-                { id: 'reportes', n: 'Reportes' },
-                { id: 'configuracion', n: 'Configuración' }
-            ];
-
-            const container = document.getElementById('matrizPermisos');
-            container.innerHTML = `
-                <div class="grid grid-cols-12 gap-2 mb-2 text-[10px] font-bold text-gray-400 uppercase">
-                    <div class="col-span-6">Módulo</div>
-                    <div class="col-span-3 text-center">Ver</div>
-                    <div class="col-span-3 text-center">Edi.</div>
-                </div>
-                ${modulos.map(m => {
-                const p = permisosExistentes[m.id] || { ver: false, editar: false };
-                return `
-                    <div class="grid grid-cols-12 gap-2 items-center py-2 border-b border-gray-50 last:border-0">
-                        <div class="col-span-6 text-xs font-bold text-gray-700">${m.n}</div>
-                        <div class="col-span-3 text-center">
-                            <input type="checkbox" class="chk-permiso-ver" data-mod="${m.id}" ${p.ver ? 'checked' : ''}>
-                        </div>
-                        <div class="col-span-3 text-center">
-                            <input type="checkbox" class="chk-permiso-editar" data-mod="${m.id}" ${p.editar ? 'checked' : ''}>
-                        </div>
-                    </div>
-                    `;
-            }).join('')}
-            `;
-        }
     </script>
 </body>
 
