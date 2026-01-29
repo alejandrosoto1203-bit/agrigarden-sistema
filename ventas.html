@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Punto de Venta - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: '#19e66b' }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        .pos-card {
+            @apply bg-white rounded-2xl border border-gray-100 shadow-sm;
+        }
+
+        .producto-card:hover {
+            transform: scale(1.02);
+        }
+
+        .carrito-item {
+            animation: slideIn 0.2s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .caja-btn {
+            transition: all 0.3s ease;
+        }
+
+        .caja-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<!-- ============================================= -->
+<!-- MAIN LAYOUT                                  -->
+<!-- ============================================= -->
+<div class="flex min-h-screen">
+    <!-- Sidebar Container -->
+    <div id="sidebar-container" class="shrink-0"></div>
+
+    <!-- Content Area -->
+    <main class="flex-1 min-w-0 bg-gray-50 h-screen overflow-hidden">
+        <!-- PANTALLA 1: SELECCIÓN DE CAJA -->
+        <div id="pantallaSeleccionCaja" class="h-full flex items-center justify-center p-8 overflow-y-auto">
+            <div class="max-w-2xl w-full">
+                <div class="text-center mb-12">
+                    <div class="size-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <span class="material-symbols-outlined text-4xl text-primary">point_of_sale</span>
+                    </div>
+                    <h1 class="text-3xl font-black text-gray-800">Punto de Venta</h1>
+                    <p class="text-gray-400 mt-2">Selecciona la caja para comenzar</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-6" id="contenedorCajas">
+                    <!-- Caja Norte -->
+                    <button onclick="seleccionarCaja('Norte')"
+                        class="caja-btn pos-card p-8 text-left hover:border-blue-300 group">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="size-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                                <span class="material-symbols-outlined text-blue-600">store</span>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-black text-gray-800">Caja Norte</h3>
+                                <p class="text-sm text-gray-400" id="estadoCajaNorte">Cargando...</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-gray-400">Fondo disponible</p>
+                            <p class="text-2xl font-black text-gray-800" id="fondoCajaNorte">-</p>
+                        </div>
+                    </button>
+
+                    <!-- Caja Sur -->
+                    <button onclick="seleccionarCaja('Sur')"
+                        class="caja-btn pos-card p-8 text-left hover:border-emerald-300 group">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="size-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                                <span class="material-symbols-outlined text-emerald-600">store</span>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-black text-gray-800">Caja Sur</h3>
+                                <p class="text-sm text-gray-400" id="estadoCajaSur">Cargando...</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-gray-400">Fondo disponible</p>
+                            <p class="text-2xl font-black text-gray-800" id="fondoCajaSur">-</p>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Botón Volver eliminado ya que ahora tenemos Sidebar -->
+            </div>
+        </div>
+
+        <!-- PANTALLA 2: PUNTO DE VENTA -->
+        <div id="pantallaPOS" class="hidden h-full flex flex-col">
+            <!-- Header POS -->
+            <header
+                class="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+                <div class="flex items-center gap-4">
+                    <button onclick="volverSeleccionCaja()" class="p-2 hover:bg-gray-100 rounded-xl transition-all">
+                        <span class="material-symbols-outlined">arrow_back</span>
+                    </button>
+                    <div>
+                        <h1 class="text-xl font-black text-gray-800">Punto de Venta</h1>
+                        <p class="text-sm text-gray-400">
+                            Caja <span id="cajaNombreHeader" class="font-bold text-primary"></span>
+                            • <span id="fechaHeader"></span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="abrirModalMovimientoCaja('ENTRADA')"
+                        class="px-4 py-2 bg-green-50 text-green-600 rounded-xl font-bold text-sm hover:bg-green-100">
+                        <span class="material-symbols-outlined text-sm align-middle">add_circle</span> Entrada
+                    </button>
+                    <button onclick="abrirModalMovimientoCaja('SALIDA')"
+                        class="px-4 py-2 bg-orange-50 text-orange-600 rounded-xl font-bold text-sm hover:bg-orange-100">
+                        <span class="material-symbols-outlined text-sm align-middle">remove_circle</span> Salida
+                    </button>
+                    <button onclick="abrirModalCorteCaja()"
+                        class="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100">
+                        <span class="material-symbols-outlined text-sm align-middle">receipt_long</span> Corte de Caja
+                    </button>
+                </div>
+            </header>
+
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Panel Izquierdo: Productos -->
+                <div class="flex-1 p-6 overflow-y-auto">
+                    <!-- Buscador -->
+                    <div class="mb-6">
+                        <div class="relative">
+                            <span
+                                class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+                            <input type="text" id="busquedaProductoPOS"
+                                placeholder="Buscar por nombre, SKU o código de barras..."
+                                class="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl text-lg focus:border-primary focus:outline-none"
+                                oninput="filtrarProductosPOS()" autofocus>
+                        </div>
+                    </div>
+
+                    <!-- Categorías -->
+                    <div class="flex gap-2 mb-6 overflow-x-auto pb-2" id="contenedorCategorias">
+                        <button onclick="filtrarPorCategoria('Todos')"
+                            class="categoria-btn px-4 py-2 bg-primary text-white rounded-xl font-bold text-sm whitespace-nowrap"
+                            data-cat="Todos">
+                            Todos
+                        </button>
+                    </div>
+
+                    <!-- Grid de Productos -->
+                    <div id="gridProductos" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="emptyProductos" class="hidden text-center py-16">
+                        <span class="material-symbols-outlined text-6xl text-gray-200">inventory_2</span>
+                        <p class="text-gray-400 mt-4">No se encontraron productos</p>
+                    </div>
+                </div>
+
+                <!-- Panel Derecho: Carrito -->
+                <div class="w-[420px] bg-white border-l border-gray-100 flex flex-col h-full">
+                    <!-- Header Carrito -->
+                    <div class="p-6 border-b border-gray-100 shrink-0">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-lg font-black text-gray-800">Carrito</h2>
+                            <button onclick="vaciarCarrito()" class="text-red-500 text-sm font-bold hover:text-red-600"
+                                id="btnVaciarCarrito">
+                                Vaciar
+                            </button>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-1"><span id="itemsCarritoCount">0</span> productos</p>
+                    </div>
+
+                    <!-- Lista de Items -->
+                    <div class="flex-1 overflow-y-auto p-4 space-y-3" id="listaCarrito">
+                        <div class="text-center py-12 text-gray-300" id="carritoVacio">
+                            <span class="material-symbols-outlined text-5xl">shopping_cart</span>
+                            <p class="mt-2 text-sm">Agrega productos</p>
+                        </div>
+                    </div>
+
+                    <!-- Cliente (Opcional) -->
+                    <div class="px-4 py-3 border-t border-gray-100 shrink-0">
+                        <input type="text" id="inputClienteVenta" placeholder="Cliente (opcional)"
+                            class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-primary focus:outline-none uppercase"
+                            value="PÚBLICO GENERAL">
+                    </div>
+
+                    <!-- Totales -->
+                    <div class="p-4 border-t border-gray-100 space-y-2 shrink-0">
+                        <div class="flex justify-between text-sm text-gray-500">
+                            <span>Subtotal</span>
+                            <span id="subtotalCarrito">$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-sm text-gray-500">
+                            <span>IVA</span>
+                            <span id="ivaCarrito">$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-sm text-gray-500">
+                            <span>IEPS</span>
+                            <span id="iepsCarrito">$0.00</span>
+                        </div>
+                        <div
+                            class="flex justify-between text-xl font-black text-gray-800 pt-2 border-t border-gray-100">
+                            <span>TOTAL</span>
+                            <span id="totalCarrito" class="text-primary">$0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Botón Cobrar -->
+                    <div class="p-4 shrink-0">
+                        <button onclick="abrirModalCobrar()" id="btnCobrar" disabled
+                            class="w-full py-4 bg-primary text-white rounded-2xl font-black text-lg hover:bg-primary/90 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all">
+                            <span class="material-symbols-outlined align-middle mr-2">payments</span>
+                            COBRAR
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Rest of Modals (Outside main layout because they are fixed/absolute) -->
+
+<!--... (MODAL CODE REMAINS THE SAME as seen in previous view_file, will be implicitly kept by replace_file_content if I target specific lines correctly or if I replace the body structure carefully. Since I need to wrap mostly the body content, it's safer to target the specific blocks or re-write the structure around them.) -->
+
+<!-- Wait, better strategy: wrap the content that WAS in body directly.
+         Original structure:
+         <body>
+           <div id="pantallaSeleccionCaja">...</div>
+           <div id="modalAbrirCaja">...</div>
+           <div id="pantallaPOS">...</div>
+           ... other modals ...
+           scripts
+         </body>
+
+         New structure:
+         <body>
+           <div class="flex min-h-screen">
+               <div id="sidebar-container"></div>
+               <main>
+                   <div id="pantallaSeleccionCaja">...</div>
+                   <div id="pantallaPOS">...</div>
+               </main>
+           </div>
+           ... modals (can stay outside main or inside, usually better outside for z-index) ...
+           scripts
+         </body>
+    -->
+
+<!-- Applying the change via replacement of the specific block lines 34-91 (Seleccion Caja) and 133-251 (Pantalla POS) and inserting the wrapper is complex with one go.
+         I will do it by replacing the BODY content structure.
+    -->
+
+<!-- ============================================= -->
+<!-- MODAL: ABRIR CAJA                            -->
+<!-- ============================================= -->
+<div id="modalAbrirCaja" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-8">
+        <div class="text-center mb-6">
+            <div class="size-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-3xl text-primary">lock_open</span>
+            </div>
+            <h2 class="text-2xl font-black text-gray-800">Abrir Caja <span id="nombreCajaAbrir"></span></h2>
+            <p class="text-gray-400 mt-1">Ingresa el fondo inicial de efectivo</p>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs font-black text-gray-500 uppercase">Fondo Inicial ($)</label>
+                <input type="number" id="inputFondoInicial" step="0.01" min="0" value="0"
+                    class="w-full mt-2 px-4 py-4 text-3xl font-black text-center border-2 border-gray-200 rounded-xl focus:border-primary focus:outline-none">
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-xl">
+                <p class="text-xs text-gray-400">Sugerencia: El fondo inicial debe ser el efectivo físico en caja al
+                    comenzar el día.</p>
+            </div>
+        </div>
+
+        <div class="flex gap-3 mt-8">
+            <button onclick="cerrarModalAbrirCaja()"
+                class="flex-1 py-3 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50">
+                Cancelar
+            </button>
+            <button onclick="confirmarAbrirCaja()"
+                class="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90">
+                <span class="material-symbols-outlined text-sm align-middle mr-1">lock_open</span>
+                Abrir Caja
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================= -->
+<!-- PANTALLA 2: PUNTO DE VENTA                   -->
+<!-- ============================================= -->
+<div id="pantallaPOS" class="hidden min-h-screen">
+    <!-- Header POS -->
+    <header class="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+        <div class="flex items-center gap-4">
+            <button onclick="volverSeleccionCaja()" class="p-2 hover:bg-gray-100 rounded-xl transition-all">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </button>
+            <div>
+                <h1 class="text-xl font-black text-gray-800">Punto de Venta</h1>
+                <p class="text-sm text-gray-400">
+                    Caja <span id="cajaNombreHeader" class="font-bold text-primary"></span>
+                    • <span id="fechaHeader"></span>
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="abrirModalMovimientoCaja('ENTRADA')"
+                class="px-4 py-2 bg-green-50 text-green-600 rounded-xl font-bold text-sm hover:bg-green-100">
+                <span class="material-symbols-outlined text-sm align-middle">add_circle</span> Entrada
+            </button>
+            <button onclick="abrirModalMovimientoCaja('SALIDA')"
+                class="px-4 py-2 bg-orange-50 text-orange-600 rounded-xl font-bold text-sm hover:bg-orange-100">
+                <span class="material-symbols-outlined text-sm align-middle">remove_circle</span> Salida
+            </button>
+            <button onclick="abrirModalCorteCaja()"
+                class="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100">
+                <span class="material-symbols-outlined text-sm align-middle">receipt_long</span> Corte de Caja
+            </button>
+        </div>
+    </header>
+
+    <div class="flex h-[calc(100vh-73px)]">
+        <!-- Panel Izquierdo: Productos -->
+        <div class="flex-1 p-6 overflow-y-auto">
+            <!-- Buscador -->
+            <div class="mb-6">
+                <div class="relative">
+                    <span
+                        class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+                    <input type="text" id="busquedaProductoPOS"
+                        placeholder="Buscar por nombre, SKU o código de barras..."
+                        class="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl text-lg focus:border-primary focus:outline-none"
+                        oninput="filtrarProductosPOS()" autofocus>
+                </div>
+            </div>
+
+            <!-- Categorías -->
+            <div class="flex gap-2 mb-6 overflow-x-auto pb-2" id="contenedorCategorias">
+                <button onclick="filtrarPorCategoria('Todos')"
+                    class="categoria-btn px-4 py-2 bg-primary text-white rounded-xl font-bold text-sm whitespace-nowrap"
+                    data-cat="Todos">
+                    Todos
+                </button>
+            </div>
+
+            <!-- Grid de Productos -->
+            <div id="gridProductos" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <!-- Se llena dinámicamente -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyProductos" class="hidden text-center py-16">
+                <span class="material-symbols-outlined text-6xl text-gray-200">inventory_2</span>
+                <p class="text-gray-400 mt-4">No se encontraron productos</p>
+            </div>
+        </div>
+
+        <!-- Panel Derecho: Carrito -->
+        <div class="w-[420px] bg-white border-l border-gray-100 flex flex-col">
+            <!-- Header Carrito -->
+            <div class="p-6 border-b border-gray-100">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-black text-gray-800">Carrito</h2>
+                    <button onclick="vaciarCarrito()" class="text-red-500 text-sm font-bold hover:text-red-600"
+                        id="btnVaciarCarrito">
+                        Vaciar
+                    </button>
+                </div>
+                <p class="text-sm text-gray-400 mt-1"><span id="itemsCarritoCount">0</span> productos</p>
+            </div>
+
+            <!-- Lista de Items -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-3" id="listaCarrito">
+                <div class="text-center py-12 text-gray-300" id="carritoVacio">
+                    <span class="material-symbols-outlined text-5xl">shopping_cart</span>
+                    <p class="mt-2 text-sm">Agrega productos</p>
+                </div>
+            </div>
+
+            <!-- Cliente (Opcional) -->
+            <div class="px-4 py-3 border-t border-gray-100">
+                <input type="text" id="inputClienteVenta" placeholder="Cliente (opcional)"
+                    class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-primary focus:outline-none uppercase"
+                    value="PÚBLICO GENERAL">
+            </div>
+
+            <!-- Totales -->
+            <div class="p-4 border-t border-gray-100 space-y-2">
+                <div class="flex justify-between text-sm text-gray-500">
+                    <span>Subtotal</span>
+                    <span id="subtotalCarrito">$0.00</span>
+                </div>
+                <div class="flex justify-between text-sm text-gray-500">
+                    <span>IVA</span>
+                    <span id="ivaCarrito">$0.00</span>
+                </div>
+                <div class="flex justify-between text-sm text-gray-500">
+                    <span>IEPS</span>
+                    <span id="iepsCarrito">$0.00</span>
+                </div>
+                <div class="flex justify-between text-xl font-black text-gray-800 pt-2 border-t border-gray-100">
+                    <span>TOTAL</span>
+                    <span id="totalCarrito" class="text-primary">$0.00</span>
+                </div>
+            </div>
+
+            <!-- Botón Cobrar -->
+            <div class="p-4">
+                <button onclick="abrirModalCobrar()" id="btnCobrar" disabled
+                    class="w-full py-4 bg-primary text-white rounded-2xl font-black text-lg hover:bg-primary/90 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all">
+                    <span class="material-symbols-outlined align-middle mr-2">payments</span>
+                    COBRAR
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================= -->
+<!-- MODAL: COBRAR                                -->
+<!-- ============================================= -->
+<div id="modalCobrar" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto">
+        <div class="text-center mb-6">
+            <h2 class="text-2xl font-black text-gray-800">Cobrar Venta</h2>
+            <p class="text-4xl font-black text-primary mt-2" id="totalCobrarModal">$0.00</p>
+        </div>
+
+        <!-- Método de Pago -->
+        <div class="mb-6">
+            <label class="text-xs font-black text-gray-500 uppercase mb-3 block">Método de Pago</label>
+            <div class="grid grid-cols-2 gap-3" id="metodosPagoGrid">
+                <button onclick="seleccionarMetodoPago('Efectivo')"
+                    class="metodo-btn px-4 py-3 border-2 border-primary bg-primary/5 rounded-xl font-bold text-sm text-primary"
+                    data-metodo="Efectivo">
+                    💵 Efectivo
+                </button>
+                <button onclick="seleccionarMetodoPago('Tarjeta Hey Banco')"
+                    class="metodo-btn px-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm text-gray-600 hover:border-gray-300"
+                    data-metodo="Tarjeta Hey Banco">
+                    💳 Tarjeta Hey
+                </button>
+                <button onclick="seleccionarMetodoPago('Tarjeta BBVA')"
+                    class="metodo-btn px-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm text-gray-600 hover:border-gray-300"
+                    data-metodo="Tarjeta BBVA">
+                    💳 Tarjeta BBVA
+                </button>
+                <button onclick="seleccionarMetodoPago('Tarjeta Mercado Pago')"
+                    class="metodo-btn px-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm text-gray-600 hover:border-gray-300"
+                    data-metodo="Tarjeta Mercado Pago">
+                    💳 Mercado Pago
+                </button>
+                <button onclick="seleccionarMetodoPago('Transferencia Hey Banco')"
+                    class="metodo-btn px-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm text-gray-600 hover:border-gray-300"
+                    data-metodo="Transferencia Hey Banco">
+                    🏦 Trans. Hey
+                </button>
+                <button onclick="seleccionarMetodoPago('Transferencia BBVA')"
+                    class="metodo-btn px-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm text-gray-600 hover:border-gray-300"
+                    data-metodo="Transferencia BBVA">
+                    🏦 Trans. BBVA
+                </button>
+                <button onclick="seleccionarMetodoPago('Crédito')"
+                    class="metodo-btn px-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm text-gray-600 hover:border-gray-300 col-span-2"
+                    data-metodo="Crédito">
+                    📝 Crédito (Fiado)
+                </button>
+            </div>
+        </div>
+
+        <!-- Efectivo Recibido (solo si es efectivo) -->
+        <div id="seccionEfectivo" class="mb-6">
+            <label class="text-xs font-black text-gray-500 uppercase mb-2 block">Efectivo Recibido</label>
+            <input type="number" id="inputEfectivoRecibido" step="0.01" min="0"
+                class="w-full px-4 py-4 text-2xl font-black text-center border-2 border-gray-200 rounded-xl focus:border-primary focus:outline-none"
+                oninput="calcularCambio()">
+            <div class="flex gap-2 mt-3">
+                <button onclick="setEfectivoRapido(50)"
+                    class="flex-1 py-2 bg-gray-100 rounded-lg font-bold text-sm hover:bg-gray-200">$50</button>
+                <button onclick="setEfectivoRapido(100)"
+                    class="flex-1 py-2 bg-gray-100 rounded-lg font-bold text-sm hover:bg-gray-200">$100</button>
+                <button onclick="setEfectivoRapido(200)"
+                    class="flex-1 py-2 bg-gray-100 rounded-lg font-bold text-sm hover:bg-gray-200">$200</button>
+                <button onclick="setEfectivoRapido(500)"
+                    class="flex-1 py-2 bg-gray-100 rounded-lg font-bold text-sm hover:bg-gray-200">$500</button>
+                <button onclick="setEfectivoExacto()"
+                    class="flex-1 py-2 bg-primary/10 text-primary rounded-lg font-bold text-sm hover:bg-primary/20">Exacto</button>
+            </div>
+            <div class="mt-4 p-4 bg-green-50 rounded-xl text-center">
+                <p class="text-xs text-green-600 font-bold uppercase">Cambio</p>
+                <p class="text-3xl font-black text-green-600" id="cambioCalculado">$0.00</p>
+            </div>
+        </div>
+
+        <!-- Tipo de Precio -->
+        <div class="mb-6">
+            <label class="text-xs font-black text-gray-500 uppercase mb-3 block">Tipo de Precio</label>
+            <select id="selectTipoPrecio" onchange="recalcularCarritoConPrecio()"
+                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl font-bold focus:border-primary focus:outline-none">
+                <option value="precio_publico">Precio Público</option>
+                <option value="precio_venta_2">Precio Venta 2</option>
+                <option value="precio_venta_3">Precio Venta 3</option>
+                <option value="precio_mercadolibre">Precio MercadoLibre</option>
+            </select>
+        </div>
+
+        <!-- Notas -->
+        <div class="mb-6">
+            <label class="text-xs font-black text-gray-500 uppercase mb-2 block">Notas (opcional)</label>
+            <input type="text" id="inputNotasVenta" placeholder="Observaciones de la venta..."
+                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary focus:outline-none uppercase">
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="cerrarModalCobrar()"
+                class="flex-1 py-4 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50">
+                Cancelar
+            </button>
+            <button onclick="confirmarVenta()" id="btnConfirmarVenta"
+                class="flex-1 py-4 bg-primary text-white rounded-xl font-black hover:bg-primary/90">
+                <span class="material-symbols-outlined align-middle mr-1">check_circle</span>
+                Confirmar Venta
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================= -->
+<!-- MODAL: STOCK INSUFICIENTE                    -->
+<!-- ============================================= -->
+<div id="modalStockInsuficiente" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-8 text-center">
+        <div class="size-16 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span class="material-symbols-outlined text-3xl text-orange-500">inventory</span>
+        </div>
+        <h2 class="text-xl font-black text-gray-800">Stock Insuficiente</h2>
+        <div class="mt-4 space-y-2 text-left bg-gray-50 p-4 rounded-xl">
+            <p class="text-sm"><span class="font-bold text-gray-600">Producto:</span> <span
+                    id="stockInsufProducto"></span></p>
+            <p class="text-sm"><span class="font-bold text-gray-600">Solicitado:</span> <span
+                    id="stockInsufSolicitado"></span> unidades</p>
+            <p class="text-sm"><span class="font-bold text-gray-600">Disponible aquí:</span> <span
+                    id="stockInsufDisponible" class="text-red-500 font-bold"></span> unidades</p>
+        </div>
+        <div class="mt-4 p-4 bg-blue-50 rounded-xl" id="seccionOtraSucursal">
+            <p class="text-sm text-blue-600">
+                <span class="material-symbols-outlined text-sm align-middle">info</span>
+                Disponible en <span class="font-bold" id="stockInsufOtraSucursal"></span>:
+                <span class="font-black" id="stockInsufOtraCantidad"></span> unidades
+            </p>
+        </div>
+        <button onclick="cerrarModalStockInsuficiente()"
+            class="mt-6 w-full py-3 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200">
+            Entendido
+        </button>
+    </div>
+</div>
+
+<!-- ============================================= -->
+<!-- MODAL: MOVIMIENTO DE CAJA                    -->
+<!-- ============================================= -->
+<div id="modalMovimientoCaja" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-8">
+        <h2 class="text-xl font-black text-gray-800 mb-6" id="tituloMovimientoCaja">Entrada de Efectivo</h2>
+        <input type="hidden" id="tipoMovimientoCaja">
+
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs font-black text-gray-500 uppercase">Monto ($)</label>
+                <input type="number" id="inputMontoMovimiento" step="0.01" min="0"
+                    class="w-full mt-2 px-4 py-4 text-2xl font-black text-center border-2 border-gray-200 rounded-xl focus:border-primary focus:outline-none">
+            </div>
+            <div>
+                <label class="text-xs font-black text-gray-500 uppercase">Concepto</label>
+                <input type="text" id="inputConceptoMovimiento" placeholder="Ej: Cambio de otra caja"
+                    class="w-full mt-2 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary focus:outline-none uppercase">
+            </div>
+        </div>
+
+        <div class="flex gap-3 mt-8">
+            <button onclick="cerrarModalMovimientoCaja()"
+                class="flex-1 py-3 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50">
+                Cancelar
+            </button>
+            <button onclick="confirmarMovimientoCaja()"
+                class="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90">
+                Confirmar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================= -->
+<!-- MODAL: CORTE DE CAJA                         -->
+<!-- ============================================= -->
+<div id="modalCorteCaja" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
+        <div class="text-center mb-6">
+            <div class="size-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-3xl text-red-500">receipt_long</span>
+            </div>
+            <h2 class="text-2xl font-black text-gray-800">Corte de Caja <span id="corteCajaNombre"></span></h2>
+            <p class="text-gray-400" id="corteCajaFecha"></p>
+        </div>
+
+        <!-- Resumen de Ventas por Método -->
+        <div class="mb-6">
+            <h3 class="text-sm font-black text-gray-500 uppercase mb-3">Ventas del Día por Método</h3>
+            <div class="bg-gray-50 rounded-xl p-4 space-y-2" id="resumenVentasMetodo">
+                <!-- Se llena dinámicamente -->
+            </div>
+            <div class="flex justify-between text-lg font-black text-gray-800 mt-3 pt-3 border-t border-gray-200">
+                <span>TOTAL VENTAS</span>
+                <span id="corteTotalVentas">$0.00</span>
+            </div>
+        </div>
+
+        <!-- Caja Física (Efectivo) -->
+        <div class="mb-6">
+            <h3 class="text-sm font-black text-gray-500 uppercase mb-3">Caja Física (Efectivo)</h3>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between p-3 bg-gray-50 rounded-xl">
+                    <span class="text-gray-600">Fondo Inicial</span>
+                    <span class="font-bold" id="corteFondoInicial">$0.00</span>
+                </div>
+                <div class="flex justify-between p-3 bg-green-50 rounded-xl">
+                    <span class="text-green-600">+ Ventas en Efectivo</span>
+                    <span class="font-bold text-green-600" id="corteVentasEfectivo">$0.00</span>
+                </div>
+                <div class="flex justify-between p-3 bg-green-50 rounded-xl">
+                    <span class="text-green-600">+ Entradas Manuales</span>
+                    <span class="font-bold text-green-600" id="corteEntradas">$0.00</span>
+                </div>
+                <div class="flex justify-between p-3 bg-orange-50 rounded-xl">
+                    <span class="text-orange-600">- Salidas Manuales</span>
+                    <span class="font-bold text-orange-600" id="corteSalidas">$0.00</span>
+                </div>
+                <div class="flex justify-between p-4 bg-primary/10 rounded-xl text-lg">
+                    <span class="font-bold text-gray-800">EFECTIVO ESPERADO</span>
+                    <span class="font-black text-primary" id="corteEfectivoEsperado">$0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conteo Real -->
+        <div class="mb-6">
+            <label class="text-sm font-black text-gray-500 uppercase mb-2 block">¿Cuánto hay en caja? ($)</label>
+            <input type="number" id="inputEfectivoReal" step="0.01" min="0"
+                class="w-full px-4 py-4 text-2xl font-black text-center border-2 border-gray-200 rounded-xl focus:border-primary focus:outline-none"
+                oninput="calcularDiferenciaCaja()">
+            <div class="mt-3 p-4 rounded-xl text-center" id="seccionDiferencia">
+                <p class="text-xs font-bold uppercase" id="labelDiferencia">Diferencia</p>
+                <p class="text-3xl font-black" id="montoDiferencia">$0.00</p>
+            </div>
+        </div>
+
+        <!-- Fondo Siguiente -->
+        <div class="mb-6">
+            <label class="text-sm font-black text-gray-500 uppercase mb-2 block">Fondo para mañana ($)</label>
+            <input type="number" id="inputFondoSiguiente" step="0.01" min="0" value="0"
+                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary focus:outline-none"
+                oninput="calcularRetiro()">
+            <p class="text-sm text-gray-400 mt-2">Retiro a banco/caja fuerte: <span class="font-bold text-gray-600"
+                    id="montoRetiro">$0.00</span></p>
+        </div>
+
+        <!-- Notas -->
+        <div class="mb-6">
+            <label class="text-sm font-black text-gray-500 uppercase mb-2 block">Notas del Cierre</label>
+            <textarea id="inputNotasCierre" rows="2" placeholder="Observaciones del día..."
+                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary focus:outline-none uppercase"></textarea>
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="cerrarModalCorteCaja()"
+                class="flex-1 py-4 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50">
+                Cancelar
+            </button>
+            <button onclick="confirmarCorteCaja()"
+                class="flex-1 py-4 bg-red-500 text-white rounded-xl font-black hover:bg-red-600">
+                <span class="material-symbols-outlined align-middle mr-1">lock</span>
+                Cerrar Caja
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================= -->
+<!-- MODAL: VENTA EXITOSA                         -->
+<!-- ============================================= -->
+<div id="modalVentaExitosa" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-8 text-center">
+        <div class="size-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span class="material-symbols-outlined text-5xl text-green-500">check_circle</span>
+        </div>
+        <h2 class="text-2xl font-black text-gray-800">¡Venta Exitosa!</h2>
+        <p class="text-gray-400 mt-2">La venta se registró correctamente</p>
+        <div class="mt-4 p-4 bg-gray-50 rounded-xl">
+            <p class="text-sm text-gray-500">Total cobrado</p>
+            <p class="text-3xl font-black text-primary" id="ventaExitosaTotal">$0.00</p>
+        </div>
+        <div class="mt-4 p-4 bg-green-50 rounded-xl" id="seccionCambioExitosa">
+            <p class="text-sm text-green-600">Cambio entregado</p>
+            <p class="text-2xl font-black text-green-600" id="ventaExitosaCambio">$0.00</p>
+        </div>
+        <button onclick="cerrarModalVentaExitosa()"
+            class="mt-6 w-full py-4 bg-primary text-white rounded-xl font-black hover:bg-primary/90">
+            Nueva Venta
+        </button>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="config.js"></script>
+    <script src="api.js"></script>
+<script src="menu.js"></script>
+<script src="ventas.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        inyectarMenu('ventas');
+        inicializarPOS();
+    });
+</script>
+</body>
+
+</html>

@@ -1,7 +1,6 @@
 // dashboard.js - Panel de Control Integral (Finanzas, RRHH, Cobranza)
 
 // --- UTILS FALLBACK ---
-// Asegurar que formatMoney exista incluso si api.js falla o tiene cache antiguo
 if (typeof formatMoney === 'undefined') {
     window.formatMoney = (n) => {
         if (n === undefined || n === null) return "$0.00";
@@ -27,9 +26,9 @@ let dashCache = {
 
 async function cargarDashboard() {
     try {
-        // Fallback robusto
+        // Fallback robusto para evitar "SUPABASE_URL undefined"
         const SB_URL = window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co';
-        const SB_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+        const SB_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
 
         // --- DEBUG STAGING: Create Panel ---
         if (window.IS_TEST_ENV && !document.getElementById('debug-floating-panel')) {
@@ -69,7 +68,6 @@ async function cargarDashboard() {
         if (window.IS_TEST_ENV) {
             logDebug(`Ingresos Count: ${dashCache.ingresos.length}`);
             logDebug(`Gastos Count: ${dashCache.gastos.length}`);
-            if (dashCache.ingresos.length > 0) logDebug(`Last Ingreso: ${dashCache.ingresos[0].created_at.substring(0, 10)}`);
         }
 
         aplicarFiltrosDashboard();

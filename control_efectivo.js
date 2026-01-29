@@ -25,7 +25,6 @@ window.logMsg = function (msg, isError = false) {
 };
 
 // 2. Definir Función Principal Globalmente
-// 2. Definir Función Principal Globalmente
 window.cargarControlEfectivo = async function () {
     logMsg("Script iniciado correctamente (Modo Split).");
 
@@ -39,12 +38,13 @@ window.cargarControlEfectivo = async function () {
     if (tablaNorte) tablaNorte.innerHTML = '<tr><td colspan="3" class="p-6 text-center text-gray-400 italic animate-pulse">Cargando...</td></tr>';
     if (tablaSur) tablaSur.innerHTML = '<tr><td colspan="3" class="p-6 text-center text-gray-400 italic animate-pulse">Cargando...</td></tr>';
 
-    const API_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
-    const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+    // DYNAMIC CONFIG FROM GLOBAL SCOPE (Defined in config.js/api.js)
+    const API_URL = window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+    const API_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
     const headers = { 'apikey': API_KEY, 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' };
 
     try {
-        logMsg("1. Obteniendo Saldos Iniciales...");
+        logMsg(`1. Obteniendo Saldos Iniciales... [Env: ${window.IS_TEST_ENV ? 'TEST' : 'PROD'}]`);
         let saldoNorte = 0, saldoSur = 0;
 
         const resConf = await fetch(`${API_URL}/rest/v1/sys_config?select=value&key=eq.cash_control_config`, { headers });

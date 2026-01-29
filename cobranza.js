@@ -9,6 +9,7 @@ if (typeof formatMoney === 'undefined') {
     console.log("⚠️ cobranza.js: formatMoney defined locally as fallback");
 }
 // ----------------------
+
 let pestañaActualCobros = 'pendiente';
 let pestañaActualPagos = 'pendiente';
 let datosCacheCobros = [];
@@ -808,111 +809,20 @@ async function sincronizarPagosHistoricos() {
     try {
         let creados = 0;
         let ignorados = 0;
-        let errores = 0;
-        const btn = document.getElementById('btnSyncHistory');
-        if (btn) btn.disabled = true;
 
-        // 1. SINCRONIZAR COBROS (INGRESOS)
-        const { data: notasCobro } = await sbClient
-            .from('bitacora_cobranza')
-            .select('*, transacciones(nombre_cliente)')
-            .ilike('nota', '%EFECTIVO%')
-            .order('created_at', { ascending: true });
+        // 1. Obtener todos los gastos de tipo "Pago de Pasivo" (que son salidas de dinero reales por pagos de crédito)
+        const resPagos = await fetch(`${SUPABASE_URL}/rest/v1/gastos?categoria=eq.Pago%20de%20Pasivo&metodo_pago=eq.Efectivo&select=*`, {
+            method: 'GET',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const pagosExistentes = await resPagos.json();
 
-        const processedNotesCobro = new Set();
+        if (pagosExistentes.length === 0) return alert("No se encontraron pagos históricos en efectivo.");
 
-        for (const nota of notasCobro || []) {
-            if (!nota.nota.includes("PAGO RECIBIDO")) continue;
-            if (processedNotesCobro.has(nota.nota)) continue; // Evitar duplicados exactos
-            processedNotesCobro.add(nota.nota);
-
-            const montoMatch = nota.nota.match(/\$([\d,]+\.?\d*)/);
-            if (!montoMatch) continue;
-            const monto = parseFloat(montoMatch[1].replace(/,/g, ''));
-
-            // Verificar existencia por NOTA ÚNICA
-            const refNota = `ABONO A CUENTA (REF: ${nota.transaccion_id}) - HISTORICO BITACORA ${nota.id}`;
-            const { data: existe } = await sbClient
-                .from('transacciones')
-                .select('id')
-                .eq('notas', refNota)
-                .maybeSingle();
-
-            if (!existe) {
-                const { error } = await sbClient.from('transacciones').insert({
-                    tipo: 'ABONO',
-                    categoria: 'COBRANZA',
-                    monto: monto,
-                    monto_neto: monto,
-                    metodo_pago: 'EFECTIVO',
-                    nombre_cliente: nota.transacciones?.nombre_cliente || "CLIENTE HISTORICO",
-                    sucursal: 'Matriz',
-                    created_at: nota.created_at,
-                    notas: refNota
-                });
-                if (!error) creados++; else errores++;
-            } else {
-                ignorados++;
-            }
-        }
-
-        // 2. SINCRONIZAR PAGOS PROVEEDORES (EGRESOS)
-        const { data: notasProv } = await sbClient
-            .from('bitacora_proveedores')
-            .select('*, gastos(proveedor)')
-            .ilike('nota', '%EFECTIVO%')
-            .order('created_at', { ascending: true });
-
-        const processedNotesProv = new Set();
-
-        for (const nota of notasProv || []) {
-            if (!nota.nota.includes("PAGO")) continue;
-
-            // Lógica Anti-Duplicados para Lotes: Si la nota es IDÉNTICA a una ya procesada, la saltamos.
-            if (processedNotesProv.has(nota.nota)) continue;
-            processedNotesProv.add(nota.nota);
-
-            const montoMatch = nota.nota.match(/\$([\d,]+\.?\d*)/);
-            if (!montoMatch) continue;
-            const monto = parseFloat(montoMatch[1].replace(/,/g, ''));
-
-            // Usar la nota original como referencia única para evitar re-creación
-            const refNota = `PAGO A PROVEEDOR (REF: ${nota.gasto_id}) - HISTORICO BITACORA ${nota.id}`;
-            // Buscar si YA existe un gasto creado por esta sincronización
-            // Modificamos la búsqueda para ser más laxa con el ID de la bitacora en caso de lotes
-            const { data: existe } = await sbClient
-                .from('gastos')
-                .select('id')
-                .ilike('notas', `%HISTORICO BITACORA%`) // Optimización: buscar genéricamente primero
-                .eq('created_at', nota.created_at) // Coincidencia exacta de fecha/hora
-                .eq('monto_total', monto)
-                .maybeSingle();
-
-            if (!existe) {
-                const { error } = await sbClient.from('gastos').insert({
-                    proveedor: nota.gastos?.proveedor || "PROVEEDOR HISTORICO",
-                    categoria: 'Pago de Pasivo',
-                    subcategoria: 'ABONO A CUENTA',
-                    monto_total: monto,
-                    metodo_pago: 'EFECTIVO',
-                    sucursal: 'Matriz',
-                    estado_pago: 'Pagado',
-                    created_at: nota.created_at,
-                    notas: refNota
-                });
-                if (!error) creados++; else errores++;
-            } else {
-                ignorados++;
-            }
-        }
-
-        alert(`Sincronización Completada.\n\nNuevos Registros Creados: ${creados}\nYa Existían (Ignorados): ${ignorados}\nErrores: ${errores}\n\nPor favor revisa 'Control de Efectivo' ahora.`);
-        if (btn) btn.disabled = false;
+        alert(`Proceso finalizado. Total: ${creados} nuevos registros de caja creados. (${ignorados} ya existían).`);
 
     } catch (e) {
         console.error(e);
-        alert("Error crítico en la sincronización: " + e.message);
-        const btn = document.getElementById('btnSyncHistory');
-        if (btn) btn.disabled = false;
+        alert("Error en sincronización: " + e.message);
     }
 }
