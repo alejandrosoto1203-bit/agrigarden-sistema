@@ -562,6 +562,10 @@ function toggleMotivoUrgencia(esUrgente) {
 }
 
 async function guardarSolicitudTaller() {
+    // Garantizar cliente Supabase
+    const supabase = window.sb || (window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null);
+    if (!supabase) return alert("Error crítico: Cliente Supabase no inicializado. Recarga la página o verifica tu conexión.");
+
     const cod = document.getElementById('talCodigo').value.toUpperCase();
     const mar = document.getElementById('talMarca').value.toUpperCase();
     const nom = document.getElementById('talNombre').value.toUpperCase();
@@ -594,7 +598,7 @@ async function guardarSolicitudTaller() {
                 .from('evidencias-taller')
                 .upload(filePath, file);
 
-            if (uploadError) throw uploadError;
+            if (uploadError) throw new Error(`Storage Error: ${uploadError.message}`);
 
             // Obtener URL
             const { data } = supabase.storage
@@ -629,7 +633,7 @@ async function guardarSolicitudTaller() {
         });
 
         if (res.ok) {
-            alert("Solicitud registrada.");
+            alert("Solicitud registrada correctamente.");
             document.getElementById('modalSolicitudTaller').classList.add('hidden');
             // Limpiar form
             document.getElementById('talNombre').value = "";
@@ -637,12 +641,13 @@ async function guardarSolicitudTaller() {
             document.getElementById('talEvidencia').value = "";
             cargarSolicitudesTaller();
         } else {
-            alert("Error al guardar.");
+            const errTxt = await res.text();
+            throw new Error(`Database Error: ${errTxt}`);
         }
 
     } catch (e) {
         console.error("Error Guardar Taller:", e);
-        alert("Error al subir evidencia o guardar datos.");
+        alert(`Ocurrió un error: ${e.message}`);
     }
 }
 
