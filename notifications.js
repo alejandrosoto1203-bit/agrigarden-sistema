@@ -14,16 +14,9 @@ const NotificationsManager = {
         try {
             const registration = await navigator.serviceWorker.register('sw.js');
             console.log('Service Worker registrado con éxito:', registration.scope);
-            this.checkPermission();
+            this.requestPermission(); // Solicitar permiso al inicializar
         } catch (error) {
             console.error('Fallo el registro del Service Worker:', error);
-        }
-    },
-
-    async checkPermission() {
-        if (Notification.permission === 'default') {
-            // No pedir de inmediato, mejor con una interacción del usuario si es posible
-            // Pero para el dashboard facilitaremos un botón o aviso
         }
     },
 
@@ -84,24 +77,38 @@ const NotificationsManager = {
 
     // Notificación local (fallback si no hay push o pestaña abierta)
     notify(title, body, options = {}) {
+        if (!("Notification" in window)) return alert(`${title}: ${body}`);
+
         if (Notification.permission === 'granted') {
-            const n = new Notification(title, {
-                body,
-                icon: '/favicon.ico',
-                ...options
+            try {
+                const n = new Notification(title, {
+                    body,
+                    icon: '/favicon.ico',
+                    ...options
+                });
+
+                // Sonido de alerta
+                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                audio.play().catch(e => console.warn("No se pudo reproducir el sonido:", e));
+
+                n.onclick = () => {
+                    window.focus();
+                    if (options.url) window.location.href = options.url;
+                };
+            } catch (e) {
+                // Algunos navegadores móviles no permiten el constructor de Notification
+                console.warn("Error con Notification API, intentando alert:", e);
+                alert(`${title}: ${body}`);
+            }
+        } else if (Notification.permission !== 'denied') {
+            this.requestPermission().then(() => {
+                if (Notification.permission === 'granted') this.notify(title, body, options);
             });
-
-            // Sonido de cortesía
-            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-            audio.play().catch(() => { });
-
-            n.onclick = () => {
-                window.focus();
-                if (options.url) window.location.href = options.url;
-            };
         } else {
-            // Alerta simple si no hay permisos
-            console.log(`Notificación: ${title} - ${body}`);
+            // Si está denegado, al menos mostrar un alert normal para no perder el aviso
+            console.log(`Notificación (Denegada): ${title} - ${body}`);
+            // No usamos alert aquí para no ser molestos si el usuario denegó a propósito, 
+            // pero podrías activarlo si es crítico.
         }
     },
 
