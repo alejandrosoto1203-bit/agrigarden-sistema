@@ -1,5 +1,15 @@
 // gastos.js - Gestión de Egresos y Registro Múltiple de Gastos
 
+// --- UTILS FALLBACK ---
+if (typeof formatMoney === 'undefined') {
+    window.formatMoney = (n) => {
+        if (n === undefined || n === null) return "$0.00";
+        return `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    };
+    console.log("⚠️ gastos.js: formatMoney defined locally as fallback");
+}
+// ----------------------
+
 let datosCacheGastos = [];
 let mostrarFuturosGastos = false; // Control de vista "Próximos Meses"
 

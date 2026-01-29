@@ -1,4 +1,14 @@
 // cobranza.js - Gestión de Cuentas por Cobrar y Cuentas por Pagar
+
+// --- UTILS FALLBACK ---
+if (typeof formatMoney === 'undefined') {
+    window.formatMoney = (n) => {
+        if (n === undefined || n === null) return "$0.00";
+        return `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    };
+    console.log("⚠️ cobranza.js: formatMoney defined locally as fallback");
+}
+// ----------------------
 let pestañaActualCobros = 'pendiente';
 let pestañaActualPagos = 'pendiente';
 let datosCacheCobros = [];

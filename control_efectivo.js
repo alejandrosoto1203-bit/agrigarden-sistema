@@ -1,6 +1,16 @@
 // control_efectivo.js - v3 Simplificado
 console.log("--> CARGANDO SCRIPT CONTROL_EFECTIVO.JS <--");
 
+// --- UTILS FALLBACK ---
+if (typeof formatMoney === 'undefined') {
+    window.formatMoney = (n) => {
+        if (n === undefined || n === null) return "$0.00";
+        return `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    };
+    console.log("⚠️ control_efectivo.js: formatMoney defined locally as fallback");
+}
+// ----------------------
+
 // 1. Definir Helper de Log Globalmente
 window.logMsg = function (msg, isError = false) {
     console.log(msg);

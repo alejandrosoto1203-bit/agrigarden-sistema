@@ -1,5 +1,15 @@
 // ingresos.js - Gestión de Ventas y Registro Múltiple
 
+// --- UTILS FALLBACK ---
+if (typeof formatMoney === 'undefined') {
+    window.formatMoney = (n) => {
+        if (n === undefined || n === null) return "$0.00";
+        return `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    };
+    console.log("⚠️ ingresos.js: formatMoney defined locally as fallback");
+}
+// ----------------------
+
 let datosCacheIngresos = [];
 
 // 1. CARGA DE TABLA PRINCIPAL CON LÓGICA DE FILTROS
