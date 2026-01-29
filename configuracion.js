@@ -235,6 +235,9 @@ async function cargarUsuariosUI() {
         const client = getClient();
         if (!client) throw new Error("Supabase no disponible");
 
+        // También cargamos empleados para el select por si se necesita crear/editar
+        cargarEmpleadosSelect();
+
         const { data, error } = await client
             .from('sys_usuarios')
             .select('*')
@@ -321,7 +324,9 @@ window.guardarUsuario = async function (e) {
         permisos[mod].editar = chk.checked;
     });
 
-    const payload = { nombre, email, password, rol, sucursal, permisos };
+    const empleado_id = document.getElementById('userEmpleado').value || null;
+
+    const payload = { nombre, email, password, rol, sucursal, permisos, empleado_id };
 
     const btn = e.target.querySelector('button[type="submit"]');
     const originalText = btn.innerText;
@@ -443,3 +448,51 @@ window.guardarConfigEfectivo = async function () {
         alert("Error al guardar: " + e.message);
     }
 }
+
+// Vinculación con Empleados
+let empleadosRRHH = [];
+async function cargarEmpleadosSelect() {
+    const selector = document.getElementById('userEmpleado');
+    if (!selector) return;
+
+    try {
+        const client = getClient();
+        if (!client) return;
+
+        const { data, error } = await client
+            .from('empleados')
+            .select('id, nombre_completo, correo_electronico, sucursal')
+            .order('nombre_completo');
+
+        if (error) throw error;
+        empleadosRRHH = data || [];
+
+        selector.innerHTML = '<option value="">-- Seleccionar Empleado (Opcional) --</option>' +
+            empleadosRRHH.map(e => `<option value="${e.id}">${e.nombre_completo}</option>`).join('');
+
+    } catch (e) {
+        console.error("Error cargando empleados para select:", e);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const selector = document.getElementById('userEmpleado');
+    if (selector) {
+        selector.addEventListener('change', (e) => {
+            const empId = e.target.value;
+            if (!empId) return;
+
+            const emp = empleadosRRHH.find(x => x.id == empId);
+            if (emp) {
+                document.getElementById('userNombre').value = emp.nombre_completo;
+                document.getElementById('userEmail').value = emp.correo_electronico || '';
+
+                // Mapeo simple de sucursal
+                const sucVal = emp.sucursal === 'NORTE' ? 'Norte' : (emp.sucursal === 'SUR' ? 'Sur' : 'Ambas');
+                document.getElementById('userSucursal').value = sucVal;
+
+                alert(`Datos cargados de: ${emp.nombre_completo}`);
+            }
+        });
+    }
+});
