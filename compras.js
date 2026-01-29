@@ -147,6 +147,9 @@ async function cargarListaCompras() {
 
         filtrarCompras(); // Renderiza según pestaña actual
         actualizarKPIs(comprasCache);
+
+        // Cargar también Taller si estamos en esa pestaña (o precargar)
+        if (pestañaActualCompras === 'taller') cargarSolicitudesTaller();
     } catch (e) { console.error(e); }
 }
 
@@ -172,11 +175,26 @@ async function verificarRetrasosAutomaticos(datos) {
 
 function cambiarPestañaCompras(tab) {
     pestañaActualCompras = tab;
+    // UI Tab Buttons
     document.getElementById('tabProceso').classList.toggle('tab-active', tab === 'proceso');
     document.getElementById('tabProceso').classList.toggle('text-gray-400', tab !== 'proceso');
     document.getElementById('tabCompletado').classList.toggle('tab-active', tab === 'completado');
     document.getElementById('tabCompletado').classList.toggle('text-gray-400', tab !== 'completado');
-    filtrarCompras();
+    document.getElementById('tabTaller').classList.toggle('tab-active', tab === 'taller');
+    document.getElementById('tabTaller').classList.toggle('text-gray-400', tab !== 'taller');
+
+    // UI Content
+    document.getElementById('tablaComprasRegular').classList.toggle('hidden', tab === 'taller');
+    document.getElementById('tablaSolicitudesTaller').classList.toggle('hidden', tab !== 'taller');
+    document.getElementById('btnNuevaSolicitudTaller').classList.toggle('hidden', tab !== 'taller');
+
+    // UI Filters Visibility (Opcional: ocultar filtros irrelevantes en Taller si se desea)
+
+    if (tab === 'taller') {
+        cargarSolicitudesTaller();
+    } else {
+        filtrarCompras();
+    }
 }
 
 function filtrarCompras() {
@@ -438,5 +456,257 @@ async function descargarPDFOrden() {
     } catch (e) {
         console.error("PDF Generate Error:", e);
         alert("Error al generar PDF. Ver consola.");
+    }
+}
+
+// ==========================================
+// MÓDULO SOLICITUDES DE TALLER
+// ==========================================
+
+let solicitudesTallerCache = [];
+let currentTallerId = null;
+
+async function cargarSolicitudesTaller() {
+    const tbody = document.getElementById('tablaTallerBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-gray-400 font-bold animate-pulse">Cargando solicitudes...</td></tr>';
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes_taller?order=created_at.desc`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        solicitudesTallerCache = await res.json();
+        renderizarTablaTaller(solicitudesTallerCache);
+    } catch (e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-red-400 font-bold">Error al cargar datos.</td></tr>';
+    }
+}
+
+function renderizarTablaTaller(datos) {
+    const tbody = document.getElementById('tablaTallerBody');
+    if (!tbody) return;
+    const hoy = new Date();
+
+    if (datos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-gray-400 italic">No hay solicitudes registradas.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = datos.map(s => {
+        const fechaSol = new Date(s.created_at).toLocaleDateString();
+        const fechaLim = new Date(s.fecha_limite_cotizacion);
+        const diasRestantes = Math.ceil((fechaLim - hoy) / (1000 * 60 * 60 * 24));
+
+        let badgeTiempo = '';
+        if (s.estatus === 'Pendiente') {
+            if (diasRestantes < 0) badgeTiempo = `<span class="bg-red-500 text-white px-2 py-0.5 rounded text-[9px] font-black">VENCIDO (${diasRestantes}d)</span>`;
+            else if (diasRestantes === 0) badgeTiempo = `<span class="bg-orange-500 text-white px-2 py-0.5 rounded text-[9px] font-black">VENCE HOY</span>`;
+            else badgeTiempo = `<span class="bg-blue-100 text-blue-600 px-2 py-0.5 rounded text-[9px] font-black">${diasRestantes} días rest.</span>`;
+        }
+
+        const esUrgente = s.tipo_solicitud === 'Urgente';
+
+        return `
+            <tr class="hover:bg-gray-50 transition-colors border-b border-gray-50">
+                <td class="px-6 py-4">
+                    <div class="text-xs font-bold text-gray-700">${fechaSol}</div>
+                    <div class="mt-1">${badgeTiempo}</div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="font-black text-xs uppercase">${s.nombre_pieza}</div>
+                    <div class="text-[10px] font-mono text-gray-400 tracking-wide">${s.codigo || 'S/N'}</div>
+                </td>
+                <td class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">${s.proveedor || '-'}</td>
+                <td class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">${s.marca || '-'}</td>
+                <td class="px-6 py-4 text-center font-bold text-gray-800">${s.cantidad}</td>
+                <td class="px-6 py-4 text-center">
+                    <span class="px-2 py-1 rounded text-[9px] font-black uppercase ${esUrgente ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-gray-100 text-gray-500'}">
+                        ${s.tipo_solicitud}
+                    </span>
+                    ${esUrgente ? `<div class="text-[8px] text-red-500 font-bold mt-1 text-left line-clamp-1" title="${s.motivo_urgencia}">${s.motivo_urgencia}</div>` : ''}
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${getColorEstatusTaller(s.estatus)}">
+                        ${s.estatus}
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <div class="text-sm font-black text-gray-800">${s.precio_cliente ? formatMoney(s.precio_cliente) : '-'}</div>
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <button onclick='gestionarSolicitudTaller(${JSON.stringify(s).replace(/'/g, "&apos;")})' class="bg-black text-white p-2 rounded-lg hover:bg-gray-800 shadow-lg group relative">
+                        <span class="material-symbols-outlined text-sm">settings</span>
+                        <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-gray-900 text-white text-[9px] rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Gestionar</span>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function getColorEstatusTaller(e) {
+    if (e === 'Pendiente') return 'bg-yellow-100 text-yellow-700';
+    if (e === 'Cotizado') return 'bg-blue-100 text-blue-700';
+    if (e === 'Aceptado') return 'bg-green-100 text-green-700';
+    return 'bg-gray-100';
+}
+
+// --- CREACIÓN ---
+function abrirModalSolicitudTaller() {
+    document.getElementById('modalSolicitudTaller').classList.remove('hidden');
+}
+
+function toggleMotivoUrgencia(esUrgente) {
+    document.getElementById('divMotivoUrgencia').classList.toggle('hidden', !esUrgente);
+}
+
+async function guardarSolicitudTaller() {
+    const cod = document.getElementById('talCodigo').value.toUpperCase();
+    const mar = document.getElementById('talMarca').value.toUpperCase();
+    const nom = document.getElementById('talNombre').value.toUpperCase();
+    const cant = document.getElementById('talCantidad').value;
+    const prov = document.getElementById('talProveedor').value.toUpperCase();
+    const ref = document.getElementById('talReferencias').value.toUpperCase();
+
+    // Urgencia
+    const radios = document.getElementsByName('tipoUrgencia');
+    let tipo = 'Normal';
+    for (const r of radios) { if (r.checked) tipo = r.value; }
+    const motivo = document.getElementById('talMotivo').value.toUpperCase();
+
+    if (!nom || !cant) return alert("Nombre y Cantidad son obligatorios.");
+    if (tipo === 'Urgente' && !motivo) return alert("Debes especificar el motivo de urgencia.");
+
+    // Foto
+    const fileInput = document.getElementById('talEvidencia');
+    let publicUrl = null;
+
+    try {
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const fileExt = file.name.split('.').pop();
+            const fileName = `evidencia_${Date.now()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            // Subir al bucket 'evidencias-taller'
+            const { error: uploadError } = await supabase.storage
+                .from('evidencias-taller')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // Obtener URL
+            const { data } = supabase.storage
+                .from('evidencias-taller')
+                .getPublicUrl(filePath);
+
+            publicUrl = data.publicUrl;
+        }
+
+        // Calcular Fecha Límite (Hoy + 2 días)
+        const fechaLimite = new Date();
+        fechaLimite.setDate(fechaLimite.getDate() + 2);
+
+        const payload = {
+            codigo: cod,
+            marca: mar,
+            nombre_pieza: nom,
+            cantidad: parseInt(cant),
+            proveedor: prov,
+            referencias: ref,
+            tipo_solicitud: tipo,
+            motivo_urgencia: tipo === 'Urgente' ? motivo : null,
+            evidencia_url: publicUrl,
+            fecha_limite_cotizacion: fechaLimite.toISOString(),
+            estatus: 'Pendiente'
+        };
+
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes_taller`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            alert("Solicitud registrada.");
+            document.getElementById('modalSolicitudTaller').classList.add('hidden');
+            // Limpiar form
+            document.getElementById('talNombre').value = "";
+            document.getElementById('talReferencias').value = "";
+            document.getElementById('talEvidencia').value = "";
+            cargarSolicitudesTaller();
+        } else {
+            alert("Error al guardar.");
+        }
+
+    } catch (e) {
+        console.error("Error Guardar Taller:", e);
+        alert("Error al subir evidencia o guardar datos.");
+    }
+}
+
+// --- GESTIÓN (ADMIN) ---
+function gestionarSolicitudTaller(solicitud) {
+    currentTallerId = solicitud.id;
+    document.getElementById('gesTituloPieza').innerText = solicitud.nombre_pieza;
+    document.getElementById('gesFechaSol').innerText = new Date(solicitud.created_at).toLocaleDateString();
+    document.getElementById('gesFechaLim').innerText = new Date(solicitud.fecha_limite_cotizacion).toLocaleDateString();
+    document.getElementById('gesCantidad').innerText = solicitud.cantidad;
+    document.getElementById('gesPrecio').value = solicitud.precio_cliente || '';
+    document.getElementById('gesDetalles').innerText = `${solicitud.marca} - ${solicitud.referencias || 'Sin ref'} (${solicitud.proveedor || 'Prov. Desconocido'})`;
+
+    // Imagen
+    const imgEl = document.getElementById('gesImagen');
+    const linkEl = document.getElementById('gesLinkImagen');
+    const noImgEl = document.getElementById('gesNoImagen');
+
+    if (solicitud.evidencia_url) {
+        imgEl.src = solicitud.evidencia_url;
+        imgEl.classList.remove('hidden');
+        linkEl.href = solicitud.evidencia_url;
+        linkEl.parentElement.classList.remove('hidden'); // container
+        noImgEl.classList.add('hidden');
+    } else {
+        imgEl.classList.add('hidden');
+        linkEl.parentElement.classList.add('hidden'); // Hide container logic fix needed, but hiding elements works
+        // Better: show NO IMG
+        imgEl.src = "";
+        noImgEl.classList.remove('hidden');
+    }
+
+    document.getElementById('modalGestionTaller').classList.remove('hidden');
+}
+
+async function actualizarEstatusTaller(nuevoEstatus) {
+    const precio = parseFloat(document.getElementById('gesPrecio').value);
+
+    if (nuevoEstatus === 'Cotizado' && (!precio || precio <= 0)) {
+        return alert("Para marcar como COTIZADO, debes ingresar el PRECIO FINAL AL CLIENTE.");
+    }
+
+    const payload = { estatus: nuevoEstatus };
+    if (precio > 0) payload.precio_cliente = precio;
+
+    // Timestamps
+    const now = new Date().toISOString();
+    if (nuevoEstatus === 'Cotizado') payload.fecha_cotizacion = now;
+    if (nuevoEstatus === 'Aceptado') payload.fecha_aceptacion = now;
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes_taller?id=eq.${currentTallerId}`, {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            alert(`Solicitud actualizada a: ${nuevoEstatus}`);
+            document.getElementById('modalGestionTaller').classList.add('hidden');
+            cargarSolicitudesTaller();
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error al actualizar.");
     }
 }
