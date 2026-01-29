@@ -169,6 +169,11 @@ window.drop = async function (ev) {
     } else {
         // Registrar en bitácora (silencioso)
         await registrarBitacora(taskId, `Cambio de estado a ${targetCol}`, 'Cambio Estado');
+
+        // Notificación en tiempo real si se completa
+        if (targetCol === 'COMPLETADO' && window.NotificationsManager) {
+            NotificationsManager.notify("✅ Tarea Completada", `La tarea "${tarea ? tarea.titulo : 'de RRHH'}" ha sido finalizada.`);
+        }
     }
 };
 

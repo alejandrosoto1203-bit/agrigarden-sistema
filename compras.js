@@ -377,6 +377,13 @@ async function actualizarEstadoPro(nuevoEstado) {
     });
 
     alert("Gestión actualizada correctamente.");
+
+    // Notificación en tiempo real
+    if (window.NotificationsManager) {
+        const numOrden = document.getElementById('modalDetalleTitulo').innerText.split(': ')[1] || '';
+        NotificationsManager.notify("📦 Orden Actualizada", `La orden ${numOrden} ha cambiado a: ${nuevoEstado}`);
+    }
+
     cerrarModalDetalle();
     cargarListaCompras();
 }
