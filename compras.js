@@ -1,4 +1,14 @@
 // compras.js - Gestión Integral de Órdenes de Compra Agrigarden
+
+// Fallback para formatMoney si no está definido globalmente
+if (typeof formatMoney === 'undefined') {
+    window.formatMoney = (n) => {
+        if (n === undefined || n === null) return "$0.00";
+        return `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    };
+    console.log("⚠️ compras.js: formatMoney defined locally as fallback");
+}
+
 let listaProveedores = ["AGRILOMBARDIA", "RIVAS", "CARSAN", "JACTO", "EMMSA", "LUPITA", "TRUPER", "GIMBEL", "MERCADO LIBRE", "PROASA", "STHIL", "RINO", "POMOSA", "INDAR", "MACROPRESS", "RANCHO LOS MOLINOS", "MARVEL", "URREA", "PASTO VERDE", "IMPALA", "MD MADERAS", "BOLSAS ARTESANALES", "AMAZON"];
 let comprasCache = [];
 let currentCompraId = null;
