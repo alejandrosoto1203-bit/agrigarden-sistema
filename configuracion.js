@@ -1,16 +1,14 @@
-// Hardcoded Credentials for Reliability
-const SBC_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
-const SBC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
-
-let currentComisiones = {};
-let currentUsers = [];
-
 // Helper to get client consistently
 function getClient() {
+    // 1. Prioridad: Cliente global inicializado en api.js
     if (window.sb) return window.sb;
-    if (window.supabase) {
-        return window.supabase.createClient(SBC_URL, SBC_KEY);
+
+    // 2. Fallback: Inicializar con variables de entorno (config.js)
+    if (window.supabase && window.SUPABASE_URL && window.SUPABASE_KEY) {
+        return window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
     }
+
+    console.warn("⚠️ Supabase Client not ready. window.sb is missing.");
     return null;
 }
 
