@@ -2,21 +2,24 @@
     "name": "Agrigarden",
     "short_name": "Agrigarden",
     "description": "Sistema de Gestión Agrigarden",
-    "start_url": "dashboard.html",
-    "scope": "./",
+    "start_url": "index.html",
+    "scope": "/",
     "display": "standalone",
+    "orientation": "any",
     "background_color": "#ffffff",
     "theme_color": "#19e66b",
     "icons": [
         {
             "src": "icon-prod-192.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "icon-prod-512.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         }
     ]
 }

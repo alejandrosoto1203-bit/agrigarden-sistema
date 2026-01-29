@@ -75,40 +75,36 @@ const NotificationsManager = {
         }
     },
 
-    // Notificación local (fallback si no hay push o pestaña abierta)
-    notify(title, body, options = {}) {
-        if (!("Notification" in window)) return alert(`${title}: ${body}`);
+    // Notificación local (utilizando el Service Worker para mayor confiabilidad)
+    async notify(title, body, options = {}) {
+        if (!("Notification" in window)) {
+            console.log(`Alert fallback: ${title} - ${body}`);
+            return;
+        }
 
         if (Notification.permission === 'granted') {
             try {
-                const n = new Notification(title, {
-                    body,
-                    icon: '/favicon.ico',
-                    ...options
-                });
-
                 // Sonido de alerta
                 const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
                 audio.play().catch(e => console.warn("No se pudo reproducir el sonido:", e));
 
-                n.onclick = () => {
-                    window.focus();
-                    if (options.url) window.location.href = options.url;
-                };
+                const registration = await navigator.serviceWorker.ready;
+                registration.showNotification(title, {
+                    body,
+                    icon: '/favicon.ico',
+                    badge: '/favicon.ico',
+                    vibrate: [200, 100, 200],
+                    ...options
+                });
             } catch (e) {
-                // Algunos navegadores móviles no permiten el constructor de Notification
-                console.warn("Error con Notification API, intentando alert:", e);
-                alert(`${title}: ${body}`);
+                console.warn("Error con showNotification, intentando constructor clásico:", e);
+                new Notification(title, { body, ...options });
             }
         } else if (Notification.permission !== 'denied') {
-            this.requestPermission().then(() => {
-                if (Notification.permission === 'granted') this.notify(title, body, options);
-            });
+            const granted = await this.requestPermission();
+            if (granted) this.notify(title, body, options);
         } else {
-            // Si está denegado, al menos mostrar un alert normal para no perder el aviso
-            console.log(`Notificación (Denegada): ${title} - ${body}`);
-            // No usamos alert aquí para no ser molestos si el usuario denegó a propósito, 
-            // pero podrías activarlo si es crítico.
+            console.log(`Notificación bloqueada por el usuario: ${title}`);
         }
     },
 
