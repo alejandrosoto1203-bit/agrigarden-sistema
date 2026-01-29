@@ -65,32 +65,58 @@ console.log(`🔗 Supabase: ${CURRENT_ENV.SUPABASE_URL}`);
 // =====================================================
 // BANNER VISUAL PARA AMBIENTE DE PRUEBAS
 // =====================================================
+// =====================================================
+// BANNER VISUAL Y ESTILOS PARA AMBIENTE DE PRUEBAS
+// =====================================================
 if (CURRENT_ENV.IS_TEST) {
-    document.addEventListener('DOMContentLoaded', () => {
+    const applyTestVisuals = () => {
+        if (document.getElementById('test-banner')) return;
+
+        // 1. Crear Banner
         const banner = document.createElement('div');
         banner.id = 'test-banner';
         banner.innerHTML = `
             <span style="margin-right: 8px;">⚠️</span>
-            AMBIENTE DE PRUEBAS - Los cambios aquí NO afectan producción
+            AMBIENTE DE PRUEBAS - LOS CAMBIOS NO AFECTAN PRODUCCIÓN
         `;
         banner.style.cssText = `
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            background: linear-gradient(90deg, #e63946, #ff6b6b);
+            background: linear-gradient(90deg, #e63946, #c1121f);
             color: white;
             text-align: center;
             padding: 8px 16px;
-            font-weight: bold;
-            font-size: 12px;
-            z-index: 99999;
+            font-weight: 800;
+            font-size: 13px;
+            z-index: 999999;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         `;
         document.body.prepend(banner);
-
-        // Ajustar el body para que no quede detrás del banner
         document.body.style.paddingTop = '36px';
-    });
+
+        // 2. Forzar el color rojo en el tema (Override CSS)
+        const style = document.createElement('style');
+        style.innerHTML = `
+            :root { --theme-color: #e63946 !important; }
+            .bg-primary { background-color: #e63946 !important; }
+            .text-primary { color: #e63946 !important; }
+            .border-primary { border-color: #e63946 !important; }
+            .bg-primary\\/20 { background-color: rgba(230, 57, 70, 0.2) !important; }
+            .border-primary\\/30 { border-color: rgba(230, 57, 70, 0.3) !important; }
+            #test-banner { animation: slideDown 0.5s ease-out; }
+            @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+        `;
+        document.head.appendChild(style);
+        console.log("🎨 Visuales de PRUEBAS aplicados.");
+    };
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        applyTestVisuals();
+    } else {
+        document.addEventListener('DOMContentLoaded', applyTestVisuals);
+    }
 }
