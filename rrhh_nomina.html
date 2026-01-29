@@ -49,19 +49,19 @@
 
     <div id="sidebar-container"></div>
 
-    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8">
-        <header class="flex justify-between items-center">
+    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8 min-w-0">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-0">
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight italic uppercase">Centro de Gestión de Nómina</h1>
                 <p class="text-slate-500 font-medium">Gestiona cuotas de pago, bonificaciones y deducciones.</p>
             </div>
-            <div class="flex gap-3">
+            <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                 <button onclick="exportarNomina()"
-                    class="bg-white border border-slate-200 px-6 py-3 rounded-xl font-bold flex items-center gap-2 text-sm text-slate-600 hover:bg-slate-50 shadow-sm">
+                    class="w-full lg:w-auto bg-white border border-slate-200 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm text-slate-600 hover:bg-slate-50 shadow-sm">
                     <span class="material-symbols-outlined text-lg">download</span> Exportar Excel
                 </button>
                 <button onclick="generarNominaMasiva()"
-                    class="bg-primary text-black px-8 py-3 rounded-xl font-black flex items-center gap-2 text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
+                    class="w-full lg:w-auto bg-primary text-black px-8 py-3 rounded-xl font-black flex items-center justify-center gap-2 text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
                     <span class="material-symbols-outlined text-lg">payments</span> Generar Nómina
                 </button>
             </div>
@@ -93,29 +93,30 @@
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-6">
-            <div class="flex-1 flex gap-4">
+        <div
+            class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center gap-4 lg:gap-6">
+            <div class="flex-1 flex flex-col lg:flex-row gap-4">
                 <select id="filtroFrecuencia"
-                    class="bg-slate-50 border-none rounded-xl px-6 py-3 text-xs font-black uppercase text-slate-500 focus:ring-primary">
+                    class="w-full lg:w-auto bg-slate-50 border-none rounded-xl px-6 py-3 text-xs font-black uppercase text-slate-500 focus:ring-primary">
                     <option value="Todos">Frecuencia: Todas</option>
                     <option value="Quincenal">Quincenal</option>
                     <option value="Semanal">Semanal</option>
                 </select>
                 <select id="filtroSucursal"
-                    class="bg-slate-50 border-none rounded-xl px-6 py-3 text-xs font-black uppercase text-slate-500 focus:ring-primary">
+                    class="w-full lg:w-auto bg-slate-50 border-none rounded-xl px-6 py-3 text-xs font-black uppercase text-slate-500 focus:ring-primary">
                     <option value="Todos">Sucursal: Todas</option>
                     <option value="Matriz">Matriz</option>
                     <option value="Norte">Norte</option>
                     <option value="Sur">Sur</option>
                 </select>
             </div>
-            <div id="filtroEstadoContainer" class="flex bg-slate-100 p-1 rounded-xl">
+            <div id="filtroEstadoContainer" class="flex justify-between bg-slate-100 p-1 rounded-xl w-full lg:w-auto">
                 <button onclick="filtrarEstado('Todos')" data-estado="Todos"
-                    class="px-4 py-2 text-[10px] font-black uppercase rounded-lg bg-white shadow-sm transition-all">Todo</button>
+                    class="flex-1 lg:flex-none px-4 py-2 text-[10px] font-black uppercase rounded-lg bg-white shadow-sm transition-all">Todo</button>
                 <button onclick="filtrarEstado('Pendiente')" data-estado="Pendiente"
-                    class="px-4 py-2 text-[10px] font-black uppercase rounded-lg text-slate-400 hover:bg-white/50 transition-all">Pendiente</button>
+                    class="flex-1 lg:flex-none px-4 py-2 text-[10px] font-black uppercase rounded-lg text-slate-400 hover:bg-white/50 transition-all">Pendiente</button>
                 <button onclick="filtrarEstado('Pagado')" data-estado="Pagado"
-                    class="px-4 py-2 text-[10px] font-black uppercase rounded-lg text-slate-400 hover:bg-white/50 transition-all">Pagado</button>
+                    class="flex-1 lg:flex-none px-4 py-2 text-[10px] font-black uppercase rounded-lg text-slate-400 hover:bg-white/50 transition-all">Pagado</button>
             </div>
         </div>
 
@@ -142,23 +143,27 @@
     </main>
 
     <div id="barAccionesMasivas"
-        class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-4 rounded-3xl shadow-2xl flex items-center gap-4 lg:p-8 px-8 z-[100] hidden animate-in fade-in slide-in-from-bottom-4">
-        <div class="flex items-center gap-4">
-            <span id="countSeleccionados"
-                class="size-8 bg-primary text-black rounded-full flex items-center justify-center font-black">0</span>
-            <span class="text-xs font-black uppercase tracking-widest">Seleccionados</span>
+        class="fixed bottom-4 lg:bottom-10 left-4 right-4 lg:left-1/2 lg:right-auto lg:-translate-x-1/2 bg-slate-900 text-white p-4 lg:px-8 lg:py-4 rounded-3xl shadow-2xl flex flex-col lg:flex-row items-center gap-4 z-[100] hidden animate-in fade-in slide-in-from-bottom-4">
+        <div class="flex items-center gap-4 justify-between w-full lg:w-auto">
+            <div class="flex items-center gap-4">
+                <span id="countSeleccionados"
+                    class="size-8 bg-primary text-black rounded-full flex items-center justify-center font-black">0</span>
+                <span class="text-xs font-black uppercase tracking-widest">Seleccionados</span>
+            </div>
+            <!-- Separator hidden on mobile -->
+            <div class="hidden lg:block h-8 w-px bg-slate-700"></div>
         </div>
-        <div class="h-8 w-px bg-slate-700"></div>
-        <div class="flex gap-4">
+
+        <div class="flex flex-col lg:flex-row gap-2 lg:gap-4 w-full lg:w-auto">
             <button onclick="calcularDeduccionesMasivas()"
-                class="flex items-center gap-2 text-[10px] font-black uppercase text-slate-300 hover:text-white"><span
+                class="flex-1 lg:flex-none flex items-center justify-center gap-2 text-[10px] font-black uppercase text-slate-300 hover:text-white bg-slate-800 lg:bg-transparent py-3 lg:py-0 rounded-xl"><span
                     class="material-symbols-outlined text-lg">calculate</span> Calcular</button>
             <button onclick="aprobarPagosMasivos()"
-                class="flex items-center gap-2 text-[10px] font-black uppercase text-slate-300 hover:text-white"><span
+                class="flex-1 lg:flex-none flex items-center justify-center gap-2 text-[10px] font-black uppercase text-slate-300 hover:text-white bg-slate-800 lg:bg-transparent py-3 lg:py-0 rounded-xl"><span
                     class="material-symbols-outlined text-lg">check_circle</span> Aprobar Pagos</button>
             <button onclick="enviarBoletasWhatsApp()"
-                class="bg-primary text-black px-6 py-3 rounded-2xl font-black text-[10px] uppercase flex items-center gap-2">
-                <span class="material-symbols-outlined text-lg">send</span> Enviar Boletas (WhatsApp)
+                class="flex-1 lg:flex-none bg-primary text-black px-6 py-3 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-lg">send</span> Enviar Boletas
             </button>
         </div>
     </div>
