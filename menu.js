@@ -72,9 +72,12 @@ function inyectarMenu(paginaActiva) {
         }
     };
 
+    // Ajuste para el banner de staging (si existe)
+    const headerTop = window.IS_TEST_ENV ? 'top-[37px]' : 'top-0';
+
     let html = `
         <!-- Mobile Header (Visible only on mobile) -->
-        <div class="lg:hidden fixed top-0 left-0 w-full bg-white z-40 border-b border-gray-200 flex items-center justify-between p-4 h-16 shadow-sm">
+        <div class="lg:hidden fixed ${headerTop} left-0 w-full bg-white z-40 border-b border-gray-200 flex items-center justify-between p-4 h-16 shadow-sm transition-all">
             <div class="flex items-center gap-3">
                 <div class="size-8 bg-black rounded-full flex items-center justify-center text-white">
                     <span class="material-symbols-outlined text-sm">potted_plant</span>
