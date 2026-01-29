@@ -15,7 +15,7 @@ const ENV_CONFIG = {
     },
     // PRUEBAS - Sandbox seguro (Tema Rojo)
     TEST: {
-        SUPABASE_URL: 'https://hvokszbagamuvkqypq1q.supabase.co',
+        SUPABASE_URL: 'https://hvokszbaganuvkqypgiq.supabase.co',
         SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2b2tzemJhZ2FudXZrcXlwZ2lxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MzMxNTAsImV4cCI6MjA4NTIwOTE1MH0.8NN5_rgDqn701aa-pCFY1sFar9RPWLqSTfumm5oJHkQ',
         THEME_COLOR: '#e63946',
         THEME_NAME: 'PRUEBAS',
