@@ -9,6 +9,7 @@
     <title>Cuentas por Pagar - Agrigarden</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="permisos.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
@@ -71,7 +72,7 @@
                 <p class="text-gray-400 font-medium">Administra y rastrea las obligaciones financieras de tu empresa</p>
             </div>
             <div>
-                <button onclick="sincronizarPagosHistoricos()" id="btnSyncHistory"
+                <button onclick="sincronizarPagosHistoricos()" id="btnSyncHistory" data-permiso-editar="pagar"
                     class="bg-black text-white px-5 py-3 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-gray-800 transition-all shadow-lg shadow-black/20">
                     <span class="material-symbols-outlined text-lg">history</span> Sincronizar Historial
                 </button>
@@ -239,6 +240,7 @@
                 <div id="historialNotasProv" class="space-y-3 max-h-[200px] overflow-y-auto pr-2"></div>
             </div>
             <div class="p-4 lg:p-8 bg-gray-50/50 border-t border-gray-100"><button onclick="guardarNotaProv()"
+                    data-permiso-editar="pagar"
                     class="w-full bg-black text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest">Guardar
                     Gestión</button></div>
         </div>
@@ -252,6 +254,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             inyectarMenu('pagar');
+            if (typeof Permisos !== 'undefined') Permisos.aplicarPermisosUI();
             cargarCuentasPorPagar();
             const busq = document.getElementById('busquedaProveedor');
             if (busq) busq.addEventListener('input', aplicarFiltrosPagos);

@@ -14,8 +14,11 @@
         rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="permisos.js"></script>
     <script>
         tailwind.config = {
+            // ... existing theme config ...
+
             theme: {
                 extend: {
                     colors: { primary: "var(--theme-color)", background: "#f8fafc" },
@@ -70,7 +73,7 @@
                 <p class="text-gray-500 text-sm font-medium">Gestiona y monitorea todas las órdenes de suministros
                     agrícolas.</p>
             </div>
-            <button onclick="window.location.href='nueva_compra.html'"
+            <button onclick="window.location.href='nueva_compra.html'" data-permiso-editar="compras"
                 class="w-full lg:w-auto bg-[#19e66b] text-black px-4 py-3 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg shadow-[#19e66b]/20 hover:brightness-105 transition-all">
                 <span class="material-symbols-outlined text-lg">shopping_cart_checkout</span> Nueva Solicitud
             </button>
@@ -462,7 +465,7 @@
                     <div class="space-y-3">
                         <p class="text-[9px] font-black uppercase text-gray-400 tracking-widest">Cambiar Estatus</p>
 
-                        <button onclick="actualizarEstatusTaller('Cotizado')"
+                        <button onclick="actualizarEstatusTaller('Cotizado')" data-permiso-editar="compras"
                             class="w-full py-4 bg-blue-50 text-blue-600 rounded-xl font-black uppercase text-xs hover:bg-blue-100 flex items-center justify-center gap-2 border border-blue-100 transition-all">
                             <span class="material-symbols-outlined text-lg">currency_exchange</span> Marcar como
                             Cotizado
@@ -489,6 +492,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             inyectarMenu('compras');
+            if (typeof Permisos !== 'undefined') Permisos.aplicarPermisosUI();
             cargarListaCompras();
         });
     </script>

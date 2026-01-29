@@ -13,6 +13,7 @@
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
         rel="stylesheet" />
+    <script src="permisos.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -74,7 +75,7 @@
                 </p>
             </div>
             <div class="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-                <button onclick="sincronizarHistorialCreditos()"
+                <button onclick="sincronizarHistorialCreditos()" data-permiso-editar="cobrar"
                     class="w-full lg:w-auto bg-black text-white px-6 py-3 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg hover:scale-105 transition-transform group">
                     <span
                         class="material-symbols-outlined text-lg group-hover:rotate-180 transition-transform duration-500">sync</span>
@@ -257,7 +258,7 @@
                 </div>
             </div>
             <div class="p-4 lg:p-8 bg-gray-50/50 border-t border-gray-100">
-                <button onclick="guardarGestion()"
+                <button onclick="guardarGestion()" data-permiso-editar="cobrar"
                     class="w-full bg-black text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-lg shadow-black/10">Guardar
                     Gestión</button>
             </div>
@@ -273,6 +274,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             inyectarMenu('cobrar');
+            if (typeof Permisos !== 'undefined') Permisos.aplicarPermisosUI();
             if (typeof cargarCuentasPorCobrar === 'function') cargarCuentasPorCobrar();
             const inputBusq = document.getElementById('busquedaCobros');
             if (inputBusq) inputBusq.addEventListener('input', aplicarFiltrosCobros);
