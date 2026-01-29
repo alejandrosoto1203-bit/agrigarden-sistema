@@ -288,6 +288,45 @@ function renderUsuarios(list) {
     `).join('');
 }
 
+window.abrirModalUsuario = function (user = null) {
+    const modal = document.getElementById('modalUsuario');
+    const title = document.getElementById('modalTitle');
+
+    // Titulo y reset Form
+    title.innerText = user ? 'Editar Usuario' : 'Nuevo Usuario';
+    document.getElementById('userForm').reset();
+    document.getElementById('userId').value = user?.id || '';
+    document.getElementById('btnEliminarUser').classList.toggle('hidden', !user);
+
+    if (user) {
+        document.getElementById('userNombre').value = user.nombre;
+        document.getElementById('userEmail').value = user.email;
+        document.getElementById('userPass').value = user.password;
+        document.getElementById('userRol').value = user.rol;
+        document.getElementById('userSucursal').value = user.sucursal || 'Ambas';
+
+        // Llenar checkboxes de permisos
+        const permisos = user.permisos || {};
+        Permisos.MODULOS.forEach(mod => {
+            const checkVer = document.getElementById(`perm_ver_${mod}`);
+            const checkEdit = document.getElementById(`perm_edit_${mod}`);
+            if (checkVer) checkVer.checked = !!permisos[mod]?.ver;
+            if (checkEdit) checkEdit.checked = !!permisos[mod]?.editar;
+        });
+    } else {
+        // Default admin permissions for new user if needed, or empty
+        Permisos.MODULOS.forEach(mod => {
+            const cv = document.getElementById(`perm_ver_${mod}`);
+            const ce = document.getElementById(`perm_edit_${mod}`);
+            if (cv) cv.checked = false;
+            if (ce) ce.checked = false;
+        });
+    }
+
+    modal.classList.remove('hidden');
+    setTimeout(() => modal.querySelector('.bg-white').classList.remove('translate-y-full'), 10);
+}
+
 window.guardarUsuario = async function (e) {
     e.preventDefault();
     const client = getClient();
@@ -296,8 +335,18 @@ window.guardarUsuario = async function (e) {
     const email = document.getElementById('userEmail').value;
     const password = document.getElementById('userPass').value;
     const rol = document.getElementById('userRol').value;
+    const sucursal = document.getElementById('userSucursal').value;
 
-    const payload = { nombre, email, password, rol };
+    // Recolectar permisos
+    const permisos = {};
+    Permisos.MODULOS.forEach(mod => {
+        permisos[mod] = {
+            ver: document.getElementById(`perm_ver_${mod}`)?.checked || false,
+            editar: document.getElementById(`perm_edit_${mod}`)?.checked || false
+        };
+    });
+
+    const payload = { nombre, email, password, rol, sucursal, permisos };
 
     try {
         let error;

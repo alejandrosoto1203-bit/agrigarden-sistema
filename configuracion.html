@@ -229,56 +229,120 @@
 
     <!-- MODAL USUARIO -->
     <div id="modalUsuario"
-        class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden z-[100] flex items-center justify-center opacity-0 transition-opacity duration-300">
-        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl transform scale-95 transition-all duration-300 p-4 lg:p-8">
-            <h3 class="text-2xl font-bold mb-1">Usuario</h3>
-            <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-6">Credenciales de Acceso</p>
+        class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
+        <div
+            class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-300 translate-y-full">
+            <div class="p-8 pb-4 flex justify-between items-start border-b border-gray-100">
+                <div>
+                    <h3 class="text-2xl font-bold" id="modalTitle">Nuevo Usuario</h3>
+                    <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Configuración de Acceso y
+                        Permisos</p>
+                </div>
+                <button onclick="cerrarModalUsuario()" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
 
-            <form onsubmit="guardarUsuario(event)" class="space-y-4">
+            <form id="userForm" onsubmit="guardarUsuario(event)" class="p-8 pt-6 space-y-6">
                 <input type="hidden" id="userId">
-                <div>
-                    <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Nombre</label>
-                    <input type="text" id="userNombre" required class="input-config" placeholder="Nombre completo">
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Email (Usuario)</label>
-                    <input type="email" id="userEmail" required class="input-config"
-                        placeholder="correo@agrigarden.com">
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Contraseña</label>
-                    <input type="text" id="userPass" required class="input-config" placeholder="******">
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-gray-400 uppercase block mb-1">Rol</label>
-                    <select id="userRol" class="input-config bg-white">
-                        <option value="admin">Administrador (Acceso Total)</option>
-                        <option value="viewer">Visualizador (Solo Lectura)</option>
-                    </select>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Datos Básicos -->
+                    <div class="space-y-4">
+                        <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Datos de Perfil</h4>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Nombre
+                                Completo</label>
+                            <input type="text" id="userNombre" required class="input-config"
+                                placeholder="Nombre completo">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Email /
+                                Usuario</label>
+                            <input type="email" id="userEmail" required class="input-config"
+                                placeholder="correo@agrigarden.com">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Contraseña</label>
+                            <input type="text" id="userPass" required class="input-config" placeholder="******">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Rol</label>
+                                <select id="userRol" class="input-config bg-white">
+                                    <option value="admin">Administrador</option>
+                                    <option value="viewer">Lector</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Sucursal</label>
+                                <select id="userSucursal" class="input-config bg-white">
+                                    <option value="Ambas">Ambas</option>
+                                    <option value="Norte">Norte</option>
+                                    <option value="Sur">Sur</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grilla de Permisos -->
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Acceso a Módulos
+                            </h4>
+                            <span class="text-[8px] text-gray-400 font-bold uppercase italic">Ver / Editar</span>
+                        </div>
+                        <div class="max-h-[300px] overflow-y-auto pr-2 space-y-1 custom-scrollbar">
+                            <script>
+                                // Este script generará los checkboxes dinámicamente si Permisos está cargado
+                                document.addEventListener('DOMContentLoaded', () => {
+                                    const container = document.querySelector('.custom-scrollbar');
+                                    if (window.Permisos) {
+                                        container.innerHTML = Permisos.MODULOS.map(mod => `
+                                            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all">
+                                                <span class="text-[11px] font-bold uppercase text-gray-600">${mod.replace('_', ' ')}</span>
+                                                <div class="flex gap-4">
+                                                    <input type="checkbox" id="perm_ver_${mod}" class="accent-black">
+                                                    <input type="checkbox" id="perm_edit_${mod}" class="accent-green-500">
+                                                </div>
+                                            </div>
+                                        `).join('');
+                                    }
+                                });
+                            </script>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="flex gap-3 mt-8 pt-4 border-t border-gray-100">
-                    <button type="button" onclick="cerrarModalUsuario()"
-                        class="flex-1 py-3 text-gray-400 font-bold text-xs hover:text-black">CANCELAR</button>
-                    <button type="submit"
-                        class="flex-1 bg-black text-white py-3 rounded-xl font-bold text-xs hover:bg-gray-800">GUARDAR</button>
+                <div class="flex gap-4 pt-6 border-t border-gray-100">
+                    <button type="button" id="btnEliminarUser" onclick="eliminarUsuario()"
+                        class="px-6 py-3 text-red-500 font-bold text-[10px] uppercase hover:bg-red-50 rounded-xl transition-colors hidden">Eliminar</button>
+                    <div class="flex-1 flex gap-2 justify-end">
+                        <button type="button" onclick="cerrarModalUsuario()"
+                            class="px-6 py-3 text-gray-400 font-bold text-[10px] uppercase hover:bg-gray-50 rounded-xl">Cancelar</button>
+                        <button type="submit"
+                            class="px-10 py-3 bg-black text-white rounded-xl font-bold text-[10px] uppercase hover:bg-slate-800 shadow-lg shadow-gray-200">Guardar
+                            Usuario</button>
+                    </div>
                 </div>
             </form>
-            <div class="mt-4 pt-4 border-t border-gray-100 hidden" id="divEliminarUser">
-                <button onclick="eliminarUsuario()"
-                    class="w-full text-red-500 font-bold text-xs hover:bg-red-50 py-2 rounded-lg transition-colors">ELIMINAR
-                    USUARIO</button>
-            </div>
         </div>
     </div>
 
     <script src="api.js"></script>
+    <script src="permisos.js"></script>
     <script src="auth.js"></script>
     <script src="menu.js"></script>
     <script src="configuracion.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             inyectarMenu('configuracion');
+
+            // Cerrar modal al hacer click fuera
+            document.getElementById('modalUsuario').addEventListener('click', (e) => {
+                if (e.target.id === 'modalUsuario') cerrarModalUsuario();
+            });
+
             // Init tabs logic
             window.switchTab = function (tabId) {
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -297,29 +361,11 @@
             switchTab('comisiones');
         });
 
-        // Modal Logic
-        const modal = document.getElementById('modalUsuario');
-        function abrirModalUsuario(u = null) {
-            modal.classList.remove('hidden');
-            setTimeout(() => { modal.classList.remove('opacity-0'); modal.firstElementChild.classList.remove('scale-95'); }, 10);
-
-            const divDel = document.getElementById('divEliminarUser');
-            if (u) {
-                document.getElementById('userId').value = u.id;
-                document.getElementById('userNombre').value = u.nombre;
-                document.getElementById('userEmail').value = u.email;
-                document.getElementById('userPass').value = u.password;
-                document.getElementById('userRol').value = u.rol || 'admin';
-                divDel.classList.remove('hidden');
-            } else {
-                document.getElementById('userId').value = '';
-                document.querySelector('form').reset();
-                divDel.classList.add('hidden');
-            }
-        }
-        function cerrarModalUsuario() {
-            modal.classList.add('opacity-0');
-            modal.firstElementChild.classList.add('scale-95');
+        // Modal Logic Overrides (already defined in configuracion.js)
+        window.cerrarModalUsuario = function () {
+            const modal = document.getElementById('modalUsuario');
+            const inner = modal.querySelector('.bg-white');
+            inner.classList.add('translate-y-full');
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
     </script>

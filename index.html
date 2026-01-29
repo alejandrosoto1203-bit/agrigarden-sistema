@@ -10,10 +10,13 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet" />
     <!-- PWA Config -->
-    <link rel="manifest" id="pwa-manifest" href="manifest.json">
-    <link rel="apple-touch-icon" id="apple-icon" href="icon-prod-192.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-prod-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Agrigarden">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#e63946">
+    <meta name="theme-color" content="#19e66b">
+    <meta name="mobile-web-app-capable" content="yes">
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -85,7 +88,14 @@
     </div>
 
     <script src="api.js"></script>
+    <script src="notifications.js"></script>
     <script src="auth.js"></script>
+    <script>
+        // Registrar Service Worker para PWA al inicio si es posible
+        if (typeof NotificationsManager !== 'undefined') {
+            NotificationsManager.init();
+        }
+    </script>
 </body>
 
 </html>

@@ -35,10 +35,6 @@ function inyectarMenu(paginaActiva) {
     const renderItem = (item) => {
         // Verificar si el item actual o alguno de sus subitems está activo
         const isActive = item.id === paginaActiva || (item.subItems && item.subItems.some(sub => sub.id === paginaActiva));
-        /* 
-           Si es 'ventas' (el grupo), paginaActiva podría ser 'pos_terminal' o 'pos_cortes'. 
-           En esos casos, queremos que el grupo se muestre "activo" y desplegado.
-        */
 
         if (item.subItems) {
             // Es un item con submenú (Acordeón)
@@ -48,15 +44,17 @@ function inyectarMenu(paginaActiva) {
                 <div class="mb-1">
                     <button onclick="toggleSubmenu('${item.id}')" 
                         class="w-full flex items-center justify-between p-3 text-sm font-bold transition-all rounded-xl ${isActive ? 'bg-gray-50 text-gray-800' : 'text-gray-500 hover:bg-gray-50'}">
-                        <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-3 relative">
                             <span class="material-symbols-outlined">${item.icon}</span> ${item.nombre}
+                            <span id="badge-${item.id}" class="hidden absolute -top-1 -left-1 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm"></span>
                         </div>
                         <span class="material-symbols-outlined text-xs transition-transform duration-200" id="arrow-${item.id}" style="${isOpen ? 'transform: rotate(180deg);' : ''}">expand_more</span>
                     </button>
                     <div id="submenu-${item.id}" class="${isOpen ? '' : 'hidden'} pl-11 space-y-1 mt-1 font-medium text-xs">
                         ${item.subItems.map(sub => `
-                            <a href="${sub.link}" class="block py-2 px-3 rounded-lg border-l-2 ${paginaActiva === sub.id ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-200'}">
+                            <a href="${sub.link}" class="block py-2 px-3 rounded-lg border-l-2 ${paginaActiva === sub.id ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-200'} relative">
                                 ${sub.nombre}
+                                <span id="badge-${sub.id}" class="hidden ml-2 bg-red-100 text-red-600 text-[9px] font-black px-1.5 py-0.5 rounded-full"></span>
                             </a>
                         `).join('')}
                     </div>
@@ -65,11 +63,29 @@ function inyectarMenu(paginaActiva) {
         } else {
             // Item normal
             return `
-                <a href="${item.link}" class="${paginaActiva === item.id ? 'bg-[#19e66b15] text-[#19e66b] font-black border border-[#19e66b30]' : 'text-gray-500 hover:bg-gray-50'} flex items-center gap-3 p-3 text-sm font-bold transition-all rounded-xl mb-1">
-                    <span class="material-symbols-outlined">${item.icon}</span> ${item.nombre}
+                <a href="${item.link}" class="${paginaActiva === item.id ? 'bg-[#19e66b15] text-[#19e66b] font-black border border-[#19e66b30]' : 'text-gray-500 hover:bg-gray-50'} flex items-center justify-between p-3 text-sm font-bold transition-all rounded-xl mb-1 relative">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined">${item.icon}</span> ${item.nombre}
+                    </div>
+                    <span id="badge-${item.id}" class="hidden bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm"></span>
                 </a>
             `;
         }
+    };
+
+    // --- FUNCION PARA ACTUALIZAR BADGES ---
+    window.updateMenuBadges = function (badges) {
+        Object.entries(badges).forEach(([id, count]) => {
+            const el = document.getElementById(`badge-${id}`);
+            if (el) {
+                if (count > 0) {
+                    el.innerText = count > 99 ? '99+' : count;
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            }
+        });
     };
 
     // Ajuste para el banner de staging (si existe)
@@ -111,7 +127,12 @@ function inyectarMenu(paginaActiva) {
             </div>
             
             <nav class="flex-1 p-4 lg:p-6 overflow-y-auto">
-                ${items.map(renderItem).join('')}
+                ${items.filter(item => {
+        // El admin ve todo por defecto
+        if (sessionStorage.getItem('userRole') === 'admin') return true;
+        // Los demás dependen de sus permisos configurados
+        return typeof Permisos !== 'undefined' ? Permisos.puedeVer(item.id) : true;
+    }).map(renderItem).join('')}
             </nav>
 
             <div class="p-4 lg:p-6 border-t border-gray-100">

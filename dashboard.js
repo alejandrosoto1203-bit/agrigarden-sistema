@@ -72,6 +72,12 @@ async function cargarDashboard() {
 
         aplicarFiltrosDashboard();
 
+        // --- NUEVO: Inicializar Notificaciones ---
+        if (typeof NotificationsManager !== 'undefined') {
+            await NotificationsManager.init();
+            await sincronizarAlertasMensuales();
+        }
+
     } catch (error) {
         if (window.IS_TEST_ENV) {
             const p = document.getElementById('debug-floating-panel');
@@ -241,6 +247,116 @@ function aplicarFiltrosDashboard() {
     // ----------------------------------------------------------------
     renderChartsLegacy(ingresos, gastos, ahora);
 }
+
+// --- NUEVO: SINCRONIZADOR DE ALERTAS MENSUALES ---
+async function sincronizarAlertasMensuales() {
+    console.log("🔔 Iniciando sincronizador de alertas...");
+    const hoy = new Date();
+    const SB_URL = window.SUPABASE_URL || localStorage.getItem('supabaseUrl');
+    const SB_KEY = window.SUPABASE_KEY || localStorage.getItem('supabaseKey');
+
+    if (!window.dashCache) return;
+
+    // Contadores para badges
+    const badges = { rrhh: 0, compras: 0, cobrar: 0, pagar: 0, flotilla: 0 };
+
+    // 1. CUMPLEAÑOS (2 días antes)
+    if (dashCache.empleados) {
+        dashCache.empleados.forEach(emp => {
+            if (!emp.fecha_nacimiento) return;
+            const cumple = new Date(emp.fecha_nacimiento);
+            cumple.setFullYear(hoy.getFullYear());
+            const diffDays = Math.ceil((cumple - hoy) / (1000 * 60 * 60 * 24));
+            if (diffDays === 2) {
+                badges.rrhh++;
+                NotificationsManager.notify("🎂 Cumpleaños Cercano", `El cumpleaños de ${emp.nombre_completo} es en 2 días.`);
+            }
+        });
+    }
+
+    // 2. CXC (5 días antes y vencidas)
+    if (dashCache.ingresos) {
+        dashCache.ingresos.forEach(i => {
+            if (i.metodo_pago !== 'Crédito' || i.estado_cobro === 'Pagado') return;
+            const fechaVence = new Date(i.created_at);
+            fechaVence.setDate(fechaVence.getDate() + 30);
+            const diffDays = Math.ceil((fechaVence - hoy) / (1000 * 60 * 60 * 24));
+            if (diffDays === 5 || diffDays <= 0) {
+                badges.cobrar++;
+                if (diffDays === 5) NotificationsManager.notify("💰 CxC Próxima a Vencer", `La cuenta de ${i.nombre_cliente || 'Cliente'} vence en 5 días.`);
+                else NotificationsManager.notify("🚨 CxC Vencida", `La cuenta de ${i.nombre_cliente || 'Cliente'} ha vencido.`);
+            }
+        });
+    }
+
+    // 3. CXP (5 días antes y vencidas)
+    if (dashCache.gastos) {
+        dashCache.gastos.forEach(g => {
+            if (g.metodo_pago !== 'Crédito' || g.estado_pago === 'Pagado') return;
+            const fechaLimite = g.fecha_limite_pago ? new Date(g.fecha_limite_pago) : null;
+            if (!fechaLimite) return;
+            const diffDays = Math.ceil((fechaLimite - hoy) / (1000 * 60 * 60 * 24));
+            if (diffDays === 5 || diffDays <= 0) {
+                badges.pagar++;
+                if (diffDays === 5) NotificationsManager.notify("💸 CxP Próxima a Vencer", `Pago a ${g.proveedor || 'Proveedor'} vence en 5 días.`);
+                else NotificationsManager.notify("⚠️ CxP Vencida", `El pago a ${g.proveedor || 'Proveedor'} ha vencido.`);
+            }
+        });
+    }
+
+    // 4. FLOTILLAS (Aceite - 15 días antes)
+    try {
+        const resF = await fetch(`${SB_URL}/rest/v1/flotilla_vehiculos?select=marca,modelo,placas,proximo_cambio_aceite`, {
+            headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+        });
+        const flotilla = await resF.json();
+        flotilla.forEach(v => {
+            if (!v.proximo_cambio_aceite) return;
+            const proximo = new Date(v.proximo_cambio_aceite);
+            const diffDays = Math.ceil((proximo - hoy) / (1000 * 60 * 60 * 24));
+            if (diffDays === 15) {
+                badges.flotilla++;
+                NotificationsManager.notify("🚗 Mantenimiento Flotilla", `El vehículo ${v.marca} ${v.placas} requiere cambio de aceite en 15 días.`);
+            }
+        });
+    } catch (e) { console.error("Error sync flotilla", e); }
+
+    // 5. TAREAS (1 día antes)
+    if (dashCache.tareas) {
+        dashCache.tareas.forEach(t => {
+            if (t.estado === 'COMPLETADO' || !t.fecha_vencimiento) return;
+            const vence = new Date(t.fecha_vencimiento);
+            const diffDays = Math.ceil((vence - hoy) / (1000 * 60 * 60 * 24));
+            if (diffDays === 1) {
+                badges.rrhh++;
+                NotificationsManager.notify("📋 Tarea por Vencer", `La tarea "${t.titulo}" vence mañana.`);
+            }
+        });
+    }
+
+    // 6. COMPRAS (Vencidas)
+    try {
+        const resC = await fetch(`${SB_URL}/rest/v1/compras_agrigarden?select=numero_orden,proveedor,fecha_tentativa_recepcion,estado&estado=neq.RECIBIDO`, {
+            headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+        });
+        const compras = await resC.json();
+        compras.forEach(c => {
+            if (!c.fecha_tentativa_recepcion) return;
+            const entrega = new Date(c.fecha_tentativa_recepcion);
+            if (entrega < hoy) {
+                badges.compras++;
+                NotificationsManager.notify("📦 Compra Vencida", `La orden ${c.numero_orden} de ${c.proveedor} está retrasada.`);
+            }
+        });
+    } catch (e) { console.error("Error sync compras", e); }
+
+    // Actualizar badges en el menú
+    if (window.updateMenuBadges) {
+        window.updateMenuBadges(badges);
+    }
+}
+
+window.sincronizarAlertasMensuales = sincronizarAlertasMensuales;
 
 function updateText(id, val) {
     const el = document.getElementById(id);

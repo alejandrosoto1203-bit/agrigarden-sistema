@@ -48,6 +48,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
             sessionStorage.setItem('userRole', data.rol || 'viewer');
             sessionStorage.setItem('userName', data.nombre);
             sessionStorage.setItem('userId', data.id);
+            sessionStorage.setItem('usuario', JSON.stringify(data)); // Nueva estructura para permisos
             window.location.href = "dashboard.html";
         } else {
             // Check hardcoded fallback if DB check fails/returns empty but credentials match legacy
