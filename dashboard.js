@@ -424,6 +424,9 @@ async function sincronizarAlertasMensuales() {
 
     if (!window.dashCache) return;
 
+    // Contadores para badges
+    const badges = { rrhh: 0, compras: 0, cobrar: 0, pagar: 0, flotilla: 0 };
+
     // 1. CUMPLEAÑOS (2 días antes)
     if (dashCache.empleados) {
         dashCache.empleados.forEach(emp => {
@@ -432,6 +435,7 @@ async function sincronizarAlertasMensuales() {
             cumple.setFullYear(hoy.getFullYear());
             const diffDays = Math.ceil((cumple - hoy) / (1000 * 60 * 60 * 24));
             if (diffDays === 2) {
+                badges.rrhh++;
                 NotificationsManager.notify("🎂 Cumpleaños Cercano", `El cumpleaños de ${emp.nombre_completo} es en 2 días.`);
             }
         });
@@ -444,10 +448,10 @@ async function sincronizarAlertasMensuales() {
             const fechaVence = new Date(i.created_at);
             fechaVence.setDate(fechaVence.getDate() + 30);
             const diffDays = Math.ceil((fechaVence - hoy) / (1000 * 60 * 60 * 24));
-            if (diffDays === 5) {
-                NotificationsManager.notify("💰 CxC Próxima a Vencer", `La cuenta de ${i.nombre_cliente || 'Cliente'} vence en 5 días.`);
-            } else if (diffDays <= 0) {
-                NotificationsManager.notify("🚨 CxC Vencida", `La cuenta de ${i.nombre_cliente || 'Cliente'} ha vencido.`);
+            if (diffDays === 5 || diffDays <= 0) {
+                badges.cobrar++;
+                if (diffDays === 5) NotificationsManager.notify("💰 CxC Próxima a Vencer", `La cuenta de ${i.nombre_cliente || 'Cliente'} vence en 5 días.`);
+                else NotificationsManager.notify("🚨 CxC Vencida", `La cuenta de ${i.nombre_cliente || 'Cliente'} ha vencido.`);
             }
         });
     }
@@ -459,10 +463,10 @@ async function sincronizarAlertasMensuales() {
             const fechaLimite = g.fecha_limite_pago ? new Date(g.fecha_limite_pago) : null;
             if (!fechaLimite) return;
             const diffDays = Math.ceil((fechaLimite - hoy) / (1000 * 60 * 60 * 24));
-            if (diffDays === 5) {
-                NotificationsManager.notify("💸 CxP Próxima a Vencer", `Pago a ${g.proveedor || 'Proveedor'} vence en 5 días.`);
-            } else if (diffDays <= 0) {
-                NotificationsManager.notify("⚠️ CxP Vencida", `El pago a ${g.proveedor || 'Proveedor'} ha vencido.`);
+            if (diffDays === 5 || diffDays <= 0) {
+                badges.pagar++;
+                if (diffDays === 5) NotificationsManager.notify("💸 CxP Próxima a Vencer", `Pago a ${g.proveedor || 'Proveedor'} vence en 5 días.`);
+                else NotificationsManager.notify("⚠️ CxP Vencida", `El pago a ${g.proveedor || 'Proveedor'} ha vencido.`);
             }
         });
     }
@@ -478,6 +482,7 @@ async function sincronizarAlertasMensuales() {
             const proximo = new Date(v.proximo_cambio_aceite);
             const diffDays = Math.ceil((proximo - hoy) / (1000 * 60 * 60 * 24));
             if (diffDays === 15) {
+                badges.flotilla++;
                 NotificationsManager.notify("🚗 Mantenimiento Flotilla", `El vehículo ${v.marca} ${v.placas} requiere cambio de aceite en 15 días.`);
             }
         });
@@ -490,6 +495,7 @@ async function sincronizarAlertasMensuales() {
             const vence = new Date(t.fecha_vencimiento);
             const diffDays = Math.ceil((vence - hoy) / (1000 * 60 * 60 * 24));
             if (diffDays === 1) {
+                badges.rrhh++;
                 NotificationsManager.notify("📋 Tarea por Vencer", `La tarea "${t.titulo}" vence mañana.`);
             }
         });
@@ -505,10 +511,16 @@ async function sincronizarAlertasMensuales() {
             if (!c.fecha_tentativa_recepcion) return;
             const entrega = new Date(c.fecha_tentativa_recepcion);
             if (entrega < hoy) {
+                badges.compras++;
                 NotificationsManager.notify("📦 Compra Vencida", `La orden ${c.numero_orden} de ${c.proveedor} está retrasada.`);
             }
         });
     } catch (e) { console.error("Error sync compras", e); }
+
+    // Actualizar badges en el menú
+    if (window.updateMenuBadges) {
+        window.updateMenuBadges(badges);
+    }
 }
 
 window.sincronizarAlertasMensuales = sincronizarAlertasMensuales;

@@ -77,35 +77,79 @@ const NotificationsManager = {
 
     // Notificación local (utilizando el Service Worker para mayor confiabilidad)
     async notify(title, body, options = {}) {
-        if (!("Notification" in window)) {
-            console.log(`Alert fallback: ${title} - ${body}`);
-            return;
-        }
+        console.log(`🔔 Notificación: ${title} - ${body}`);
 
-        if (Notification.permission === 'granted') {
+        // 1. Intentar sonido siempre
+        try {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+            audio.play().catch(e => console.warn("Límite de audio del navegador:", e));
+        } catch (e) { }
+
+        // 2. Intentar Notificación Nativa
+        let nativeShown = false;
+        if (("Notification" in window) && Notification.permission === 'granted') {
             try {
-                // Sonido de alerta
-                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-                audio.play().catch(e => console.warn("No se pudo reproducir el sonido:", e));
-
                 const registration = await navigator.serviceWorker.ready;
-                registration.showNotification(title, {
+                await registration.showNotification(title, {
                     body,
                     icon: '/favicon.ico',
                     badge: '/favicon.ico',
                     vibrate: [200, 100, 200],
                     ...options
                 });
+                nativeShown = true;
             } catch (e) {
-                console.warn("Error con showNotification, intentando constructor clásico:", e);
-                new Notification(title, { body, ...options });
+                console.warn("Fallo showNotification:", e);
+                try { new Notification(title, { body, ...options }); nativeShown = true; } catch (e2) { }
             }
-        } else if (Notification.permission !== 'denied') {
-            const granted = await this.requestPermission();
-            if (granted) this.notify(title, body, options);
-        } else {
-            console.log(`Notificación bloqueada por el usuario: ${title}`);
         }
+
+        // 3. Fallback: Notificación Interna (UI) si no se mostró la nativa o para reforzar
+        this.showInAppNotification(title, body, options);
+    },
+
+    // Crea un banner visual dentro de la aplicación
+    showInAppNotification(title, body, options = {}) {
+        const id = 'toast-' + Date.now();
+        const toast = document.createElement('div');
+        toast.id = id;
+        toast.className = "fixed bottom-4 right-4 z-[9999] bg-white border-l-4 border-primary shadow-2xl rounded-lg p-4 max-w-sm transform translate-y-20 transition-all duration-500 flex gap-3 items-start animate-bounce-subtle";
+        toast.innerHTML = `
+            <div class="bg-primary/10 p-2 rounded-full text-primary">
+                <span class="material-symbols-outlined text-sm">notifications</span>
+            </div>
+            <div class="flex-1">
+                <p class="text-xs font-black uppercase text-slate-800">${title}</p>
+                <p class="text-[10px] text-slate-500 font-medium leading-tight mt-1">${body}</p>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-slate-300 hover:text-slate-500">
+                <span class="material-symbols-outlined text-xs">close</span>
+            </button>
+        `;
+        document.body.appendChild(toast);
+
+        // Animación de entrada
+        setTimeout(() => toast.classList.remove('translate-y-20'), 100);
+
+        // Auto-eliminar
+        setTimeout(() => {
+            if (document.getElementById(id)) {
+                toast.classList.add('opacity-0', 'translate-y-4');
+                setTimeout(() => toast.remove(), 500);
+            }
+        }, 6000);
+    },
+
+    async runDiagnostics() {
+        const results = {
+            supported: this.isSupported,
+            permission: Notification.permission,
+            swActive: !!(await navigator.serviceWorker.getRegistration()),
+            userAgent: navigator.userAgent
+        };
+        console.table(results);
+        this.notify("Diagnóstico Ejecutado", `Permiso: ${results.permission}. SW: ${results.swActive ? 'Activo' : 'Inactivo'}`);
+        return results;
     },
 
     urlBase64ToUint8Array(base64String) {
