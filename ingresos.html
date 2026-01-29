@@ -80,7 +80,7 @@
 
     <div id="sidebar-container"></div>
 
-    <main class="flex-1 ml-64 p-10 space-y-8 min-w-0">
+    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8 min-w-0">
 
         <header class="flex justify-between items-center">
             <div>
@@ -280,7 +280,7 @@
         class="fixed inset-0 bg-black/60 hidden z-[120] flex items-center justify-center backdrop-blur-sm p-4">
         <div
             class="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div class="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+            <div class="p-4 lg:p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                 <div>
                     <h3 class="text-xl font-black uppercase italic tracking-tight">Editar Registro de Ingreso</h3>
                     <p class="text-[10px] text-primary font-black uppercase mt-1 tracking-widest">Modificación de flujo
@@ -292,7 +292,7 @@
                 </button>
             </div>
 
-            <form id="formEditarIngreso" class="p-8 grid grid-cols-2 gap-6">
+            <form id="formEditarIngreso" class="p-4 lg:p-8 grid grid-cols-2 gap-6">
                 <input type="hidden" id="editIngresoId">
                 <div class="space-y-2">
                     <label class="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2">Fecha</label>
@@ -351,7 +351,7 @@
                 </div>
             </form>
 
-            <div class="p-8 bg-gray-50/50 border-t border-gray-100 flex gap-4">
+            <div class="p-4 lg:p-8 bg-gray-50/50 border-t border-gray-100 flex gap-4">
                 <button onclick="cerrarModalEditarIngreso()"
                     class="flex-1 py-4 text-[11px] font-black uppercase text-gray-400 hover:text-gray-600">Cancelar</button>
                 <button onclick="actualizarIngreso()"

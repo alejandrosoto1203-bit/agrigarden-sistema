@@ -73,19 +73,45 @@ function inyectarMenu(paginaActiva) {
     };
 
     let html = `
-        <aside class="w-64 bg-white border-r border-gray-200 flex flex-col fixed h-full z-50">
-            <div class="p-8 border-b border-gray-100 flex items-center gap-3">
+        <!-- Mobile Header (Visible only on mobile) -->
+        <div class="lg:hidden fixed top-0 left-0 w-full bg-white z-40 border-b border-gray-200 flex items-center justify-between p-4 h-16 shadow-sm">
+            <div class="flex items-center gap-3">
                 <div class="size-8 bg-black rounded-full flex items-center justify-center text-white">
                     <span class="material-symbols-outlined text-sm">potted_plant</span>
                 </div>
-                <span class="text-xl font-extrabold tracking-tight">Agrigarden</span>
+                <span class="text-lg font-extrabold tracking-tight">Agrigarden</span>
+            </div>
+            <button onclick="toggleSidebar()" class="p-2 rounded-xl active:bg-gray-100 text-gray-700">
+                <span class="material-symbols-outlined text-2xl">menu</span>
+            </button>
+        </div>
+
+        <!-- Mobile Overlay -->
+        <div id="sidebar-overlay" onclick="toggleSidebar()" 
+             class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden backdrop-blur-sm transition-opacity opacity-0"></div>
+
+        <!-- Sidebar -->
+        <aside id="app-sidebar" 
+               class="w-64 bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 left-0 z-50 transform -translate-x-full lg:translate-x-0 lg:static lg:inset-auto lg:transform-none transition-transform duration-300 shadow-2xl lg:shadow-none">
+            
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between h-20 lg:h-auto">
+                <div class="flex items-center gap-3">
+                    <div class="size-8 bg-black rounded-full flex items-center justify-center text-white">
+                        <span class="material-symbols-outlined text-sm">potted_plant</span>
+                    </div>
+                    <span class="text-xl font-extrabold tracking-tight">Agrigarden</span>
+                </div>
+                <!-- Close Button (Mobile) -->
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg text-gray-400 hover:bg-gray-50 hover:text-red-500 transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
             </div>
             
-            <nav class="flex-1 p-6 overflow-y-auto">
+            <nav class="flex-1 p-4 lg:p-6 overflow-y-auto">
                 ${items.map(renderItem).join('')}
             </nav>
 
-            <div class="p-6 border-t border-gray-100">
+            <div class="p-4 lg:p-6 border-t border-gray-100">
                 <button onclick="logout()" class="flex items-center gap-3 p-3 text-sm font-bold text-red-500 hover:bg-red-50 w-full rounded-xl transition-all">
                     <span class="material-symbols-outlined">logout</span> Salir
                 </button>
@@ -105,6 +131,29 @@ window.toggleSubmenu = function (id) {
         submenu.classList.toggle('hidden');
         if (arrow) {
             arrow.style.transform = submenu.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+    }
+};
+
+// Función para abrir/cerrar sidebar en móvil
+window.toggleSidebar = function () {
+    const sidebar = document.getElementById('app-sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+
+    if (sidebar && overlay) {
+        const isClosed = sidebar.classList.contains('-translate-x-full');
+
+        if (isClosed) {
+            // Abrir
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+            // Timeout para transición de opacidad
+            setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+        } else {
+            // Cerrar
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('opacity-0');
+            setTimeout(() => overlay.classList.add('hidden'), 300);
         }
     }
 };

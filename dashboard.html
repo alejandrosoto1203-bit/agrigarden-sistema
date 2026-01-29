@@ -51,15 +51,15 @@
 
     <div id="sidebar-container"></div>
 
-    <main class="flex-1 ml-64 p-10 space-y-8 min-w-0">
-        <header class="flex justify-between items-center">
+    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-4 lg:p-10 pt-20 lg:pt-10 space-y-8 min-w-0">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-0">
             <div>
-                <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Panel de Control</h1>
-                <p class="text-gray-400 font-medium">Métricas clave y rendimiento del negocio</p>
+                <h1 class="text-3xl lg:text-4xl font-extrabold tracking-tight italic uppercase">Panel de Control</h1>
+                <p class="text-gray-400 font-medium text-sm lg:text-base">Métricas clave y rendimiento del negocio</p>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 w-full lg:w-auto">
                 <select id="filtroSucursalDash" onchange="aplicarFiltrosDashboard()"
-                    class="bg-white border border-gray-200 text-gray-700 text-xs font-black uppercase rounded-xl px-4 py-2 focus:ring-2 focus:ring-primary outline-none shadow-sm h-10">
+                    class="bg-white border border-gray-200 text-gray-700 text-xs font-black uppercase rounded-xl px-4 py-2 focus:ring-2 focus:ring-primary outline-none shadow-sm h-10 flex-1 lg:flex-none">
                     <option value="Todos">Todas / Combinado</option>
                     <option value="Matriz">Matriz</option>
                     <option value="Norte">Sucursal Norte</option>

@@ -64,7 +64,7 @@
 
     <div id="sidebar-container"></div>
 
-    <main class="flex-1 ml-64 p-10 space-y-8 min-w-0">
+    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8 min-w-0">
         <header class="flex justify-between items-center">
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight italic uppercase">Cuentas por Pagar</h1>
@@ -93,7 +93,7 @@
             </div>
         </div>
 
-        <div class="flex gap-8 border-b border-gray-200">
+        <div class="flex gap-4 lg:p-8 border-b border-gray-200">
             <button id="tabPorPagar" onclick="cambiarPestañaPagar('pendiente')"
                 class="pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all">Por Pagar</button>
             <button id="tabPagado" onclick="cambiarPestañaPagar('pagado')"
@@ -144,7 +144,7 @@
 
     <div id="modalAbonoProv"
         class="fixed inset-0 bg-black/60 hidden z-[110] flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 space-y-6">
+        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-4 lg:p-8 space-y-6">
             <h3 class="text-lg font-black uppercase italic text-center">Registrar Pago</h3>
             <p id="infoAbonoProv" class="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center"></p>
 
@@ -197,7 +197,7 @@
 
     <div id="modalProrroga"
         class="fixed inset-0 bg-black/60 hidden z-[110] flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 space-y-6">
+        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-4 lg:p-8 space-y-6">
             <div class="text-center">
                 <h3 class="text-lg font-black uppercase italic">Aplicar Prórroga</h3>
                 <p id="infoProrroga" class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1"></p>
@@ -222,7 +222,7 @@
     <div id="modalBitacoraProv"
         class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden">
-            <div class="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+            <div class="p-4 lg:p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                 <div>
                     <h3 class="text-xl font-black uppercase italic">Bitácora de Proveedor</h3>
                     <p id="nombreProveedorBitacora"
@@ -232,13 +232,13 @@
                     class="size-10 rounded-full hover:bg-gray-200 flex items-center justify-center"><span
                         class="material-symbols-outlined text-gray-400">close</span></button>
             </div>
-            <div class="p-8 space-y-6">
+            <div class="p-4 lg:p-8 space-y-6">
                 <textarea id="notaProv"
                     class="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm font-semibold focus:ring-2 focus:ring-emerald-500 min-h-[100px] uppercase"
                     placeholder="Nota de seguimiento..."></textarea>
                 <div id="historialNotasProv" class="space-y-3 max-h-[200px] overflow-y-auto pr-2"></div>
             </div>
-            <div class="p-8 bg-gray-50/50 border-t border-gray-100"><button onclick="guardarNotaProv()"
+            <div class="p-4 lg:p-8 bg-gray-50/50 border-t border-gray-100"><button onclick="guardarNotaProv()"
                     class="w-full bg-black text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest">Guardar
                     Gestión</button></div>
         </div>

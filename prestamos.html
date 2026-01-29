@@ -81,7 +81,7 @@
 
     <div id="sidebar-container"></div>
 
-    <main class="flex-1 ml-64 p-10 space-y-8 min-w-0">
+    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8 min-w-0">
         <header class="flex justify-between items-center">
             <div>
                 <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Módulo de Préstamos</h1>
@@ -100,7 +100,7 @@
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="card p-8 border-l-4 border-black">
+            <div class="card p-4 lg:p-8 border-l-4 border-black">
                 <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Capital Pendiente Total
                 </p>
                 <span id="kpiCapitalPendiente" class="text-3xl font-black text-gray-900">$0.00</span>
@@ -108,14 +108,14 @@
                     <span class="material-symbols-outlined text-xs">trending_up</span> +2.5% vs mes pasado
                 </div>
             </div>
-            <div class="card p-8 border-l-4 border-orange-400">
+            <div class="card p-4 lg:p-8 border-l-4 border-orange-400">
                 <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Intereses Acumulados</p>
                 <span id="kpiInteresAcumulado" class="text-3xl font-black text-gray-900">$0.00</span>
                 <div class="mt-2 text-[10px] font-black text-red-400 flex items-center gap-1">
                     <span class="material-symbols-outlined text-xs">trending_down</span> -1.2% en comisiones
                 </div>
             </div>
-            <div class="card p-8 border-l-4 border-primary">
+            <div class="card p-4 lg:p-8 border-l-4 border-primary">
                 <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Próximo Vencimiento</p>
                 <span id="kpiProximoPago" class="text-3xl font-black text-gray-900">-- / --</span>
                 <div class="mt-2 text-[10px] font-black text-gray-400 flex items-center gap-1">
@@ -164,7 +164,7 @@
     <div id="modalNuevoPrestamo"
         class="fixed inset-0 bg-black/60 hidden z-[150] flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div class="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+            <div class="p-4 lg:p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                 <div>
                     <h3 class="text-xl font-black uppercase italic tracking-tight">Configurar Nuevo Préstamo</h3>
                     <p class="text-[10px] text-primary font-black uppercase mt-1 tracking-widest text-emerald-500">
@@ -176,7 +176,7 @@
                 </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-8 grid grid-cols-12 gap-8">
+            <div class="flex-1 overflow-y-auto p-4 lg:p-8 grid grid-cols-12 gap-4 lg:p-8">
                 <form id="formNuevoPrestamo" class="col-span-4 space-y-4">
                     <div class="space-y-1">
                         <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Fecha de Obtención</label>
@@ -278,7 +278,7 @@
                 </div>
             </div>
 
-            <div class="p-8 bg-gray-50/50 border-t border-gray-100 flex gap-4">
+            <div class="p-4 lg:p-8 bg-gray-50/50 border-t border-gray-100 flex gap-4">
                 <button onclick="cerrarModalNuevoPrestamo()"
                     class="flex-1 py-4 text-[11px] font-black uppercase text-gray-400 hover:text-gray-600 transition-all">Cancelar</button>
                 <button onclick="guardarPrestamo()"
@@ -292,7 +292,7 @@
     <div id="modalAvancePrestamo"
         class="fixed inset-0 bg-black/60 hidden z-[180] flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            <div class="p-8 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+            <div class="p-4 lg:p-8 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                 <div>
                     <h3 class="text-xl font-black uppercase italic tracking-tight" id="txtAvanceTitulo">Avance de Pago
                     </h3>
@@ -305,7 +305,7 @@
                 </button>
             </div>
 
-            <div class="p-8 space-y-8 overflow-y-auto">
+            <div class="p-4 lg:p-8 space-y-8 overflow-y-auto">
                 <div class="space-y-3">
                     <div class="flex justify-between items-end">
                         <span class="text-[10px] font-black uppercase text-gray-400">Porcentaje de Liquidación</span>
@@ -342,7 +342,7 @@
 
     <div id="modalLiquidarPrestamo"
         class="fixed inset-0 bg-black/60 hidden z-[160] flex items-center justify-center backdrop-blur-sm p-4">
-        <div class="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6">
+        <div class="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-4 lg:p-8 space-y-6">
             <div class="text-center">
                 <h3 class="text-xl font-black uppercase italic tracking-tight">Liquidación Anticipada</h3>
                 <p id="txtLiquidarInfo" class="text-[10px] text-gray-400 font-black uppercase mt-1 tracking-widest">
