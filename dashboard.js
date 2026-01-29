@@ -1,5 +1,16 @@
 // dashboard.js - Panel de Control Integral (Finanzas, RRHH, Cobranza)
 
+// --- UTILS FALLBACK ---
+// Asegurar que formatMoney exista incluso si api.js falla o tiene cache antiguo
+if (typeof formatMoney === 'undefined') {
+    window.formatMoney = (n) => {
+        if (n === undefined || n === null) return "$0.00";
+        return `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    };
+    console.log("⚠️ dashboard.js: formatMoney defined locally as fallback");
+}
+// ----------------------
+
 let chartTendencia = null;
 let chartGastos = null;
 let chartCobranza = null;
@@ -31,7 +42,7 @@ async function cargarDashboard() {
         }
         const logDebug = (msg, isError = false) => {
             const p = document.getElementById('debug-floating-panel');
-            if(p) p.innerHTML += `<div style='color:${isError?'red':'#0f0'}; border-bottom:1px solid #333; padding:2px 0;'>${msg}</div>`;
+            if (p) p.innerHTML += `<div style='color:${isError ? 'red' : '#0f0'}; border-bottom:1px solid #333; padding:2px 0;'>${msg}</div>`;
         };
         // ----------------------------------
 
@@ -44,7 +55,7 @@ async function cargarDashboard() {
             fetch(`${SB_URL}/rest/v1/rrhh_tareas?select=empleado_id,estado`, { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } })
         ]);
 
-        if(window.IS_TEST_ENV) {
+        if (window.IS_TEST_ENV) {
             logDebug(`Ingresos Status: ${resIngresos.status}`);
             logDebug(`Gastos Status: ${resGastos.status}`);
         }
@@ -55,18 +66,18 @@ async function cargarDashboard() {
         dashCache.inversiones = await resInversiones.json();
         dashCache.tareas = await resTareas.json();
 
-        if(window.IS_TEST_ENV) {
+        if (window.IS_TEST_ENV) {
             logDebug(`Ingresos Count: ${dashCache.ingresos.length}`);
             logDebug(`Gastos Count: ${dashCache.gastos.length}`);
-            if(dashCache.ingresos.length > 0) logDebug(`Last Ingreso: ${dashCache.ingresos[0].created_at.substring(0,10)}`);
+            if (dashCache.ingresos.length > 0) logDebug(`Last Ingreso: ${dashCache.ingresos[0].created_at.substring(0, 10)}`);
         }
 
         aplicarFiltrosDashboard();
 
     } catch (error) {
-        if(window.IS_TEST_ENV) {
+        if (window.IS_TEST_ENV) {
             const p = document.getElementById('debug-floating-panel');
-            if(p) p.innerHTML += `<div style='color:red; font-weight:bold'>ERROR CRITICO: ${error.message}</div>`;
+            if (p) p.innerHTML += `<div style='color:red; font-weight:bold'>ERROR CRITICO: ${error.message}</div>`;
         }
         console.error("Error dashboard:", error);
     }
