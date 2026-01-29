@@ -3,6 +3,16 @@
 const SUPABASE_URL = window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co';
 const SUPABASE_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
 
+// --- UTILITIES ---
+// Definir formatMoney inmediatamente para evitar ReferenceError
+window.formatMoney = (n) => {
+    if (n === undefined || n === null) return "$0.00";
+    return `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+};
+console.log("✅ API Utilities: formatMoney ready");
+
+console.log(`🔌 api.js inicializando con URL: ${SUPABASE_URL}`);
+
 console.log(`🔌 api.js inicializando con URL: ${SUPABASE_URL}`);
 
 
@@ -76,7 +86,3 @@ window.cargarConfiguracionSistema = async function () {
 
 // Trigger load immediately
 cargarConfiguracionSistema();
-
-// Función para formatear dinero en todo el sistema
-// Función para formatear dinero en todo el sistema
-window.formatMoney = (n) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
