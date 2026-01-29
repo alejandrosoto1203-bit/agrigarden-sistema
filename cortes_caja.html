@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Historial de Cortes de Caja - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "var(--theme-color)", background: "#f8faf9", sidebar: "#ffffff" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8faf9;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .card {
+            background: white;
+            border-radius: 1.25rem;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#111814] flex">
+
+    <div id="sidebar-container"></div>
+
+    <main class="flex-1 ml-64 p-10 space-y-8 min-w-0">
+
+        <header class="flex justify-between items-center">
+            <div>
+                <div class="flex items-center gap-2 mb-2">
+                    <span
+                        class="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">Punto
+                        de Venta</span>
+                </div>
+                <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Historial de Cortes</h1>
+                <p class="text-gray-400 font-medium">Registro detallado de cierres de caja y diferencias de efectivo</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="cargarCortesCaja()"
+                    class="bg-white border border-gray-300 px-4 py-3 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-gray-50 transition-all text-gray-600">
+                    <span class="material-symbols-outlined text-lg">refresh</span> Actualizar
+                </button>
+            </div>
+        </header>
+
+        <!-- Filtros Rápidos -->
+        <div class="flex gap-4">
+            <select id="filtroSucursal" onchange="cargarCortesCaja()"
+                class="border-gray-200 rounded-xl text-sm font-bold text-gray-600 focus:border-primary focus:ring-primary px-4 py-3">
+                <option value="Todas">Todas las Sucursales</option>
+                <option value="Norte">Sucursal Norte</option>
+                <option value="Sur">Sucursal Sur</option>
+            </select>
+        </div>
+
+        <!-- Tabla de Cortes -->
+        <div class="card overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50 border-b border-gray-100">
+                        <tr>
+                            <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider">Fecha / Hora
+                                Cierre</th>
+                            <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider">Sucursal
+                            </th>
+                            <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider">Usuario</th>
+                            <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider text-right">
+                                Fondo Inicial</th>
+                            <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider text-right">
+                                Ventas Efectivo</th>
+                            <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider text-right">
+                                Efectivo Final</th>
+                            <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider text-right">
+                                Diferencia</th>
+                            <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider text-center">
+                                Estado</th>
+                            <th class="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider text-right">
+                                Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaCortes" class="divide-y divide-gray-50 text-sm">
+                        <tr>
+                            <td colspan="8" class="px-6 py-12 text-center text-gray-400 italic">
+                                <span class="material-symbols-outlined text-4xl mb-2 block mx-auto">manage_search</span>
+                                Cargando historial de cortes...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL: DETALLE CORTE -->
+    <div id="modalDetalleCorte" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h2 class="text-2xl font-black text-gray-800">Detalle de Corte</h2>
+                    <p class="text-gray-400 text-sm" id="detalleFecha">Cargando...</p>
+                </div>
+                <button onclick="cerrarModalDetalle()" class="p-2 hover:bg-gray-100 rounded-full text-gray-400">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="p-4 bg-gray-50 rounded-2xl">
+                    <p class="text-xs font-bold text-gray-400 uppercase">Sucursal</p>
+                    <p class="text-lg font-black text-gray-700" id="detalleSucursal">-</p>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-2xl">
+                    <p class="text-xs font-bold text-gray-400 uppercase">Responsable</p>
+                    <p class="text-lg font-black text-gray-700" id="detalleUsuario">-</p>
+                </div>
+            </div>
+
+            <div class="space-y-3 mb-8">
+                <div class="flex justify-between items-center p-3 border-b border-gray-100">
+                    <span class="text-gray-500 font-medium">Fondo Inicial</span>
+                    <span class="font-bold text-gray-800" id="detalleFondo">$0.00</span>
+                </div>
+                <div class="flex justify-between items-center p-3 border-b border-gray-100">
+                    <span class="text-green-600 font-medium">(+) Ventas Efectivo</span>
+                    <span class="font-bold text-green-600" id="detalleVentas">$0.00</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <span class="text-gray-800 font-bold">Total Esperado</span>
+                    <span class="font-black text-gray-800" id="detalleEsperado">$0.00</span>
+                </div>
+                <div class="flex justify-between items-center p-3">
+                    <span class="text-gray-500 font-medium">Efectivo Real (Contado)</span>
+                    <span class="font-bold text-gray-800" id="detalleReal">$0.00</span>
+                </div>
+                <div class="flex justify-between items-center p-3 rounded-lg" id="containerDiferencia">
+                    <span class="font-bold">Diferencia</span>
+                    <span class="font-black text-xl" id="detalleDiferencia">$0.00</span>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-sm font-black text-gray-800 mb-2 uppercase">Notas del Cierre</h3>
+                <p class="text-gray-600 text-sm italic bg-gray-50 p-4 rounded-xl" id="detalleNotas">Sin notas</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDITAR CORTE -->
+    <div id="modalEditarCorte" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-8">
+            <h2 class="text-2xl font-black text-gray-800 mb-6">Editar Corte</h2>
+            <input type="hidden" id="editIdCorte">
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs font-black text-gray-500 uppercase">Fondo Inicial ($)</label>
+                    <input type="number" id="editFondo" step="0.01"
+                        class="w-full mt-1 px-4 py-3 border-gray-200 rounded-xl font-bold focus:border-primary focus:ring-primary">
+                </div>
+                <div>
+                    <label class="text-xs font-black text-gray-500 uppercase">Efectivo Real / Contado ($)</label>
+                    <input type="number" id="editReal" step="0.01"
+                        class="w-full mt-1 px-4 py-3 border-gray-200 rounded-xl font-bold focus:border-primary focus:ring-primary">
+                </div>
+                <div>
+                    <label class="text-xs font-black text-gray-500 uppercase">Notas</label>
+                    <textarea id="editNotas" rows="3"
+                        class="w-full mt-1 px-4 py-3 border-gray-200 rounded-xl font-medium focus:border-primary focus:ring-primary"></textarea>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-8">
+                <button onclick="document.getElementById('modalEditarCorte').classList.add('hidden')"
+                    class="flex-1 py-3 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50">Cancelar</button>
+                <button onclick="guardarEdicionCorte()"
+                    class="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90">Guardar
+                    Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="api.js"></script>
+    <script src="menu.js"></script>
+    <script src="cortes_caja.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            inyectarMenu('pos_cortes'); // ID del submenú activo
+            cargarCortesCaja();
+        });
+    </script>
+</body>
+
+</html>
