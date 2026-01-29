@@ -301,6 +301,7 @@ window.guardarUsuario = async function (e) {
     e.preventDefault();
     const client = getClient();
     const id = document.getElementById('userId').value;
+    console.log("💾 Guardando usuario. ID detectado:", id || "NUEVO");
     const nombre = document.getElementById('userNombre').value;
     const email = document.getElementById('userEmail').value;
     const password = document.getElementById('userPass').value;
