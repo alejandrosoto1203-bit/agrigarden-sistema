@@ -290,6 +290,10 @@ function actualizarProyeccionAnual(datos) {
     if (document.getElementById('kpiPromedioAnual')) document.getElementById('kpiPromedioAnual').innerText = formatMoney(promedio);
 }
 
+function mostrarModalGasto() {
+    window.location.href = "registro_gastos.html";
+}
+
 // 3. LÓGICA DE REGISTRO MÚLTIPLE DE GASTOS
 function agregarFilaGasto() {
     const tbody = document.getElementById('filasCapturaGastos');

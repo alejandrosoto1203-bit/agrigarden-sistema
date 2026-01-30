@@ -177,6 +177,10 @@ function renderizarTablaIngresos(datos) {
 }
 
 // 2. EDICIÓN Y ELIMINACIÓN (CORREGIDO)
+function mostrarModalIngreso() {
+    window.location.href = "registro_multiple.html";
+}
+
 function abrirModalEditarIngreso(ingreso) {
     const modal = document.getElementById('modalEditarIngreso');
     if (!modal) return;
