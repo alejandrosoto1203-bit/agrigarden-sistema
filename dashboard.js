@@ -107,7 +107,11 @@ function aplicarFiltrosDashboard() {
     // ----------------------------------------------------------------
     const ingresosMes = ingresos.filter(i => {
         const d = new Date(i.created_at);
-        return d.getMonth() === mesActual && d.getFullYear() === añoActual && i.tipo !== 'ABONO' && i.categoria !== 'COBRANZA';
+        const name = (i.nombre_cliente || '').toUpperCase();
+        const category = (i.categoria || '').toUpperCase();
+        return d.getMonth() === mesActual && d.getFullYear() === añoActual &&
+            i.tipo !== 'ABONO' && i.categoria !== 'COBRANZA' &&
+            !name.includes('RENTA DANIEL') && !category.includes('RENTA DANIEL');
     }).reduce((s, i) => s + (i.monto || 0), 0);
 
     const gastosMes = gastos.filter(g => {
@@ -425,7 +429,11 @@ function renderChartsLegacy(ingresos, gastos, ahora) {
 
         const ingM = ingresos.filter(t => {
             const td = new Date(t.created_at);
-            return td.getMonth() === mIdx && td.getFullYear() === y && t.tipo !== 'ABONO' && t.categoria !== 'COBRANZA';
+            const name = (t.nombre_cliente || '').toUpperCase();
+            const category = (t.categoria || '').toUpperCase();
+            return td.getMonth() === mIdx && td.getFullYear() === y &&
+                t.tipo !== 'ABONO' && t.categoria !== 'COBRANZA' &&
+                !name.includes('RENTA DANIEL') && !category.includes('RENTA DANIEL');
         }).reduce((s, t) => s + (t.monto || 0), 0);
 
         const gasM = gastos.filter(g => {
