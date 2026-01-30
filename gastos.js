@@ -288,6 +288,43 @@ function actualizarProyeccionAnual(datos) {
 
     if (document.getElementById('kpiGastoAnual')) document.getElementById('kpiGastoAnual').innerText = formatMoney(total);
     if (document.getElementById('kpiPromedioAnual')) document.getElementById('kpiPromedioAnual').innerText = formatMoney(promedio);
+
+    // Actualizar Tabla Mensual
+    actualizarTablaMensualGastos(datos, targetYear);
+}
+
+function actualizarTablaMensualGastos(datos, targetYear) {
+    const filaNorte = document.getElementById('filaKpiNorte');
+    const filaSur = document.getElementById('filaKpiSur');
+    if (!filaNorte || !filaSur) return;
+
+    const totales = { 'Norte': Array(12).fill(0), 'Sur': Array(12).fill(0) };
+
+    datos.forEach(item => {
+        const d = new Date(item.created_at);
+        if (d.getFullYear() === targetYear) {
+            const mes = d.getMonth();
+            const sucursal = item.sucursal === 'Norte' || !item.sucursal ? 'Norte' : item.sucursal; // Handle null/empty as Norte like in renderizarTablaGastos
+            if (totales[sucursal] !== undefined) {
+                if (item.categoria !== 'Pago de Pasivo' || item.subcategoria === 'Abono Capital') {
+                    totales[sucursal][mes] += (item.monto_total || 0);
+                }
+            }
+        }
+    });
+
+    const actualizarFila = (fila, montos) => {
+        const celdas = fila.querySelectorAll('td[data-month]');
+        celdas.forEach(td => {
+            const mes = parseInt(td.getAttribute('data-month'));
+            const monto = montos[mes];
+            td.innerText = monto > 0 ? formatMoney(monto) : '$0';
+            td.className = monto > 0 ? "px-2 py-3 text-center text-slate-800 font-black" : "px-2 py-3 text-center text-gray-300 font-medium";
+        });
+    };
+
+    actualizarFila(filaNorte, totales['Norte']);
+    actualizarFila(filaSur, totales['Sur']);
 }
 
 function mostrarModalGasto() {

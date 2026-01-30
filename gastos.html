@@ -142,6 +142,76 @@
             </div>
         </div>
 
+        <!-- Fila 3: Tabla de Gastos Mensuales por Sucursal -->
+        <div class="card overflow-hidden shadow-sm border border-gray-100">
+            <div class="bg-gray-50 px-6 py-3 border-b border-gray-100 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-slate-400 text-lg">calendar_month</span>
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Distribución Mensual
+                        por Sucursal</h3>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead
+                        class="bg-white text-[9px] font-black uppercase tracking-widest text-gray-400 border-b border-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 bg-gray-50/50 sticky left-0 z-10 border-r border-gray-100">Sucursal
+                            </th>
+                            <th class="px-2 py-3 text-center">Ene</th>
+                            <th class="px-2 py-3 text-center">Feb</th>
+                            <th class="px-2 py-3 text-center">Mar</th>
+                            <th class="px-2 py-3 text-center">Abr</th>
+                            <th class="px-2 py-3 text-center">May</th>
+                            <th class="px-2 py-3 text-center">Jun</th>
+                            <th class="px-2 py-3 text-center">Jul</th>
+                            <th class="px-2 py-3 text-center">Ago</th>
+                            <th class="px-2 py-3 text-center">Sep</th>
+                            <th class="px-2 py-3 text-center">Oct</th>
+                            <th class="px-2 py-3 text-center">Nov</th>
+                            <th class="px-2 py-3 text-center">Dic</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-[11px] font-bold divide-y divide-gray-50">
+                        <tr id="filaKpiNorte">
+                            <td
+                                class="px-4 py-3 bg-gray-50/30 sticky left-0 z-10 border-r border-gray-100 text-blue-600 font-extrabold text-[10px]">
+                                NORTE</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="0">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="1">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="2">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="3">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="4">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="5">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="6">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="7">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="8">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="9">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="10">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="11">$0</td>
+                        </tr>
+                        <tr id="filaKpiSur">
+                            <td
+                                class="px-4 py-3 bg-gray-50/30 sticky left-0 z-10 border-r border-gray-100 text-emerald-600 font-extrabold text-[10px]">
+                                SUR</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="0">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="1">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="2">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="3">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="4">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="5">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="6">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="7">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="8">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="9">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="10">$0</td>
+                            <td class="px-2 py-3 text-center text-gray-400" data-month="11">$0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="card p-6 bg-white shadow-sm flex flex-wrap gap-4 items-end">
             <div class="flex flex-col gap-2 flex-1 min-w-[200px]">
                 <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-2">Buscar Proveedor /
