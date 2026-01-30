@@ -4,6 +4,7 @@ const SBC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 
 let currentComisiones = {};
 let currentUsers = [];
+let rrhhEmployeesCache = []; // Global cache for employee data
 
 // Helper to get client consistently
 function getClient() {
@@ -181,6 +182,12 @@ async function cargarMetasInputs() {
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('metaAnio').addEventListener('change', cargarMetasInputs);
     document.getElementById('metaMes').addEventListener('change', cargarMetasInputs);
+
+    // User - Employee Link logic
+    const selectEmpId = document.getElementById('userEmpleadoId');
+    if (selectEmpId) {
+        selectEmpId.addEventListener('change', handleEmpleadoSelection);
+    }
 });
 
 window.guardarMeta = async function () {
@@ -303,17 +310,47 @@ async function cargarEmpleadosDropdown() {
         const client = getClient();
         const { data, error } = await client
             .from('empleados')
-            .select('id, nombre_completo')
+            .select('id, nombre_completo, correo_electronico')
             .eq('estatus', 'Activo')
             .order('nombre_completo');
 
         if (error) throw error;
 
+        rrhhEmployeesCache = data || []; // Store in global cache
         select.innerHTML = '<option value="">Sin vincular</option>' +
             data.map(e => `<option value="${e.id}">${e.nombre_completo}</option>`).join('');
 
     } catch (e) {
         console.error("Error cargando empleados:", e);
+    }
+}
+
+function handleEmpleadoSelection() {
+    const select = document.getElementById('userEmpleadoId');
+    const empId = select.value;
+    const inputNombre = document.getElementById('userNombre');
+    const inputEmail = document.getElementById('userEmail');
+
+    if (empId) {
+        const employee = rrhhEmployeesCache.find(e => e.id === empId);
+        if (employee) {
+            inputNombre.value = employee.nombre_completo;
+            inputEmail.value = employee.correo_electronico;
+            inputNombre.readOnly = true;
+            inputEmail.readOnly = true;
+            inputNombre.classList.add('bg-gray-100', 'cursor-not-allowed', 'border-gray-200');
+            inputEmail.classList.add('bg-gray-100', 'cursor-not-allowed', 'border-gray-200');
+        }
+    } else {
+        // Only clear if it was read-only (meaning it was auto-filled)
+        if (inputNombre.readOnly) {
+            inputNombre.value = '';
+            inputEmail.value = '';
+        }
+        inputNombre.readOnly = false;
+        inputEmail.readOnly = false;
+        inputNombre.classList.remove('bg-gray-100', 'cursor-not-allowed', 'border-gray-200');
+        inputEmail.classList.remove('bg-gray-100', 'cursor-not-allowed', 'border-gray-200');
     }
 }
 
@@ -352,6 +389,9 @@ window.abrirModalUsuario = function (user = null) {
             if (ce) ce.checked = false;
         });
     }
+
+    // Trigger read-only check on open
+    handleEmpleadoSelection();
 
     modal.classList.remove('hidden');
     setTimeout(() => modal.querySelector('.bg-white').classList.remove('translate-y-full'), 10);
