@@ -313,7 +313,7 @@ function agregarFila() {
     tr.innerHTML = `
         <td class="p-1"><input type="date" class="input-capture row-fecha" value="${new Date().toLocaleDateString('en-CA')}"></td>
         <td class="p-1"><input type="text" class="input-capture row-txn font-mono italic uppercase" placeholder="#TXN-000"></td>
-        <td class="p-1"><select class="input-capture row-tipo"><option value="Venta Directa">Venta Directa</option><option value="Servicio">Servicio</option></select></td>
+        <td class="p-1"><select class="input-capture row-tipo"><option value="Venta Directa">Venta Directa</option><option value="Servicio">Servicio</option><option value="ABONO">Abono</option></select></td>
         <td class="p-1">
             <select class="input-capture row-metodo" onchange="verificarMetodoIngreso(this); actualizarCalculosTotales()">
                 <option value="Efectivo">Efectivo</option>
