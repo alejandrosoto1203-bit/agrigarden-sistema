@@ -186,7 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // User - Employee Link logic
     const selectEmpId = document.getElementById('userEmpleadoId');
     if (selectEmpId) {
-        selectEmpId.addEventListener('change', handleEmpleadoSelection);
+        selectEmpId.addEventListener('change', () => {
+            console.log("Empleado selection changed");
+            handleEmpleadoSelection();
+        });
     }
 });
 
@@ -252,8 +255,7 @@ async function cargarUsuariosUI() {
         if (error) throw error;
         currentUsers = data || [];
         renderUsuarios(currentUsers);
-        cargarEmpleadosDropdown(); // Nueva función para vincular RRHH
-
+        await cargarEmpleadosDropdown(); // Awaited for robustness
     } catch (e) {
         console.error(e);
         grid.innerHTML = '<p class="text-red-500">Error al cargar usuarios.</p>';
@@ -317,6 +319,7 @@ async function cargarEmpleadosDropdown() {
         if (error) throw error;
 
         rrhhEmployeesCache = data || []; // Store in global cache
+        console.log("RRHH Cache Loaded:", rrhhEmployeesCache.length, "employees");
         select.innerHTML = '<option value="">Sin vincular</option>' +
             data.map(e => `<option value="${e.id}">${e.nombre_completo}</option>`).join('');
 
@@ -326,22 +329,31 @@ async function cargarEmpleadosDropdown() {
 }
 
 function handleEmpleadoSelection() {
+    console.log("Handling Empleado Selection...");
     const select = document.getElementById('userEmpleadoId');
     const empId = select.value;
     const inputNombre = document.getElementById('userNombre');
     const inputEmail = document.getElementById('userEmail');
 
+    console.log("Selected EmpID:", empId);
+
     if (empId) {
-        const employee = rrhhEmployeesCache.find(e => e.id === empId);
+        // Use loose equality (==) for robust ID matching (string vs numeric)
+        const employee = rrhhEmployeesCache.find(e => String(e.id) === String(empId));
+        console.log("Found employee in cache:", employee);
+
         if (employee) {
             inputNombre.value = employee.nombre_completo;
-            inputEmail.value = employee.correo_electronico;
+            inputEmail.value = employee.correo_electronico || '';
             inputNombre.readOnly = true;
             inputEmail.readOnly = true;
             inputNombre.classList.add('bg-gray-100', 'cursor-not-allowed', 'border-gray-200');
             inputEmail.classList.add('bg-gray-100', 'cursor-not-allowed', 'border-gray-200');
+        } else {
+            console.warn("Employee not found in cache for ID:", empId);
         }
     } else {
+        console.log("No employee selected, resetting fields");
         // Only clear if it was read-only (meaning it was auto-filled)
         if (inputNombre.readOnly) {
             inputNombre.value = '';
