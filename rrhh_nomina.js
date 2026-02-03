@@ -59,9 +59,40 @@ async function cargarNomina() {
     }
 }
 
-let estadoFiltro = 'Todos';
+let estadoFiltro = 'Pendiente'; // Por defecto Nómina Actual
+let currentTab = 'actual';
 let sucursalFiltro = 'Todos';
 let frecuenciaFiltro = 'Todos';
+
+function cambiarTab(tab) {
+    currentTab = tab;
+    estadoFiltro = (tab === 'actual') ? 'Pendiente' : 'Pagado';
+
+    // Actualizar UI Pestañas
+    const tActual = document.getElementById('tabActual');
+    const tHistorial = document.getElementById('tabHistorial');
+
+    if (tab === 'actual') {
+        tActual.classList.add('border-primary', 'text-slate-900');
+        tActual.classList.remove('border-transparent', 'text-slate-400');
+        tHistorial.classList.add('border-transparent', 'text-slate-400');
+        tHistorial.classList.remove('border-primary', 'text-slate-900');
+
+        // Limpiar selección al cambiar de tab por seguridad
+        seleccionados.clear();
+        document.getElementById('barAccionesMasivas').classList.add('hidden');
+    } else {
+        tHistorial.classList.add('border-primary', 'text-slate-900');
+        tHistorial.classList.remove('border-transparent', 'text-slate-400');
+        tActual.classList.add('border-transparent', 'text-slate-400');
+        tActual.classList.remove('border-primary', 'text-slate-900');
+
+        // Esconder barra masiva en historial si no aplica
+        document.getElementById('barAccionesMasivas').classList.add('hidden');
+    }
+
+    renderizarTablaNomina();
+}
 
 // Listeners Filtros Dropdown
 const selectSucursal = document.getElementById('filtroSucursal');
@@ -132,12 +163,17 @@ function renderizarTablaNomina() {
     // 2. Si no hay registros (y estamos en 'Todos'), tal vez queramos mostrar "Sin Generar" para empleados activos?
     // Por ahora, nos enfocamos en mostrar los registros existentes (Historial + Pendientes)
 
+    // Actualizar contador
+    const countLabel = document.getElementById('labelRegistrosCount');
+    if (countLabel) countLabel.innerText = `${registrosVisibles.length} Registros encontrados`;
+
     if (registrosVisibles.length === 0) {
-        if (estadoFiltro === 'Todos' && sucursalFiltro === 'Todos' && nominaCache.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-slate-400">No hay nómina generada. Usa el botón "Generar Nómina".</td></tr>';
-        } else {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-slate-400">No hay registros con los filtros seleccionados.</td></tr>';
-        }
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-20">
+            <div class="flex flex-col items-center gap-2 text-slate-300">
+                <span class="material-symbols-outlined text-5xl">folder_open</span>
+                <p class="text-sm font-bold uppercase">No hay registros en ${currentTab === 'actual' ? 'Nómina Actual' : 'Historial'}</p>
+            </div>
+        </td></tr>`;
         return;
     }
 
@@ -156,7 +192,7 @@ function renderizarTablaNomina() {
         <tr class="hover:bg-slate-50/50 transition-all font-bold group">
             <td class="px-8 py-5">
                 <div class="flex items-center gap-4">
-                    <input type="checkbox" onchange="toggleSeleccion('${det.empleado_id}')" class="rounded text-primary focus:ring-primary border-slate-300" ${estado !== 'Pendiente' ? 'disabled' : ''}>
+                    ${estado === 'Pendiente' ? `<input type="checkbox" onchange="toggleSeleccion('${det.empleado_id}')" class="rounded text-primary focus:ring-primary border-slate-300">` : '<div class="size-4"></div>'}
                     <div class="size-10 rounded-full bg-slate-100 overflow-hidden shadow-sm">
                         <img src="${emp.foto_url || 'https://ui-avatars.com/api/?name=' + emp.nombre_completo}" class="w-full h-full object-cover">
                     </div>
@@ -187,8 +223,7 @@ function renderizarTablaNomina() {
                     </button>
                     ` : ''}
                     <button onclick="enviarNotificacionWhatsApp('${det.empleado_id}')" class="p-2 text-green-500 hover:text-green-700 transition-colors" title="Notificar Pago por WhatsApp"><span class="material-symbols-outlined text-sm">chat</span></button>
-                    ${estado === 'Pendiente' ? `
-                    <button onclick="eliminarNomina('${det.id}')" class="p-2 text-red-200 hover:text-red-500 transition-colors" title="Eliminar Registro Nómina"><span class="material-symbols-outlined text-sm">delete</span></button>` : ''}
+                    <button onclick="eliminarNomina('${det.id}')" class="p-2 text-red-100 hover:text-red-500 transition-colors" title="Eliminar Registro Nómina"><span class="material-symbols-outlined text-sm">delete</span></button>
                     <button onclick="verDetalleNomina('${det.empleado_id}')" class="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Ver Detalle"><span class="material-symbols-outlined text-sm">visibility</span></button>
                 </div>
             </td>
@@ -878,7 +913,15 @@ function enviarNotificacionWhatsApp(id) {
 }
 
 async function eliminarNomina(id) {
-    if (!confirm("¿Eliminar este registro de nómina?")) return;
+    const record = nominaCache.find(n => n.id === id);
+    if (!record) return;
+
+    const msg = record.estado === 'Pagado'
+        ? "¿Estás seguro de eliminar este registro del historial?\n\nADVERTENCIA: Esto eliminará el registro de nómina, pero el gasto contable seguirá existiendo en Finanzas para integridad contable."
+        : "¿Estás seguro de eliminar esta nómina pendiente?";
+
+    if (!confirm(msg)) return;
+
     try {
         if (!sbClient) initNominaClient();
         const { error } = await sbClient.from('rrhh_nomina').delete().eq('id', id);

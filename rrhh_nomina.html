@@ -111,13 +111,45 @@
                     <option value="Sur">Sur</option>
                 </select>
             </div>
-            <div id="filtroEstadoContainer" class="flex justify-between bg-slate-100 p-1 rounded-xl w-full lg:w-auto">
-                <button onclick="filtrarEstado('Todos')" data-estado="Todos"
-                    class="flex-1 lg:flex-none px-4 py-2 text-[10px] font-black uppercase rounded-lg bg-white shadow-sm transition-all">Todo</button>
-                <button onclick="filtrarEstado('Pendiente')" data-estado="Pendiente"
-                    class="flex-1 lg:flex-none px-4 py-2 text-[10px] font-black uppercase rounded-lg text-slate-400 hover:bg-white/50 transition-all">Pendiente</button>
-                <button onclick="filtrarEstado('Pagado')" data-estado="Pagado"
-                    class="flex-1 lg:flex-none px-4 py-2 text-[10px] font-black uppercase rounded-lg text-slate-400 hover:bg-white/50 transition-all">Pagado</button>
+            <div class="flex border-b border-slate-100 mb-6">
+                <button onclick="cambiarTab('actual')" id="tabActual"
+                    class="px-8 py-4 text-xs font-black uppercase tracking-widest border-b-2 border-primary text-slate-900 transition-all">
+                    Nómina Actual
+                </button>
+                <button onclick="cambiarTab('historial')" id="tabHistorial"
+                    class="px-8 py-4 text-xs font-black uppercase tracking-widest border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all">
+                    Historial de Pagos
+                </button>
+            </div>
+
+            <div
+                class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center gap-4 lg:gap-6">
+                <div class="flex-1 flex flex-col lg:flex-row gap-4 text-xs font-black uppercase text-slate-500">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[9px] text-slate-400">Filtrar por Sucursal</label>
+                        <select id="filtroSucursal"
+                            class="w-full lg:w-auto bg-slate-50 border-none rounded-xl px-6 py-3 text-xs font-black uppercase text-slate-500 focus:ring-primary">
+                            <option value="Todos">Todas las Sucursales</option>
+                            <option value="Matriz">Matriz</option>
+                            <option value="Norte">Norte</option>
+                            <option value="Sur">Sur</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[9px] text-slate-400">Filtrar por Frecuencia</label>
+                        <select id="filtroFrecuencia"
+                            class="w-full lg:w-auto bg-slate-50 border-none rounded-xl px-6 py-3 text-xs font-black uppercase text-slate-500 focus:ring-primary">
+                            <option value="Todos">Todas las Frecuencias</option>
+                            <option value="Quincenal">Quincenal</option>
+                            <option value="Semanal">Semanal</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="size-2 bg-orange-400 rounded-full animate-pulse"></span>
+                    <p id="labelRegistrosCount" class="text-[10px] font-bold text-slate-400 uppercase">0 Registros
+                        encontrados</p>
+                </div>
             </div>
         </div>
 
