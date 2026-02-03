@@ -355,6 +355,50 @@
         </div>
     </div>
 
+    <!-- Modal Selección de Empleados para Generar -->
+    <div id="modalSeleccionGenerar"
+        class="fixed inset-0 bg-slate-900/50 hidden z-[200] flex items-center justify-center backdrop-blur-sm transition-all opacity-0">
+        <div class="bg-white p-4 lg:p-8 rounded-3xl shadow-2xl w-full max-w-2xl scale-95 transition-all transform flex flex-col max-h-[80vh]"
+            id="modalSeleccionGenerarContent">
+            <div class="mb-6 flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-black text-slate-800 mb-1">Seleccionar Empleados</h3>
+                    <p class="text-xs text-slate-400 font-bold uppercase">Elige para quiénes generar la nómina hoy</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="seleccionarTodoGenerar(true)"
+                        class="text-[9px] font-black uppercase text-primary hover:underline">Marcar Todos</button>
+                    <span class="text-slate-200">|</span>
+                    <button onclick="seleccionarTodoGenerar(false)"
+                        class="text-[9px] font-black uppercase text-slate-400 hover:underline">Desmarcar</button>
+                </div>
+            </div>
+
+            <div class="overflow-y-auto flex-1 mb-6 border border-slate-100 rounded-2xl">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 text-[10px] font-black uppercase text-slate-400 sticky top-0 z-10">
+                        <tr>
+                            <th class="px-6 py-4 w-10"></th>
+                            <th class="px-6 py-4">Empleado</th>
+                            <th class="px-6 py-4">Sucursal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaSeleccionGenerarBody" class="divide-y divide-slate-50 text-sm">
+                        <!-- Rows generadas por JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="cerrarModalSeleccionGenerar()"
+                    class="flex-1 px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors">Cancelar</button>
+                <button onclick="ejecutarGeneracionSelectiva()"
+                    class="flex-1 bg-primary text-black px-6 py-3 rounded-xl font-black shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform">Generar
+                    Nómina Seleccionada</button>
+            </div>
+        </div>
+    </div>
+
     <script src="api.js"></script>
     <script src="menu.js"></script>
     <!-- SheetJS Local -->

@@ -670,36 +670,86 @@ async function confirmarDisersionPagos() {
 }
 
 async function generarNominaMasiva() {
-    if (!confirm("¿Generar nómina para todos los empleados activos? Esto creará registros pendientes de pago.")) return;
+    // 1. Mostrar modal de selección
+    const modal = document.getElementById('modalSeleccionGenerar');
+    const tbody = document.getElementById('tablaSeleccionGenerarBody');
+    tbody.innerHTML = '';
+
+    // Filtrar empleados que NO tengan ya una nómina PENDIENTE
+    const empleadosDisponibles = nominaCacheEmp.filter(emp => {
+        return !nominaCache.some(n => n.empleado_id === emp.id && n.estado === 'Pendiente');
+    });
+
+    if (empleadosDisponibles.length === 0) {
+        return alert("Todos los empleados ya tienen una nómina pendiente o no hay empleados activos.");
+    }
+
+    empleadosDisponibles.forEach(emp => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50/50 transition-all font-bold group cursor-pointer";
+        tr.onclick = (e) => {
+            if (e.target.tagName !== 'INPUT') {
+                const cb = tr.querySelector('input');
+                cb.checked = !cb.checked;
+            }
+        };
+        tr.innerHTML = `
+            <td class="px-6 py-4"><input type="checkbox" value="${emp.id}" class="cb-generar rounded text-primary focus:ring-primary border-slate-300"></td>
+            <td class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="size-8 rounded-full bg-slate-100 overflow-hidden">
+                        <img src="${emp.foto_url || 'https://ui-avatars.com/api/?name=' + emp.nombre_completo}" class="w-full h-full object-cover">
+                    </div>
+                    <div>
+                        <p class="text-xs font-black uppercase">${emp.nombre_completo}</p>
+                        <p class="text-[9px] text-slate-400">${emp.puesto}</p>
+                    </div>
+                </div>
+            </td>
+            <td class="px-6 py-4 text-[10px] font-black uppercase text-slate-500">${emp.sucursal}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        document.getElementById('modalSeleccionGenerarContent').classList.remove('scale-95');
+        document.getElementById('modalSeleccionGenerarContent').classList.add('scale-100');
+    }, 10);
+}
+
+function cerrarModalSeleccionGenerar() {
+    const modal = document.getElementById('modalSeleccionGenerar');
+    modal.classList.add('opacity-0');
+    document.getElementById('modalSeleccionGenerarContent').classList.remove('scale-100');
+    document.getElementById('modalSeleccionGenerarContent').classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 200);
+}
+
+function seleccionarTodoGenerar(val) {
+    document.querySelectorAll('.cb-generar').forEach(cb => cb.checked = val);
+}
+
+async function ejecutarGeneracionSelectiva() {
+    const seleccionadosGenerar = Array.from(document.querySelectorAll('.cb-generar:checked')).map(cb => cb.value);
+
+    if (seleccionadosGenerar.length === 0) {
+        return alert("Selecciona al menos un empleado.");
+    }
 
     try {
         if (!sbClient) initNominaClient();
 
         const fechaHoy = new Date().toISOString().split('T')[0];
 
-        // 1. Obtener empleados activos
-        const { data: empleados } = await sbClient
-            .from('empleados')
-            .select('*')
-            .eq('estatus', 'Activo');
-
-        if (!empleados || !empleados.length) return alert("No hay empleados activos.");
-
-        // 2. Limpiar nómina pendiente del día de hoy para evitar duplicados (REGENERACIÓN)
-        const { error: errDelete } = await sbClient
-            .from('rrhh_nomina')
-            .delete()
-            .eq('periodo', fechaHoy)
-            .eq('estado', 'Pendiente');
-
-        if (errDelete) console.warn("No se pudo limpiar nómina anterior:", errDelete);
-
-        // 3. Preparar registros de nómina con cálculo QUINCENAL
+        // Preparar registros
         const hoy = new Date();
         const year = hoy.getFullYear();
         const month = hoy.getMonth();
         const day = hoy.getDate();
-
         let fechaInicio, fechaFin;
 
         if (day <= 15) {
@@ -710,14 +760,16 @@ async function generarNominaMasiva() {
             fechaFin = new Date(year, month + 1, 0).toISOString().split('T')[0];
         }
 
-        const nominaInsert = empleados.map(emp => {
+        const empleadosData = nominaCacheEmp.filter(e => seleccionadosGenerar.includes(e.id));
+
+        const nominaInsert = empleadosData.map(emp => {
             const sueldoMensual = parseFloat(emp.sueldo_base) || 0;
             const sueldoQuincenal = sueldoMensual / 2;
 
             return {
                 empleado_id: emp.id,
                 periodo: fechaHoy,
-                periodo_inicio: fechaInicio, // Satisfacer constraint NOT NULL
+                periodo_inicio: fechaInicio,
                 periodo_fin: fechaFin,
                 sueldo_base: sueldoQuincenal,
                 bonificaciones: 0,
@@ -725,15 +777,17 @@ async function generarNominaMasiva() {
                 estado: 'Pendiente'
             };
         });
+
         const { error } = await sbClient.from('rrhh_nomina').insert(nominaInsert);
         if (error) throw error;
 
-        alert(`Se generó la nómina correctamente para ${empleados.length} empleados.`);
+        alert(`Nómina generada para ${seleccionadosGenerar.length} empleados.`);
+        cerrarModalSeleccionGenerar();
         cargarNomina();
 
     } catch (e) {
         console.error("Error generando nómina:", e);
-        alert(`NO SE PUDO GENERAR LA NÓMINA:\n${e.message}\n\nVerifica que la tabla 'rrhh_nomina' exista.`);
+        alert(`Error: ${e.message}`);
     }
 }
 
