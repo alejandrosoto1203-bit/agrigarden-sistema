@@ -223,7 +223,7 @@ function renderizarTablaNomina() {
                     </button>
                     ` : ''}
                     <button onclick="enviarNotificacionWhatsApp('${det.empleado_id}')" class="p-2 text-green-500 hover:text-green-700 transition-colors" title="Notificar Pago por WhatsApp"><span class="material-symbols-outlined text-sm">chat</span></button>
-                    <button onclick="eliminarNomina('${det.id}')" class="p-2 text-red-100 hover:text-red-500 transition-colors" title="Eliminar Registro Nómina"><span class="material-symbols-outlined text-sm">delete</span></button>
+                    <button onclick="eliminarNomina('${det.id}')" class="p-2 text-red-400 hover:text-red-600 transition-colors" title="Eliminar Registro Nómina"><span class="material-symbols-outlined text-sm">delete</span></button>
                     <button onclick="verDetalleNomina('${det.empleado_id}')" class="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Ver Detalle"><span class="material-symbols-outlined text-sm">visibility</span></button>
                 </div>
             </td>
@@ -913,7 +913,8 @@ function enviarNotificacionWhatsApp(id) {
 }
 
 async function eliminarNomina(id) {
-    const record = nominaCache.find(n => n.id === id);
+    // Buscamos el registro por ID (comparación flexible por si es string/number)
+    const record = nominaCache.find(n => n.id == id);
     if (!record) return;
 
     const msg = record.estado === 'Pagado'
