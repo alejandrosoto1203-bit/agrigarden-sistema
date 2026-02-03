@@ -187,11 +187,9 @@ function renderizarTablaNomina() {
                     </button>
                     ` : ''}
                     <button onclick="enviarNotificacionWhatsApp('${det.empleado_id}')" class="p-2 text-green-500 hover:text-green-700 transition-colors" title="Notificar Pago por WhatsApp"><span class="material-symbols-outlined text-sm">chat</span></button>
-                    <button onclick="verDetalleNomina('${det.empleado_id}')" class="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Ver Detalle"><span class="material-symbols-outlined text-sm">visibility</span></button>
-                </div>
-                    <button onclick="verDetalleNomina('${det.empleado_id}')" class="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Ver Detalle"><span class="material-symbols-outlined text-sm">visibility</span></button>
                     ${estado === 'Pendiente' ? `
                     <button onclick="eliminarNomina('${det.id}')" class="p-2 text-red-200 hover:text-red-500 transition-colors" title="Eliminar Registro Nómina"><span class="material-symbols-outlined text-sm">delete</span></button>` : ''}
+                    <button onclick="verDetalleNomina('${det.empleado_id}')" class="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Ver Detalle"><span class="material-symbols-outlined text-sm">visibility</span></button>
                 </div>
             </td>
         </tr>`;
@@ -677,8 +675,6 @@ function enviarNotificacionWhatsApp(id) {
             const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
             window.open(url, '_blank');
         }
-    }
-}
     }
 }
 
