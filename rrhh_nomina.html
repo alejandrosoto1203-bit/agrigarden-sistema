@@ -224,10 +224,35 @@
         class="fixed inset-0 bg-slate-900/50 hidden z-[200] flex items-center justify-center backdrop-blur-sm transition-all opacity-0">
         <div class="bg-white p-4 lg:p-8 rounded-3xl shadow-2xl w-full max-w-4xl scale-95 transition-all transform flex flex-col max-h-[90vh]"
             id="modalPagoContent">
-            <div class="mb-6">
-                <h3 class="text-xl font-black text-slate-800 mb-1">Confirmar Distribución de Pagos</h3>
-                <p class="text-sm text-slate-500">Define cuánto se pagará en efectivo y cuánto por transferencia para
-                    cada empleado.</p>
+            <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h3 class="text-xl font-black text-slate-800 mb-1">Confirmar Distribución de Pagos</h3>
+                    <p class="text-sm text-slate-500">Define los detalles globales y la distribución por empleado.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <div class="flex flex-col">
+                        <label class="text-[9px] font-black uppercase text-slate-400 mb-1">Fecha de Pago</label>
+                        <input type="date" id="globalFechaPago" onchange="actualizarPreviewGlobal()"
+                            class="bg-slate-50 border-slate-200 rounded-lg text-xs font-bold py-2">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[9px] font-black uppercase text-slate-400 mb-1">Sucursal de Pago</label>
+                        <select id="globalSucursal" onchange="actualizarPreviewGlobal()"
+                            class="bg-slate-50 border-slate-200 rounded-lg text-xs font-bold py-2">
+                            <option value="Matriz">Matriz</option>
+                            <option value="Norte">Norte</option>
+                            <option value="Sur">Sur</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[9px] font-black uppercase text-slate-400 mb-1">Frecuencia</label>
+                        <select id="globalFrecuencia" onchange="actualizarPreviewGlobal()"
+                            class="bg-slate-50 border-slate-200 rounded-lg text-xs font-bold py-2">
+                            <option value="Quincenal">Quincenal</option>
+                            <option value="Semanal">Semanal</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <div class="overflow-y-auto flex-1 mb-6 border border-slate-100 rounded-2xl">

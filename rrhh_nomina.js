@@ -240,8 +240,19 @@ function actualizarKPIsNomina(datos) {
 // Variable global para almacenar el recibo actual y poder editarlo
 let reciboActualData = null;
 
+function actualizarPreviewGlobal() {
+    // Si hay un recibo siendo visualizado, refrescarlo con los nuevos valores globales
+    if (reciboActualData && reciboActualData.id) {
+        actualizarPreviewRecibo(reciboActualData.id);
+    }
+}
+
 function aprobarPagosMasivos() {
     if (!seleccionados.size) return alert("Selecciona al menos un empleado para aprobar el pago.");
+
+    // Establecer fecha de pago por defecto (hoy)
+    const inputFecha = document.getElementById('globalFechaPago');
+    if (inputFecha) inputFecha.value = new Date().toISOString().split('T')[0];
 
     // Abrir modal en lugar de confirmar directo
     renderizarTablaPagos();
@@ -286,22 +297,33 @@ function renderizarTablaPagos() {
         tr.innerHTML = `
                 <td class="px-6 py-4">
                     <p class="font-bold text-slate-900">${emp ? emp.nombre_completo : 'Empleado'}</p>
-                    <div class="flex flex-col gap-1 mt-1">
-                        <input type="text" id="obs_${id}" placeholder="Observaciones..." class="text-[10px] w-full bg-transparent border-b border-slate-200 focus:border-primary outline-none py-1" onclick="event.stopPropagation()">
-                        <div class="flex gap-2">
-                            <select id="freq_${id}" onchange="actualizarPreviewRecibo('${id}')" onclick="event.stopPropagation()" class="text-[9px] bg-slate-50 border-none rounded-md px-2 py-1 font-bold text-slate-500 uppercase">
-                                <option value="Quincenal" selected>Quincenal</option>
-                                <option value="Semanal">Semanal</option>
-                            </select>
-                            <select id="branch_${id}" onchange="actualizarPreviewRecibo('${id}')" onclick="event.stopPropagation()" class="text-[9px] bg-slate-50 border-none rounded-md px-2 py-1 font-bold text-slate-500 uppercase">
-                                <option value="Matriz" ${emp && emp.sucursal === 'Matriz' ? 'selected' : ''}>Matriz</option>
-                                <option value="Norte" ${emp && emp.sucursal === 'Norte' ? 'selected' : ''}>Norte</option>
-                                <option value="Sur" ${emp && emp.sucursal === 'Sur' ? 'selected' : ''}>Sur</option>
-                            </select>
-                        </div>
-                    </div>
+                    <input type="text" id="obs_${id}" oninput="actualizarPreviewRecibo('${id}')" placeholder="Observaciones..." class="text-[10px] w-full bg-transparent border-b border-slate-200 focus:border-primary outline-none py-1" onclick="event.stopPropagation()">
                 </td>
                 <td class="px-6 py-4 text-right font-black">$${neto.toFixed(2)}</td>
+                <td class="px-6 py-4">
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                        <input type="number" 
+                            id="pago_efectivo_${id}" 
+                            data-total="${neto}" 
+                            oninput="calcularRestantePago('${id}', 'efectivo')"
+                            onclick="event.stopPropagation()"
+                            class="w-full bg-slate-50 border-slate-200 rounded-lg pl-6 py-2 font-bold text-slate-700 text-center" 
+                            placeholder="0.00" value="0.00">
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                        <input type="number" 
+                            id="pago_transferencia_${id}" 
+                            data-total="${neto}" 
+                            oninput="calcularRestantePago('${id}', 'transferencia')"
+                            onclick="event.stopPropagation()"
+                            class="w-full bg-blue-50 border-blue-200 rounded-lg pl-6 py-2 font-bold text-blue-700 text-center" 
+                            placeholder="0.00" value="${neto.toFixed(2)}">
+                    </div>
+                </td>
                 <td class="px-6 py-4">
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
@@ -346,11 +368,15 @@ function actualizarPreviewRecibo(id) {
     const emp = nominaCacheEmp.find(e => e.id === id);
     if (!record || !emp) return;
 
-    // Obtener valores seleccionados en el modal si existen
-    const freqVal = document.getElementById(`freq_${id}`) ? document.getElementById(`freq_${id}`).value : 'Quincenal';
-    const branchVal = document.getElementById(`branch_${id}`) ? document.getElementById(`branch_${id}`).value : (emp.sucursal || 'Matriz');
+    // Obtener valores de controles globales
+    const fechaPago = document.getElementById('globalFechaPago').value || new Date().toISOString().split('T')[0];
+    const sucursalPago = document.getElementById('globalSucursal').value;
+    const frecuenciaPago = document.getElementById('globalFrecuencia').value;
 
     const neto = record.sueldo_base + (record.bonificaciones || 0) - (record.deducciones || 0);
+    const efectivo = parseFloat(document.getElementById(`pago_efectivo_${id}`).value) || 0;
+    const transfer = parseFloat(document.getElementById(`pago_transferencia_${id}`).value) || 0;
+    const obs = document.getElementById(`obs_${id}`).value;
 
     // Guardamos datos para referencia
     reciboActualData = { id, record, emp, neto };
@@ -375,12 +401,28 @@ function actualizarPreviewRecibo(id) {
                 <div>
                     <label class="block text-[8px] font-black uppercase text-slate-400 mb-1">Empleado</label>
                     <p class="text-sm font-black uppercase" contenteditable="true">${emp.nombre_completo}</p>
-                    <p class="text-[10px] font-bold text-slate-500 uppercase">${emp.puesto} | <span contenteditable="true">${branchVal}</span></p>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase">${emp.puesto} | <span contenteditable="true">${sucursalPago}</span></p>
                 </div>
                 <div class="text-right">
-                    <label class="block text-[8px] font-black uppercase text-slate-400 mb-1">Periodo de Pago (<span contenteditable="true">${freqVal}</span>)</label>
+                    <label class="block text-[8px] font-black uppercase text-slate-400 mb-1">Periodo de Pago (<span contenteditable="true">${frecuenciaPago}</span>)</label>
                     <p class="text-sm font-black uppercase" contenteditable="true">${record.periodo_inicio || '---'} al ${record.periodo_fin || '---'}</p>
+                    <p class="text-[8px] font-black uppercase text-slate-400 mt-1">Fecha de Pago: <span contenteditable="true">${fechaPago}</span></p>
                 </div>
+            </div>
+
+            <div class="mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                <p class="text-[9px] font-black uppercase text-slate-400 mb-1 text-center">Detalle de Dispersión</p>
+                <div class="flex justify-around text-center">
+                    <div>
+                        <p class="text-[8px] font-bold text-slate-500 uppercase">Efectivo</p>
+                        <p class="text-xs font-black" contenteditable="true">${formatMoney(efectivo)}</p>
+                    </div>
+                    <div>
+                        <p class="text-[8px] font-bold text-slate-500 uppercase">Transferencia</p>
+                        <p class="text-xs font-black" contenteditable="true">${formatMoney(transfer)}</p>
+                    </div>
+                </div>
+                ${obs ? `<p class="text-[8px] italic text-slate-400 text-center mt-2 font-bold uppercase">Obs: ${obs}</p>` : ''}
             </div>
 
             <table class="w-full mb-8">
@@ -476,6 +518,9 @@ window.calcularRestantePago = function (id, source) {
         inputEfectivo.value = efectivo.toFixed(2);
     }
 
+    // Actualizar preview en tiempo real
+    actualizarPreviewRecibo(id);
+
     // Validación visual simple si se pasan
     if (Math.abs((efectivo + transfer) - total) > 0.1) {
         inputEfectivo.classList.add('ring-2', 'ring-red-500');
@@ -509,8 +554,9 @@ async function confirmarDisersionPagos() {
         const efectivo = parseFloat(document.getElementById(`pago_efectivo_${id}`).value) || 0;
         const transfer = parseFloat(document.getElementById(`pago_transferencia_${id}`).value) || 0;
         const obs = document.getElementById(`obs_${id}`).value;
-        const sucursalPago = document.getElementById(`branch_${id}`).value;
-        const frecuenciaPago = document.getElementById(`freq_${id}`).value;
+        const sucursalPago = document.getElementById('globalSucursal').value;
+        const frecuenciaPago = document.getElementById('globalFrecuencia').value;
+        const fechaPagoGasto = document.getElementById('globalFechaPago').value || fechaHoy;
 
         if (Math.abs((efectivo + transfer) - total) > 1.0) { // Tolerancia $1
             return alert(`Error en la distribución de pago para un empleado.\nLa suma no coincide con el total. Verifica los campos en rojo.`);
@@ -521,7 +567,7 @@ async function confirmarDisersionPagos() {
         // Generar payload GASTOS - EFECTIVO
         if (efectivo > 0) {
             gastosPayload.push({
-                created_at: fechaHoy,
+                created_at: fechaPagoGasto,
                 proveedor: 'NOMINA EMPLEADOS',
                 categoria: 'Costo',
                 subcategoria: 'NOMINA',
@@ -536,7 +582,7 @@ async function confirmarDisersionPagos() {
         // Generar payload GASTOS - TRANSFERENCIA
         if (transfer > 0) {
             gastosPayload.push({
-                created_at: fechaHoy,
+                created_at: fechaPagoGasto,
                 proveedor: 'NOMINA EMPLEADOS',
                 categoria: 'Costo',
                 subcategoria: 'NOMINA',
