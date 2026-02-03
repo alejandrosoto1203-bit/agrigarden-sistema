@@ -237,30 +237,8 @@ function actualizarKPIsNomina(datos) {
     document.getElementById('kpiDeducciones').innerText = formatMoney(totalDeduc);
 }
 
-function aprobarPagosMasivos() {
-    if (!seleccionados.size) return alert("Selecciona al menos un empleado para aprobar el pago.");
-
-    // Abrir modal en lugar de confirmar directo
-    renderizarTablaPagos();
-
-    const modal = document.getElementById('modalPagoNomina');
-    modal.classList.remove('hidden');
-    setTimeout(() => {
-        modal.classList.remove('opacity-0');
-        document.getElementById('modalPagoContent').classList.remove('scale-95');
-        document.getElementById('modalPagoContent').classList.add('scale-100');
-    }, 10);
-}
-
-function cerrarModalPago() {
-    const modal = document.getElementById('modalPagoNomina');
-    modal.classList.add('opacity-0');
-    document.getElementById('modalPagoContent').classList.remove('scale-100');
-    document.getElementById('modalPagoContent').classList.add('scale-95');
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 200);
-}
+// Variable global para almacenar el recibo actual y poder editarlo
+let reciboActualData = null;
 
 function renderizarTablaPagos() {
     const tbody = document.getElementById('tablaPagosBody');
@@ -278,9 +256,25 @@ function renderizarTablaPagos() {
         totalGeneral += neto;
 
         const tr = document.createElement('tr');
+        tr.className = "cursor-pointer hover:bg-slate-50 transition-colors";
+        tr.onclick = () => actualizarPreviewRecibo(id);
         tr.innerHTML = `
                 <td class="px-6 py-4">
                     <p class="font-bold text-slate-900">${emp ? emp.nombre_completo : 'Empleado'}</p>
+                    <div class="flex flex-col gap-1 mt-1">
+                        <input type="text" id="obs_${id}" placeholder="Observaciones..." class="text-[10px] w-full bg-transparent border-b border-slate-200 focus:border-primary outline-none py-1" onclick="event.stopPropagation()">
+                        <div class="flex gap-2">
+                            <select id="freq_${id}" onchange="actualizarPreviewRecibo('${id}')" onclick="event.stopPropagation()" class="text-[9px] bg-slate-50 border-none rounded-md px-2 py-1 font-bold text-slate-500 uppercase">
+                                <option value="Quincenal" selected>Quincenal</option>
+                                <option value="Semanal">Semanal</option>
+                            </select>
+                            <select id="branch_${id}" onchange="actualizarPreviewRecibo('${id}')" onclick="event.stopPropagation()" class="text-[9px] bg-slate-50 border-none rounded-md px-2 py-1 font-bold text-slate-500 uppercase">
+                                <option value="Matriz" ${emp && emp.sucursal === 'Matriz' ? 'selected' : ''}>Matriz</option>
+                                <option value="Norte" ${emp && emp.sucursal === 'Norte' ? 'selected' : ''}>Norte</option>
+                                <option value="Sur" ${emp && emp.sucursal === 'Sur' ? 'selected' : ''}>Sur</option>
+                            </select>
+                        </div>
+                    </div>
                 </td>
                 <td class="px-6 py-4 text-right font-black">$${neto.toFixed(2)}</td>
                 <td class="px-6 py-4">
@@ -290,6 +284,7 @@ function renderizarTablaPagos() {
                             id="pago_efectivo_${id}" 
                             data-total="${neto}" 
                             oninput="calcularRestantePago('${id}', 'efectivo')"
+                            onclick="event.stopPropagation()"
                             class="w-full bg-slate-50 border-slate-200 rounded-lg pl-6 py-2 font-bold text-slate-700 text-center" 
                             placeholder="0.00" value="0.00">
                     </div>
@@ -301,6 +296,7 @@ function renderizarTablaPagos() {
                             id="pago_transferencia_${id}" 
                             data-total="${neto}" 
                             oninput="calcularRestantePago('${id}', 'transferencia')"
+                            onclick="event.stopPropagation()"
                             class="w-full bg-blue-50 border-blue-200 rounded-lg pl-6 py-2 font-bold text-blue-700 text-center" 
                             placeholder="0.00" value="${neto.toFixed(2)}">
                     </div>
@@ -310,6 +306,128 @@ function renderizarTablaPagos() {
     });
 
     document.getElementById('totalDispersar').innerText = formatMoney(totalGeneral);
+
+    // Si hay seleccionados, mostrar el primero en el preview por defecto
+    if (ids.length > 0) {
+        actualizarPreviewRecibo(ids[0]);
+    }
+}
+
+function actualizarPreviewRecibo(id) {
+    const container = document.getElementById('previewReciboContainer');
+    if (!container) return;
+
+    const record = nominaCache.find(n => n.empleado_id === id && n.estado === 'Pendiente');
+    const emp = nominaCacheEmp.find(e => e.id === id);
+    if (!record || !emp) return;
+
+    // Obtener valores seleccionados en el modal si existen
+    const freqVal = document.getElementById(`freq_${id}`) ? document.getElementById(`freq_${id}`).value : 'Quincenal';
+    const branchVal = document.getElementById(`branch_${id}`) ? document.getElementById(`branch_${id}`).value : (emp.sucursal || 'Matriz');
+
+    const neto = record.sueldo_base + (record.bonificaciones || 0) - (record.deducciones || 0);
+
+    // Guardamos datos para referencia
+    reciboActualData = { id, record, emp, neto };
+
+    const fechaHoy = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    container.innerHTML = `
+        <div id="recibo-pdf" class="bg-white p-8 shadow-inner border border-slate-200 max-w-2xl mx-auto text-slate-800 font-sans">
+            <div class="flex justify-between items-start border-b-2 border-slate-900 pb-4 mb-6">
+                <div>
+                    <h2 class="text-2xl font-black uppercase tracking-tighter italic">Agrigarden</h2>
+                    <p class="text-[10px] font-bold text-slate-500">SISTEMA DE GESTIÓN DE CAPITAL HUMANO</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs font-black uppercase">Recibo de Nómina</p>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase">Folio: ${record.id || 'N/A'}</p>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase">Fecha: ${fechaHoy}</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-8 mb-8">
+                <div>
+                    <label class="block text-[8px] font-black uppercase text-slate-400 mb-1">Empleado</label>
+                    <p class="text-sm font-black uppercase" contenteditable="true">${emp.nombre_completo}</p>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase">${emp.puesto} | <span contenteditable="true">${branchVal}</span></p>
+                </div>
+                <div class="text-right">
+                    <label class="block text-[8px] font-black uppercase text-slate-400 mb-1">Periodo de Pago (<span contenteditable="true">${freqVal}</span>)</label>
+                    <p class="text-sm font-black uppercase" contenteditable="true">${record.periodo_inicio || '---'} al ${record.periodo_fin || '---'}</p>
+                </div>
+            </div>
+
+            <table class="w-full mb-8">
+                <thead>
+                    <tr class="bg-slate-900 text-white text-[9px] font-black uppercase">
+                        <th class="px-4 py-2 text-left">Concepto</th>
+                        <th class="px-4 py-2 text-right">Percepciones</th>
+                        <th class="px-4 py-2 text-right">Deducciones</th>
+                    </tr>
+                </thead>
+                <tbody class="text-[11px] font-bold divide-y divide-slate-100">
+                    <tr>
+                        <td class="px-4 py-3">Sueldo Base (Quincenal)</td>
+                        <td class="px-4 py-3 text-right" contenteditable="true">${formatMoney(record.sueldo_base)}</td>
+                        <td class="px-4 py-3 text-right">---</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3">Bonificaciones / Incentivos</td>
+                        <td class="px-4 py-3 text-right text-green-600" contenteditable="true">+${formatMoney(record.bonificaciones)}</td>
+                        <td class="px-4 py-3 text-right">---</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3">Deducciones (Impuestos/Préstamos)</td>
+                        <td class="px-4 py-3 text-right">---</td>
+                        <td class="px-4 py-3 text-right text-red-500" contenteditable="true">-${formatMoney(record.deducciones)}</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="bg-slate-50">
+                        <td class="px-4 py-4 text-sm font-black uppercase text-slate-900">Total Neto a Recibir</td>
+                        <td colspan="2" class="px-4 py-4 text-right text-lg font-black text-slate-900" id="previewTotalNeto">
+                            ${formatMoney(neto)}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div class="mt-12 pt-8 border-t border-slate-200 grid grid-cols-2 gap-12">
+                <div class="text-center">
+                    <div class="h-px bg-slate-300 w-full mb-2"></div>
+                    <p class="text-[9px] font-black uppercase">Firma del Empleado</p>
+                </div>
+                <div class="text-center">
+                    <div class="h-px bg-slate-300 w-full mb-2"></div>
+                    <p class="text-[9px] font-black uppercase">Sello de Empresa</p>
+                </div>
+            </div>
+            
+            <p class="text-[7px] text-center text-slate-400 mt-10 font-bold uppercase tracking-widest">Este documento es un comprobante de dispersión electrónica de fondos.</p>
+        </div>
+    `;
+}
+
+async function generarYDescargarPDF(id) {
+    const element = document.getElementById('recibo-pdf');
+    if (!element) return;
+
+    const emp = nominaCacheEmp.find(e => e.id === id);
+    const nombre = emp ? emp.nombre_completo : 'Empleado';
+    const opt = {
+        margin: 0.5,
+        filename: `Recibo_Nomina_${nombre.replace(/\s+/g, '_')}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    try {
+        await html2pdf().set(opt).from(element).save();
+    } catch (e) {
+        console.error("Error al generar PDF:", e);
+    }
 }
 
 // Función expuesta globalmente para el oninput
@@ -365,6 +483,9 @@ async function confirmarDisersionPagos() {
         const total = parseFloat(inputEfectivo.getAttribute('data-total'));
         const efectivo = parseFloat(document.getElementById(`pago_efectivo_${id}`).value) || 0;
         const transfer = parseFloat(document.getElementById(`pago_transferencia_${id}`).value) || 0;
+        const obs = document.getElementById(`obs_${id}`).value;
+        const sucursalPago = document.getElementById(`branch_${id}`).value;
+        const frecuenciaPago = document.getElementById(`freq_${id}`).value;
 
         if (Math.abs((efectivo + transfer) - total) > 1.0) { // Tolerancia $1
             return alert(`Error en la distribución de pago para un empleado.\nLa suma no coincide con el total. Verifica los campos en rojo.`);
@@ -381,8 +502,8 @@ async function confirmarDisersionPagos() {
                 subcategoria: 'NOMINA',
                 metodo_pago: 'Efectivo',
                 monto_total: efectivo,
-                sucursal: emp ? (emp.sucursal || 'Matriz') : 'Matriz',
-                notas: `PAGO NOMINA (EFECTIVO) ID: ${id}`,
+                sucursal: sucursalPago,
+                notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (EFECTIVO) ID: ${id} | ${obs}`,
                 estado_pago: 'Pagado'
             });
         }
@@ -396,8 +517,8 @@ async function confirmarDisersionPagos() {
                 subcategoria: 'NOMINA',
                 metodo_pago: 'Transferencia',
                 monto_total: transfer,
-                sucursal: emp ? (emp.sucursal || 'Matriz') : 'Matriz',
-                notas: `PAGO NOMINA (TRANSF) ID: ${id}`,
+                sucursal: sucursalPago,
+                notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (TRANSF) ID: ${id} | ${obs}`,
                 estado_pago: 'Pagado'
             });
         }
@@ -423,7 +544,14 @@ async function confirmarDisersionPagos() {
             if (errGasto) console.error("Error insertando gastos:", errGasto);
         }
 
-        alert("Pagos y gastos registrados correctamente.");
+        // C. Generar y Descargar PDFs
+        alert("Pagos y gastos registrados. Iniciando descarga de recibos...");
+        for (const id of ids) {
+            actualizarPreviewRecibo(id); // Forzar que el preview sea el de este empleado
+            await generarYDescargarPDF(id);
+        }
+
+        alert("Proceso completado correctamente.");
         cerrarModalPago();
         seleccionados.clear();
         document.getElementById('barAccionesMasivas').classList.add('hidden');
