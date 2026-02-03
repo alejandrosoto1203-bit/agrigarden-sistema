@@ -254,6 +254,26 @@ function aprobarPagosMasivos() {
     const inputFecha = document.getElementById('globalFechaPago');
     if (inputFecha) inputFecha.value = new Date().toISOString().split('T')[0];
 
+    // Pre-llenar periodo actual (Quincenal por defecto)
+    const hoy = new Date();
+    const year = hoy.getFullYear();
+    const month = hoy.getMonth();
+    const day = hoy.getDate();
+    let start, end;
+
+    if (day <= 15) {
+        start = new Date(year, month, 1);
+        end = new Date(year, month, 15);
+    } else {
+        start = new Date(year, month, 16);
+        end = new Date(year, month + 1, 0);
+    }
+
+    const inputStart = document.getElementById('globalPeriodoInicio');
+    const inputEnd = document.getElementById('globalPeriodoFin');
+    if (inputStart) inputStart.value = start.toISOString().split('T')[0];
+    if (inputEnd) inputEnd.value = end.toISOString().split('T')[0];
+
     // Abrir modal en lugar de confirmar directo
     renderizarTablaPagos();
 
@@ -348,6 +368,8 @@ function actualizarPreviewRecibo(id) {
     const fechaPago = document.getElementById('globalFechaPago').value || new Date().toISOString().split('T')[0];
     const sucursalPago = document.getElementById('globalSucursal').value;
     const frecuenciaPago = document.getElementById('globalFrecuencia').value;
+    const pInicio = document.getElementById('globalPeriodoInicio').value;
+    const pFin = document.getElementById('globalPeriodoFin').value;
 
     const neto = record.sueldo_base + (record.bonificaciones || 0) - (record.deducciones || 0);
     const efectivo = parseFloat(document.getElementById(`pago_efectivo_${id}`).value) || 0;
@@ -381,7 +403,7 @@ function actualizarPreviewRecibo(id) {
                 </div>
                 <div class="text-right">
                     <label class="block text-[8px] font-black uppercase text-slate-400 mb-1">Periodo de Pago (<span contenteditable="true">${frecuenciaPago}</span>)</label>
-                    <p class="text-sm font-black uppercase" contenteditable="true">${record.periodo_inicio || '---'} al ${record.periodo_fin || '---'}</p>
+                    <p class="text-sm font-black uppercase" contenteditable="true">${pInicio || '---'} al ${pFin || '---'}</p>
                     <p class="text-[8px] font-black uppercase text-slate-400 mt-1">Fecha de Pago: <span contenteditable="true">${fechaPago}</span></p>
                 </div>
             </div>
@@ -533,6 +555,8 @@ async function confirmarDisersionPagos() {
         const sucursalPago = document.getElementById('globalSucursal').value;
         const frecuenciaPago = document.getElementById('globalFrecuencia').value;
         const fechaPagoGasto = document.getElementById('globalFechaPago').value || fechaHoy;
+        const pInicio = document.getElementById('globalPeriodoInicio').value;
+        const pFin = document.getElementById('globalPeriodoFin').value;
 
         if (Math.abs((efectivo + transfer) - total) > 1.0) { // Tolerancia $1
             return alert(`Error en la distribución de pago para un empleado.\nLa suma no coincide con el total. Verifica los campos en rojo.`);
@@ -550,7 +574,7 @@ async function confirmarDisersionPagos() {
                 metodo_pago: 'Efectivo',
                 monto_total: efectivo,
                 sucursal: sucursalPago,
-                notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (EFECTIVO) ID: ${id} | ${obs}`,
+                notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (${pInicio} AL ${pFin}) (EFECTIVO) ID: ${id} | ${obs}`,
                 estado_pago: 'Pagado'
             });
         }
@@ -565,7 +589,7 @@ async function confirmarDisersionPagos() {
                 metodo_pago: 'Transferencia',
                 monto_total: transfer,
                 sucursal: sucursalPago,
-                notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (TRANSF) ID: ${id} | ${obs}`,
+                notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (${pInicio} AL ${pFin}) (TRANSF) ID: ${id} | ${obs}`,
                 estado_pago: 'Pagado'
             });
         }
