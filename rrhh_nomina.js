@@ -324,30 +324,6 @@ function renderizarTablaPagos() {
                             placeholder="0.00" value="${neto.toFixed(2)}">
                     </div>
                 </td>
-                <td class="px-6 py-4">
-                    <div class="relative">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                        <input type="number" 
-                            id="pago_efectivo_${id}" 
-                            data-total="${neto}" 
-                            oninput="calcularRestantePago('${id}', 'efectivo')"
-                            onclick="event.stopPropagation()"
-                            class="w-full bg-slate-50 border-slate-200 rounded-lg pl-6 py-2 font-bold text-slate-700 text-center" 
-                            placeholder="0.00" value="0.00">
-                    </div>
-                </td>
-                <td class="px-6 py-4">
-                    <div class="relative">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                        <input type="number" 
-                            id="pago_transferencia_${id}" 
-                            data-total="${neto}" 
-                            oninput="calcularRestantePago('${id}', 'transferencia')"
-                            onclick="event.stopPropagation()"
-                            class="w-full bg-blue-50 border-blue-200 rounded-lg pl-6 py-2 font-bold text-blue-700 text-center" 
-                            placeholder="0.00" value="${neto.toFixed(2)}">
-                    </div>
-                </td>
             `;
         tbody.appendChild(tr);
     });
