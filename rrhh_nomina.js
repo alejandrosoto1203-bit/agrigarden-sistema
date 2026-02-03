@@ -240,6 +240,31 @@ function actualizarKPIsNomina(datos) {
 // Variable global para almacenar el recibo actual y poder editarlo
 let reciboActualData = null;
 
+function aprobarPagosMasivos() {
+    if (!seleccionados.size) return alert("Selecciona al menos un empleado para aprobar el pago.");
+
+    // Abrir modal en lugar de confirmar directo
+    renderizarTablaPagos();
+
+    const modal = document.getElementById('modalPagoNomina');
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        document.getElementById('modalPagoContent').classList.remove('scale-95');
+        document.getElementById('modalPagoContent').classList.add('scale-100');
+    }, 10);
+}
+
+function cerrarModalPago() {
+    const modal = document.getElementById('modalPagoNomina');
+    modal.classList.add('opacity-0');
+    document.getElementById('modalPagoContent').classList.remove('scale-100');
+    document.getElementById('modalPagoContent').classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 200);
+}
+
 function renderizarTablaPagos() {
     const tbody = document.getElementById('tablaPagosBody');
     tbody.innerHTML = '';
