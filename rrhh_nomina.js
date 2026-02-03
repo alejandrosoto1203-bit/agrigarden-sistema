@@ -32,7 +32,7 @@ async function cargarNomina() {
         // Obtenemos empleados y su información de nómina actual
         const { data: empleados, error } = await sbClient
             .from('empleados')
-            .select('id, nombre_completo, puesto, sucursal, foto_url, telefono');
+            .select('id, nombre_completo, puesto, sucursal, foto_url, telefono, sueldo_base');
 
         if (error) throw new Error("Error fetching empleados: " + error.message);
 
@@ -763,8 +763,8 @@ async function ejecutarGeneracionSelectiva() {
         const empleadosData = nominaCacheEmp.filter(e => seleccionadosGenerar.includes(e.id));
 
         const nominaInsert = empleadosData.map(emp => {
-            const sueldoMensual = parseFloat(emp.sueldo_base) || 0;
-            const sueldoQuincenal = sueldoMensual / 2;
+            const sBaseRaw = emp.sueldo_base || 0;
+            const sueldoQuincenal = parseFloat(sBaseRaw) / 2;
 
             return {
                 empleado_id: emp.id,
