@@ -51,6 +51,10 @@
                 <p class="text-gray-400 font-medium">Monitoreo de flujo de caja y disponibilidad física</p>
             </div>
             <div class="flex items-center gap-4">
+                <button onclick="abrirModalTraspaso()"
+                    class="bg-primary text-white px-5 py-3 rounded-xl font-bold flex items-center gap-2 text-sm hover:brightness-110 transition-all shadow-md">
+                    <span class="material-symbols-outlined text-lg">sync_alt</span> Transferir Dinero
+                </button>
                 <button onclick="window.print()"
                     class="bg-white border border-gray-300 px-5 py-3 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-gray-50 transition-all shadow-sm">
                     <span class="material-symbols-outlined text-lg">print</span> Imprimir Reporte
@@ -171,11 +175,12 @@
         </footer>
 
         <script src="config.js"></script>
-    <script src="api.js"></script>
+        <script src="api.js"></script>
         <script src="auth.js"></script>
         <script src="menu.js"></script>
         <script src="configuracion.js"></script> <!-- Reutilizamos lógica de config -->
         <script src="control_efectivo.js"></script>
+        <script src="traspasos.js"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 try {
@@ -188,6 +193,95 @@
                 }
             });
         </script>
+        <!-- MODAL TRASPASOS -->
+        <div id="modalTraspaso"
+            class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+            <div
+                class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+                <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <div>
+                        <h3 class="text-xl font-black text-gray-800 uppercase italic">Traspaso de Fondos</h3>
+                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Movimiento Interno
+                            Sucursales</p>
+                    </div>
+                    <button onclick="cerrarModalTraspaso()" class="text-gray-400 hover:text-red-500 transition-colors">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+
+                <div class="p-8 space-y-5">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Origen</label>
+                            <select id="traspasoOrigen"
+                                class="w-full bg-gray-50 border-none rounded-xl p-3 font-bold text-gray-700 outline-none focus:ring-2 focus:ring-primary/20"
+                                onchange="actualizarDestinoTraspaso()">
+                                <option value="Norte">Norte</option>
+                                <option value="Sur">Sur</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Destino</label>
+                            <select id="traspasoDestino"
+                                class="w-full bg-gray-50 border-none rounded-xl p-3 font-bold text-gray-700 outline-none focus:ring-2 focus:ring-primary/20"
+                                disabled>
+                                <option value="Sur">Sur</option>
+                                <option value="Norte">Norte</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Monto a Transferir</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-gray-400">$</span>
+                            <input type="number" id="traspasoMonto" step="0.01"
+                                class="w-full bg-gray-50 border-none rounded-xl p-3 pl-8 font-black text-2xl text-primary outline-none focus:ring-2 focus:ring-primary/20"
+                                placeholder="0.00">
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Método de Salida
+                            (Origen)</label>
+                        <select id="traspasoMetodo"
+                            class="w-full bg-gray-50 border-none rounded-xl p-3 font-bold text-gray-700 outline-none focus:ring-2 focus:ring-primary/20"
+                            onchange="sugerirMetodoLlegada()">
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
+                            <option value="Transferencia BBVA">Transferencia BBVA</option>
+                            <option value="Transferencia Mercado Pago">Transferencia Mercado Pago</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Llegada como
+                            (Destino)</label>
+                        <select id="traspasoMetodoDestino"
+                            class="w-full bg-gray-50 border-none rounded-xl p-3 font-bold text-gray-700 outline-none focus:ring-2 focus:ring-primary/20">
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
+                            <option value="Transferencia BBVA">Transferencia BBVA</option>
+                            <option value="Transferencia Mercado Pago">Transferencia Mercado Pago</option>
+                        </select>
+                        <p class="text-[9px] text-amber-600 font-bold uppercase mt-1 px-1">* SELECCIONA "EFECTIVO" PARA
+                            INYECTAR DINERO A CAJA FÍSICA</p>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Notas / Referencia</label>
+                        <textarea id="traspasoNotas"
+                            class="w-full bg-gray-50 border-none rounded-xl p-3 font-medium text-gray-600 outline-none focus:ring-2 focus:ring-primary/20 h-20 resize-none"
+                            placeholder="Motivo del traspaso..."></textarea>
+                    </div>
+
+                    <button id="btnEjecutarTraspaso" onclick="ejecutarTraspaso()"
+                        class="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined">bolt</span> Confirmar Traspaso
+                    </button>
+                </div>
+            </div>
+        </div>
 </body>
 
 </html>
