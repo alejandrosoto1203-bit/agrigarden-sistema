@@ -27,7 +27,7 @@ window.cargarTareas = async function () {
     try {
         let query = sbClientTareas
             .from('rrhh_tareas')
-            .select('*, empleados:empleado_id(nombre_completo, foto_url)')
+            .select('*, empleados:empleado_id(id, nombre_completo, foto_url)')
             .order('created_at', { ascending: false });
 
         // Aplicar filtros de Base de Datos
@@ -274,8 +274,10 @@ function renderizarRendimientoEmpleados() {
     tareasCache.forEach(t => {
         const emp = t.empleados;
         if (!emp) return;
-        const id = emp.id;
-        if (!stats[id]) stats[id] = {
+
+        // Usar ID como llave primaria, nombre como fallback
+        const key = emp.id || emp.nombre_completo;
+        if (!stats[key]) stats[key] = {
             name: emp.nombre_completo,
             photo: emp.foto_url,
             total: 0,
