@@ -142,6 +142,7 @@ window.drop = async function (ev) {
     if (!data) return;
 
     const taskId = data.replace('task-', '');
+    const taskElement = document.getElementById(data);
     const col = ev.target.closest('.kanban-column');
     if (!col) return;
 

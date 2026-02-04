@@ -55,7 +55,8 @@
 
     <div id="sidebar-container"></div>
 
-    <main class="pt-20 lg:pt-0 flex-1  p-6 md:p-4 lg:p-8 overflow-y-auto bg-slate-50/50 flex flex-col lg:flex-row gap-6">
+    <main
+        class="pt-20 lg:pt-0 flex-1  p-6 md:p-4 lg:p-8 overflow-y-auto bg-slate-50/50 flex flex-col lg:flex-row gap-6">
 
         <!-- COLUMNA PRINCIPAL -->
         <div class="flex-1 flex flex-col gap-4 lg:p-8 min-w-0">
@@ -202,7 +203,7 @@
                         <button class="ml-auto text-slate-400 hover:text-slate-600"><span
                                 class="material-symbols-outlined text-lg">more_horiz</span></button>
                     </div>
-                    <div class="flex-1 space-y-3 p-1" id="col-PENDIENTE" ondrop="drop(event)"
+                    <div class="flex-1 space-y-3 p-1 kanban-column" id="col-PENDIENTE" ondrop="drop(event)"
                         ondragover="allowDrop(event)">
                         <!-- Cards injected by JS -->
                     </div>
@@ -218,7 +219,7 @@
                         <button class="ml-auto text-slate-400 hover:text-slate-600"><span
                                 class="material-symbols-outlined text-lg">more_horiz</span></button>
                     </div>
-                    <div class="flex-1 space-y-3 p-1" id="col-PROCESO" ondrop="drop(event)"
+                    <div class="flex-1 space-y-3 p-1 kanban-column" id="col-PROCESO" ondrop="drop(event)"
                         ondragover="allowDrop(event)">
                         <!-- Cards injected by JS -->
                     </div>
@@ -234,7 +235,7 @@
                         <button class="ml-auto text-slate-400 hover:text-slate-600"><span
                                 class="material-symbols-outlined text-lg">more_horiz</span></button>
                     </div>
-                    <div class="flex-1 space-y-3 p-1" id="col-COMPLETADO" ondrop="drop(event)"
+                    <div class="flex-1 space-y-3 p-1 kanban-column" id="col-COMPLETADO" ondrop="drop(event)"
                         ondragover="allowDrop(event)">
                         <!-- Cards injected by JS -->
                     </div>
@@ -250,7 +251,7 @@
                         <button class="ml-auto text-slate-400 hover:text-slate-600"><span
                                 class="material-symbols-outlined text-lg">more_horiz</span></button>
                     </div>
-                    <div class="flex-1 space-y-3 p-1" id="col-NO_REALIZADA" ondrop="drop(event)"
+                    <div class="flex-1 space-y-3 p-1 kanban-column" id="col-NO_REALIZADA" ondrop="drop(event)"
                         ondragover="allowDrop(event)">
                         <!-- Cards injected by JS -->
                     </div>
