@@ -27,7 +27,7 @@ window.cargarTareas = async function () {
     try {
         let query = sbClientTareas
             .from('rrhh_tareas')
-            .select('*, empleados:empleado_id(id, nombre_completo, foto_url)')
+            .select('*, empleados:empleado_id(nombre_completo, foto_url)')
             .order('created_at', { ascending: false });
 
         // Aplicar filtros de Base de Datos
