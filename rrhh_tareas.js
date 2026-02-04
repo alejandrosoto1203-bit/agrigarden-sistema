@@ -15,6 +15,7 @@ if (window.supabase && window.supabase.createClient) {
 }
 
 window.cargarTareas = async function () {
+    console.log("Iniciando cargarTareas...");
     if (!sbClientTareas) {
         console.error("Client not ready");
         return;
@@ -27,30 +28,29 @@ window.cargarTareas = async function () {
     try {
         let query = sbClientTareas
             .from('rrhh_tareas')
-            .select('*, empleados:empleado_id(nombre_completo, foto_url)')
+            .select('*, empleados:empleado_id(id, nombre_completo, foto_url)')
             .order('created_at', { ascending: false });
 
         // Aplicar filtros de Base de Datos
         if (filtro === 'activas') {
-            // Mostrar Pendientes, En Proceso, y Completadas SOLO de los últimos 2 días (para ver lo reciente)
-            // Lógica compleja en Supabase: .or('estado.neq.COMPLETADO, and(estado.eq.COMPLETADO, created_at.gt.fecha))
-            // Simplificación: Traer solo NO completadas. Si quieres ver completadas, cambia a 'Mes' o 'Todas'.
             query = query.in('estado', ['PENDIENTE', 'PROCESO']);
         } else if (filtro === 'mes') {
             const fechaInicio = new Date();
-            fechaInicio.setDate(1); // Primer día del mes
+            fechaInicio.setDate(1);
             query = query.gte('created_at', fechaInicio.toISOString());
         } else {
-            // 'todas': Limitar a 100 para evitar sobrecarga
             query = query.limit(100);
         }
 
         const { data: tareas, error } = await query;
+        console.log("Resultado Supabase:", tareas, error);
 
         if (error) throw error;
 
-        // Cachear y renderizar (el renderizado aplica el filtro de texto local)
+        // Cachear y renderizar
         tareasCache = tareas || [];
+        console.log("Tareas cacheada, total:", tareasCache.length);
+
         renderizarTablero();
         actualizarKPIsTareas();
     } catch (e) {
@@ -176,6 +176,7 @@ window.drop = async function (ev) {
 
 
 function renderizarTablero() {
+    console.log("Renderizando tablero...");
     renderizarRendimientoEmpleados(); // Update sidebar stats
 
     const term = document.getElementById('busquedaTareas')?.value.toLowerCase() || '';
@@ -202,66 +203,72 @@ function renderizarTablero() {
         if (!col) return;
 
         col.innerHTML = filtradas.map(t => {
-            const empleado = t.empleados;
-            const nombre = empleado ? empleado.nombre_completo : 'Sin Asignar';
-            const foto = empleado && empleado.foto_url ? empleado.foto_url : `https://ui-avatars.com/api/?name=${nombre}`;
+            try {
+                const empleado = t.empleados;
+                const nombre = empleado ? empleado.nombre_completo : 'Sin Asignar';
+                const foto = empleado && empleado.foto_url ? empleado.foto_url : `https://ui-avatars.com/api/?name=${nombre}`;
 
-            let progress = 0;
-            if (t.estado === 'PROCESO') progress = 50;
-            if (t.estado === 'COMPLETADO') progress = 100;
+                let progress = 0;
+                if (t.estado === 'PROCESO') progress = 50;
+                if (t.estado === 'COMPLETADO') progress = 100;
 
-            const isVencida = t.fecha_vencimiento && t.fecha_vencimiento < new Date().toISOString().split('T')[0] && t.estado !== 'COMPLETADO' && t.estado !== 'NO_REALIZADA';
+                const isVencida = t.fecha_vencimiento && t.fecha_vencimiento < new Date().toISOString().split('T')[0] && t.estado !== 'COMPLETADO' && t.estado !== 'NO_REALIZADA';
 
-            return `
-            <div class="bg-white p-4 rounded-xl shadow-[0_3px_10px_-4px_rgba(0,0,0,0.1)] border border-slate-100 group relative hover:shadow-lg transition-all cursor-grab active:cursor-grabbing" 
-                 draggable="true" ondragstart="drag(event)" id="task-${t.id}">
-                
-                <div class="flex justify-between items-start mb-2">
-                    <span class="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide ${getCategoriaColor(t.categoria)}">${t.categoria}</span>
-                    <span class="text-[10px] font-bold text-slate-300">#${t.id.slice(0, 4)}</span>
-                </div>
-                
-                <h4 class="text-sm font-bold text-slate-800 mb-3 leading-snug">${t.titulo}</h4>
-                
-                <div class="flex items-center gap-2 mb-3">
-                    <img src="${foto}" class="size-6 rounded-full object-cover ring-2 ring-white">
-                    <p class="text-[10px] font-bold text-slate-500 truncate">${nombre}</p>
-                </div>
-
-                <div class="mb-3">
-                     <div class="flex justify-between text-[10px] font-bold text-slate-400 mb-1">
-                        <span>Progreso</span>
-                        <span>${progress}%</span>
-                     </div>
-                     <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                        <div class="bg-blue-600 h-1.5 rounded-full transition-all duration-500" style="width: ${progress}%"></div>
-                     </div>
-                </div>
-
-                <div class="flex justify-between items-center pt-3 border-t border-slate-50">
-                    <div class="flex items-center gap-1.5 ${isVencida ? 'text-red-500' : 'text-slate-400'}">
-                        <span class="material-symbols-outlined text-[14px]">event</span>
-                        <span class="text-[10px] font-bold">${t.fecha_vencimiento || 'Sin Fecha'}</span>
+                return `
+                <div class="bg-white p-4 rounded-xl shadow-[0_3px_10px_-4px_rgba(0,0,0,0.1)] border border-slate-100 group relative hover:shadow-lg transition-all cursor-grab active:cursor-grabbing" 
+                     draggable="true" ondragstart="drag(event)" id="task-${t.id}">
+                    
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide ${getCategoriaColor(t.categoria)}">${t.categoria}</span>
+                        <span class="text-[10px] font-bold text-slate-300">#${t.id ? t.id.slice(0, 4) : '????'}</span>
                     </div>
-                    ${isVencida ? '<span class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Vencida</span>' : ''}
-                </div>
+                    
+                    <h4 class="text-sm font-bold text-slate-800 mb-3 leading-snug">${t.titulo || 'Sin Título'}</h4>
+                    
+                    <div class="flex items-center gap-2 mb-3">
+                        <img src="${foto}" class="size-6 rounded-full object-cover ring-2 ring-white">
+                        <p class="text-[10px] font-bold text-slate-500 truncate">${nombre}</p>
+                    </div>
 
-                <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
-                    <button onclick="event.stopPropagation(); abrirBitacora('${t.id}')" title="Bitácora" class="size-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 border border-slate-100 transition-colors">
-                        <span class="material-symbols-outlined text-[16px]">sticky_note_2</span>
-                    </button>
-                    <button onclick="event.stopPropagation(); editarTarea('${t.id}')" title="Editar" class="size-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-500 hover:bg-orange-50 hover:text-orange-600 border border-slate-100 transition-colors">
-                        <span class="material-symbols-outlined text-[16px]">edit</span>
-                    </button>
-                     <button onclick="event.stopPropagation(); marcarNoRealizada('${t.id}')" title="Marcar No Realizada" class="size-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-500 hover:bg-red-50 hover:text-red-600 border border-slate-100 transition-colors">
-                        <span class="material-symbols-outlined text-[16px]">cancel</span>
-                    </button>
-                    <button onclick="event.stopPropagation(); borrarTarea('${t.id}')" title="Borrar" class="size-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-200 hover:text-slate-600 border border-slate-100 transition-colors">
-                        <span class="material-symbols-outlined text-[16px]">delete</span>
-                    </button>
+                    <div class="mb-3">
+                         <div class="flex justify-between text-[10px] font-bold text-slate-400 mb-1">
+                            <span>Progreso</span>
+                            <span>${progress}%</span>
+                         </div>
+                         <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                            <div class="bg-blue-600 h-1.5 rounded-full transition-all duration-500" style="width: ${progress}%"></div>
+                         </div>
+                    </div>
+
+                    <div class="flex justify-between items-center pt-3 border-t border-slate-50">
+                        <div class="flex items-center gap-1.5 ${isVencida ? 'text-red-500' : 'text-slate-400'}">
+                            <span class="material-symbols-outlined text-[14px]">event</span>
+                            <span class="text-[10px] font-bold">${t.fecha_vencimiento || 'Sin Fecha'}</span>
+                        </div>
+                        ${isVencida ? '<span class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Vencida</span>' : ''}
+                    </div>
+
+                    <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 p-1 rounded-lg backdrop-blur-sm shadow-sm">
+                        <button onclick="event.stopPropagation(); abrirBitacora('${t.id}')" title="Bitácora" class="size-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 border border-slate-100 transition-colors">
+                            <span class="material-symbols-outlined text-[16px]">sticky_note_2</span>
+                        </button>
+                        <button onclick="event.stopPropagation(); editarTarea('${t.id}')" title="Editar" class="size-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-500 hover:bg-orange-50 hover:text-orange-600 border border-slate-100 transition-colors">
+                            <span class="material-symbols-outlined text-[16px]">edit</span>
+                        </button>
+                         <button onclick="event.stopPropagation(); marcarNoRealizada('${t.id}')" title="Marcar No Realizada" class="size-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-500 hover:bg-red-50 hover:text-red-600 border border-slate-100 transition-colors">
+                            <span class="material-symbols-outlined text-[16px]">cancel</span>
+                        </button>
+                        <button onclick="event.stopPropagation(); borrarTarea('${t.id}')" title="Borrar" class="size-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-200 hover:text-slate-600 border border-slate-100 transition-colors">
+                            <span class="material-symbols-outlined text-[16px]">delete</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
-        `}).join('');
+                `;
+            } catch (err) {
+                console.error("Error renderizando tarea:", t, err);
+                return '';
+            }
+        }).join('');
     });
 }
 
@@ -286,11 +293,11 @@ function renderizarRendimientoEmpleados() {
             comp: 0,
             fail: 0
         };
-        stats[id].total++;
-        if (t.estado === 'PENDIENTE') stats[id].pend++;
-        if (t.estado === 'PROCESO') stats[id].proc++;
-        if (t.estado === 'COMPLETADO') stats[id].comp++;
-        if (t.estado === 'NO_REALIZADA') stats[id].fail++;
+        stats[key].total++;
+        if (t.estado === 'PENDIENTE') stats[key].pend++;
+        else if (t.estado === 'PROCESO') stats[key].proc++;
+        else if (t.estado === 'COMPLETADO') stats[key].comp++;
+        else if (t.estado === 'NO_REALIZADA') stats[key].fail++;
     });
 
     if (Object.keys(stats).length === 0) {
