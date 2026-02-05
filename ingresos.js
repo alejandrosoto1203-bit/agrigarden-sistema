@@ -104,7 +104,7 @@ function renderizarTablaIngresos(datos) {
     const datosNorte = datos.filter(i => i.sucursal === 'Norte');
 
     // Filtrar ventas para KPIs (excluyendo abonos y rentas)
-    const esExcluido = (i) => i.tipo === 'ABONO' || i.categoria === 'COBRANZA' || (i.categoria && i.categoria.toUpperCase().includes('RENTA'));
+    const esExcluido = (i) => i.tipo === 'ABONO' || i.categoria === 'COBRANZA' || i.categoria === 'PRÉSTAMO' || (i.categoria && i.categoria.toUpperCase().includes('RENTA'));
     const ventasSur = datosSur.filter(i => !esExcluido(i));
     const ventasNorte = datosNorte.filter(i => !esExcluido(i));
 
@@ -250,7 +250,7 @@ async function eliminarIngreso(id) {
 // 3. CÁLCULOS DE KPIs
 async function actualizarCalculosKPIsIngresos(datos) {
     const hoyStr = new Date().toISOString().split('T')[0];
-    const ingresosHoyArr = datos.filter(i => i.created_at.includes(hoyStr) && i.tipo !== 'ABONO' && i.categoria !== 'COBRANZA');
+    const ingresosHoyArr = datos.filter(i => i.created_at.includes(hoyStr) && i.tipo !== 'ABONO' && i.categoria !== 'COBRANZA' && i.categoria !== 'PRÉSTAMO');
     const totalHoy = ingresosHoyArr.reduce((s, i) => s + (i.monto || 0), 0);
 
     if (document.getElementById('kpiHoy')) document.getElementById('kpiHoy').innerText = formatMoney(totalHoy);
@@ -259,7 +259,7 @@ async function actualizarCalculosKPIsIngresos(datos) {
     if (document.getElementById('kpiTicketDiario')) document.getElementById('kpiTicketDiario').innerText = formatMoney(ticketPromDiario);
 
     // Filtrar abonos también para el promedio general y el total del mes
-    const datosSinAbonos = datos.filter(i => i.tipo !== 'ABONO' && i.categoria !== 'COBRANZA');
+    const datosSinAbonos = datos.filter(i => i.tipo !== 'ABONO' && i.categoria !== 'COBRANZA' && i.categoria !== 'PRÉSTAMO');
 
     const ticketPromGral = datosSinAbonos.length > 0 ? datosSinAbonos.reduce((s, i) => s + (i.monto || 0), 0) / datosSinAbonos.length : 0;
     if (document.getElementById('kpiTicket')) document.getElementById('kpiTicket').innerText = formatMoney(ticketPromGral);
