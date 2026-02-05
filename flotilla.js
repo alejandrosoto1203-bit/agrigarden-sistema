@@ -146,7 +146,7 @@ function renderizarFlotilla(lista) {
                                 <h3 class="text-xl font-black text-slate-800">${v.marca} ${v.modelo}</h3>
                                 <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px] font-bold">${v.anio}</span>
                             </div>
-                            <p class="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wider">${v.placas}</p>
+                            <p class="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wider">${v.placas} ${v.numero_serie ? `| S/N: ${v.numero_serie}` : ''}</p>
                         </div>
                         <button onclick='abrirModal(${JSON.stringify(v)})' class="text-gray-300 hover:text-black transition-colors">
                             <span class="material-symbols-outlined">edit</span>
@@ -154,6 +154,16 @@ function renderizarFlotilla(lista) {
                     </div>
 
                     <div class="space-y-4 text-sm">
+                         <div class="flex items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                            <div>
+                                <p class="text-[10px] font-bold text-emerald-600 uppercase">Kilometraje</p>
+                                <p class="font-black text-emerald-800 text-lg">${v.kilometraje_actual || 0} <span class="text-[10px] font-bold uppercase ml-1">km</span></p>
+                            </div>
+                            <div class="flex flex-col items-end gap-1">
+                                <span class="material-symbols-outlined text-emerald-600">speed</span>
+                            </div>
+                        </div>
+
                          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                             <div>
                                 <p class="text-[10px] font-bold text-gray-400 uppercase">Próximo Aceite</p>
@@ -211,6 +221,8 @@ window.guardarVehiculo = async function (e) {
     const modelo = document.getElementById('modelo').value;
     const anio = document.getElementById('anio').value;
     const placas = document.getElementById('placas').value;
+    const numero_serie = document.getElementById('numero_serie').value;
+    const kilometraje_actual = document.getElementById('kilometraje_actual').value || 0;
     const responsable = document.getElementById('responsable').value;
 
     const ultimo_mantenimiento = document.getElementById('ultimo_mantenimiento').value || null;
@@ -232,6 +244,7 @@ window.guardarVehiculo = async function (e) {
 
     const payload = {
         marca, modelo, anio, placas: placas.toUpperCase(), responsable,
+        numero_serie: numero_serie.toUpperCase(), kilometraje_actual,
         ultimo_mantenimiento, ultimo_cambio_aceite, proximo_cambio_aceite,
         ultima_verificacion, ultimo_pago_seguro,
         tenencia_pagada, se_hizo_cambio_placas
@@ -301,6 +314,188 @@ window.eliminarVehiculo = async function () {
         cargarFlotilla();
     } catch (err) {
         console.error("Error deleting vehicle:", err);
+        alert("Error al eliminar.");
+    }
+}
+
+// Historial de Kilometraje
+window.abrirBitacoraKilometraje = function () {
+    const id = document.getElementById('vehiculoId').value;
+    const m = document.getElementById('modalKM');
+    m.classList.remove('hidden');
+    setTimeout(() => m.classList.remove('opacity-0'), 10);
+    cargarLogKM(id);
+}
+
+async function cargarLogKM(vehiculoId) {
+    const container = document.getElementById('listaKM');
+    container.innerHTML = '<p class="text-center py-4 text-xs text-gray-400">Cargando historial...</p>';
+
+    try {
+        const { data, error } = await sbClientFlotilla
+            .from('flotilla_bitacora_kilometraje')
+            .select('*')
+            .eq('vehiculo_id', vehiculoId)
+            .order('fecha', { ascending: false });
+
+        if (error) throw error;
+
+        if (data.length === 0) {
+            container.innerHTML = '<p class="text-center py-10 text-xs text-gray-400 font-bold italic">No hay registros previos.</p>';
+            return;
+        }
+
+        container.innerHTML = data.map(item => `
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <div>
+                    <p class="text-xs font-black text-slate-800">${item.kilometraje} <span class="text-[9px] text-gray-400 ml-1 italic">KM</span></p>
+                    <p class="text-[9px] font-bold text-gray-400 uppercase mt-0.5">${new Date(item.fecha + 'T00:00:00').toLocaleDateString()}</p>
+                </div>
+                <button onclick="eliminarRegistroKM(${item.id})" class="text-gray-300 hover:text-red-500">
+                    <span class="material-symbols-outlined text-sm">delete</span>
+                </button>
+            </div>
+        `).join('');
+    } catch (err) {
+        container.innerHTML = `<p class="text-center py-4 text-xs text-red-500">Error: ${err.message}</p>`;
+    }
+}
+
+window.registrarKM = async function (e) {
+    e.preventDefault();
+    const vehiculoId = document.getElementById('vehiculoId').value;
+    const kilometraje = document.getElementById('inputNuevoKM').value;
+    const fecha = new Date().toISOString().split('T')[0];
+
+    try {
+        // 1. Insert history
+        const { error: err1 } = await sbClientFlotilla
+            .from('flotilla_bitacora_kilometraje')
+            .insert([{ vehiculo_id: vehiculoId, kilometraje, fecha }]);
+        if (err1) throw err1;
+
+        // 2. Update current in main table
+        const { error: err2 } = await sbClientFlotilla
+            .from('flotilla_vehiculos')
+            .update({ kilometraje_actual: kilometraje })
+            .eq('id', vehiculoId);
+        if (err2) throw err2;
+
+        document.getElementById('inputNuevoKM').value = '';
+        document.getElementById('kilometraje_actual').value = kilometraje;
+        cargarLogKM(vehiculoId);
+        cargarFlotilla();
+    } catch (err) {
+        alert("Error: " + err.message);
+    }
+}
+
+window.eliminarRegistroKM = async function (id) {
+    if (!confirm("¿Borrar este registro?")) return;
+    try {
+        const { error } = await sbClientFlotilla.from('flotilla_bitacora_kilometraje').delete().eq('id', id);
+        if (error) throw error;
+        cargarLogKM(document.getElementById('vehiculoId').value);
+    } catch (err) {
+        alert("Error al eliminar.");
+    }
+}
+
+// Bitácora de Fallas
+window.abrirBitacoraFallas = function () {
+    const id = document.getElementById('vehiculoId').value;
+    const m = document.getElementById('modalFallas');
+    m.classList.remove('hidden');
+    setTimeout(() => m.classList.remove('opacity-0'), 10);
+
+    // Default today date
+    document.getElementById('fechaFalla').value = new Date().toISOString().split('T')[0];
+    cargarLogFallas(id);
+}
+
+async function cargarLogFallas(vehiculoId) {
+    const container = document.getElementById('listaFallas');
+    container.innerHTML = '<p class="text-center py-4 text-xs text-gray-400">Cargando bitácora...</p>';
+
+    try {
+        const { data, error } = await sbClientFlotilla
+            .from('flotilla_bitacora_fallas')
+            .select('*')
+            .eq('vehiculo_id', vehiculoId)
+            .order('fecha', { ascending: false });
+
+        if (error) throw error;
+
+        if (data.length === 0) {
+            container.innerHTML = '<p class="text-center py-10 text-xs text-gray-400 font-bold italic">No hay fallas reportadas.</p>';
+            return;
+        }
+
+        container.innerHTML = data.map(item => {
+            let colorClass = 'bg-red-50 text-red-700 border-red-100';
+            if (item.estatus === 'Reparada') colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-100';
+            if (item.estatus === 'En Reparación') colorClass = 'bg-blue-50 text-blue-700 border-blue-100';
+
+            return `
+            <div class="p-4 rounded-xl border border-slate-100 bg-white shadow-sm">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${colorClass}">${item.estatus}</span>
+                    <p class="text-[9px] font-bold text-gray-400">${new Date(item.fecha + 'T00:00:00').toLocaleDateString()}</p>
+                </div>
+                <p class="text-xs font-medium text-slate-700 leading-relaxed">${item.descripcion}</p>
+                <div class="flex justify-end gap-2 mt-3 pt-3 border-t border-slate-50">
+                    <button onclick="cambiarEstatusFalla(${item.id}, 'En Reparación')" class="text-[9px] font-bold text-blue-500 hover:underline">REPARANDO</button>
+                    <button onclick="cambiarEstatusFalla(${item.id}, 'Reparada')" class="text-[9px] font-bold text-emerald-500 hover:underline">REPARADA</button>
+                    <button onclick="eliminarFalla(${item.id})" class="text-[9px] font-bold text-slate-300 hover:text-red-500 ml-2">BORRAR</button>
+                </div>
+            </div>
+        `}).join('');
+    } catch (err) {
+        container.innerHTML = `<p class="text-center py-4 text-xs text-red-500">Error: ${err.message}</p>`;
+    }
+}
+
+window.registrarFalla = async function (e) {
+    e.preventDefault();
+    const vehiculoId = document.getElementById('vehiculoId').value;
+    const fecha = document.getElementById('fechaFalla').value;
+    const estatus = document.getElementById('estatusFalla').value;
+    const descripcion = document.getElementById('descFalla').value;
+
+    try {
+        const { error } = await sbClientFlotilla
+            .from('flotilla_bitacora_fallas')
+            .insert([{ vehiculo_id: vehiculoId, fecha, estatus, descripcion }]);
+
+        if (error) throw error;
+
+        document.getElementById('descFalla').value = '';
+        cargarLogFallas(vehiculoId);
+    } catch (err) {
+        alert("Error: " + err.message);
+    }
+}
+
+window.cambiarEstatusFalla = async function (id, estatus) {
+    try {
+        const { error } = await sbClientFlotilla
+            .from('flotilla_bitacora_fallas')
+            .update({ estatus })
+            .eq('id', id);
+        if (error) throw error;
+        cargarLogFallas(document.getElementById('vehiculoId').value);
+    } catch (err) {
+        alert("Error al actualizar estatus.");
+    }
+}
+
+window.eliminarFalla = async function (id) {
+    if (!confirm("¿Borrar reporte de falla?")) return;
+    try {
+        const { error } = await sbClientFlotilla.from('flotilla_bitacora_fallas').delete().eq('id', id);
+        if (error) throw error;
+        cargarLogFallas(document.getElementById('vehiculoId').value);
+    } catch (err) {
         alert("Error al eliminar.");
     }
 }

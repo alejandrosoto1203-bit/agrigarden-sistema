@@ -141,6 +141,14 @@
                         <label class="label-form">Placas</label>
                         <input type="text" id="placas" required class="input-form uppercase" placeholder="ABC-123-D">
                     </div>
+                    <div>
+                        <label class="label-form">Número de Serie (VIN)</label>
+                        <input type="text" id="numero_serie" class="input-form uppercase" placeholder="Opcional">
+                    </div>
+                    <div>
+                        <label class="label-form text-emerald-600">Kilometraje Actual</label>
+                        <input type="number" id="kilometraje_actual" class="input-form" placeholder="Ej: 50000">
+                    </div>
                 </div>
 
                 <div>
@@ -174,7 +182,7 @@
                 </div>
 
                 <!-- Checkboxes -->
-                <div class="flex gap-6 pt-2">
+                <div class="flex flex-wrap gap-4 pt-2">
                     <label
                         class="flex items-center gap-3 cursor-pointer bg-gray-50 p-3 rounded-xl border border-gray-200 hover:bg-white transition-colors">
                         <input type="checkbox" id="tenencia_pagada" class="size-5 rounded text-black focus:ring-black">
@@ -185,6 +193,18 @@
                         <input type="checkbox" id="cambio_placas" class="size-5 rounded text-black focus:ring-black">
                         <span class="text-xs font-bold uppercase text-gray-600">Cambio de Placas Realizado</span>
                     </label>
+                </div>
+
+                <!-- Bitácoras Quick Access (Only for existing vehicles) -->
+                <div id="sectionBitacoras" class="hidden grid grid-cols-2 gap-4 pt-4">
+                    <button type="button" onclick="abrirBitacoraKilometraje()"
+                        class="flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all font-bold text-xs uppercase">
+                        <span class="material-symbols-outlined text-lg">history</span> Ver Historial KM
+                    </button>
+                    <button type="button" onclick="abrirBitacoraFallas()"
+                        class="flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-red-100 bg-red-50 text-red-700 hover:bg-red-100 transition-all font-bold text-xs uppercase">
+                        <span class="material-symbols-outlined text-lg">report_problem</span> Bitácora Fallas
+                    </button>
                 </div>
 
                 <div class="pt-6 border-t border-gray-100 flex gap-4">
@@ -198,6 +218,63 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL BITÁCORA KM -->
+    <div id="modalKM"
+        class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden z-[110] flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-black italic uppercase">Historial de Kilometraje</h3>
+                <button onclick="cerrarModalLog('modalKM')" class="text-gray-400 hover:text-black mt-[-10px]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form onsubmit="registrarKM(event)" class="flex gap-3 mb-6">
+                <input type="number" id="inputNuevoKM" placeholder="Nuevo KM..." required class="input-form flex-1">
+                <button type="submit"
+                    class="bg-emerald-600 text-white px-6 rounded-xl font-bold text-xs uppercase hover:bg-emerald-700 transition-all">Registrar</button>
+            </form>
+
+            <div id="listaKM" class="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                <!-- JS Injection -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL BITÁCORA FALLAS -->
+    <div id="modalFallas"
+        class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden z-[110] flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-black italic uppercase">Bitácora de Fallas</h3>
+                <button onclick="cerrarModalLog('modalFallas')" class="text-gray-400 hover:text-black mt-[-10px]">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form onsubmit="registrarFalla(event)"
+                class="space-y-4 mb-8 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div class="flex gap-4">
+                    <input type="date" id="fechaFalla" required class="input-form w-40">
+                    <select id="estatusFalla" class="input-form">
+                        <option value="Reportada">Reportada</option>
+                        <option value="En Reparación">En Reparación</option>
+                        <option value="Reparada">Reparada</option>
+                    </select>
+                </div>
+                <textarea id="descFalla" required placeholder="Descripción de la falla..." class="input-form"
+                    rows="2"></textarea>
+                <button type="submit"
+                    class="w-full bg-red-600 text-white py-3 rounded-xl font-bold text-xs uppercase hover:bg-red-700 transition-all">Agregar
+                    Reporte</button>
+            </form>
+
+            <div id="listaFallas" class="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                <!-- JS Injection -->
+            </div>
         </div>
     </div>
 
@@ -265,6 +342,8 @@
                 document.getElementById('modelo').value = vehiculo.modelo;
                 document.getElementById('anio').value = vehiculo.anio;
                 document.getElementById('placas').value = vehiculo.placas;
+                document.getElementById('numero_serie').value = vehiculo.numero_serie || '';
+                document.getElementById('kilometraje_actual').value = vehiculo.kilometraje_actual || 0;
                 document.getElementById('responsable').value = vehiculo.responsable || '';
 
                 document.getElementById('ultimo_mantenimiento').value = vehiculo.ultimo_mantenimiento || '';
@@ -275,12 +354,14 @@
                 document.getElementById('tenencia_pagada').checked = vehiculo.tenencia_pagada;
                 document.getElementById('cambio_placas').checked = vehiculo.se_hizo_cambio_placas; // Using DB column name style
 
+                document.getElementById('sectionBitacoras').classList.remove('hidden');
                 btnDelete.classList.remove('hidden');
             } else {
                 // New
                 title.innerText = 'Nuevo Vehículo';
                 form.reset();
                 document.getElementById('vehiculoId').value = '';
+                document.getElementById('sectionBitacoras').classList.add('hidden');
                 btnDelete.classList.add('hidden');
             }
         }
@@ -290,6 +371,14 @@
             modal.firstElementChild.classList.add('scale-95');
             setTimeout(() => {
                 modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function cerrarModalLog(id) {
+            const m = document.getElementById(id);
+            m.classList.add('opacity-0');
+            setTimeout(() => {
+                m.classList.add('hidden');
             }, 300);
         }
     </script>
