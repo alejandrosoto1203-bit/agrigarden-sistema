@@ -180,7 +180,8 @@
                 <form id="formNuevoPrestamo" class="col-span-4 space-y-4">
                     <div class="space-y-1">
                         <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Fecha de Obtención</label>
-                        <input type="date" id="fechaPrestamo" class="input-prestamo" required>
+                        <input type="date" id="fechaPrestamo" class="input-prestamo" oninput="simularAmortizacion()"
+                            onchange="simularAmortizacion()" required>
                     </div>
                     <div class="space-y-1">
                         <label class="text-[10px] font-black uppercase text-gray-400 ml-1">Prestamista /
