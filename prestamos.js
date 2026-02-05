@@ -228,99 +228,112 @@ async function abrirAvancePrestamo(p) {
 
 // 2. MOTOR DE AMORTIZACIÓN DINÁMICO (ACTUALIZADO PARA PAGO MANUAL)
 function simularAmortizacion() {
-    const capital = parseFloat(document.getElementById('capitalPrestamo').value) || 0;
-    const tasaAnual = parseFloat(document.getElementById('tasaPrestamo').value) || 0;
-    const plazoOriginal = parseInt(document.getElementById('plazoPrestamo').value) || 0;
-    const periodicidad = document.getElementById('periodicidad').value;
-    const rawFecha = document.getElementById('fechaPrestamo').value;
+    try {
+        const getVal = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return 0;
+            return parseFloat(el.value) || 0;
+        };
 
-    console.log("Simulando:", { capital, tasaAnual, plazoOriginal, periodicidad, rawFecha });
+        const capital = getVal('capitalPrestamo');
+        const tasaAnual = getVal('tasaPrestamo');
+        const plazoOriginal = Math.floor(getVal('plazoPrestamo'));
+        const periodicidad = document.getElementById('periodicidad')?.value || 'Mensual';
+        const rawFecha = document.getElementById('fechaPrestamo')?.value;
 
-    const tbody = document.getElementById('cuerpoAmortizacion');
-    const txtTotalPagar = document.getElementById('txtTotalPagar');
-    const inputManual = document.getElementById('inputMensualidad');
-    const alerta = document.getElementById('alertaInteres');
+        console.log(`[DEBUG SIMULACION] Capital: ${capital}, Tasa: ${tasaAnual}, Plazo: ${plazoOriginal}, Fecha: ${rawFecha}`);
 
-    let missing = [];
-    if (!rawFecha) missing.push("Fecha");
-    if (capital <= 0) missing.push("Capital");
-    if (plazoOriginal <= 0) missing.push("Plazo");
-    if (tasaAnual <= 0) missing.push("Tasa");
+        const tbody = document.getElementById('cuerpoAmortizacion');
+        const txtTotalPagar = document.getElementById('txtTotalPagar');
+        const inputManual = document.getElementById('inputMensualidad');
+        const alerta = document.getElementById('alertaInteres');
 
-    if (missing.length > 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-gray-300 italic font-bold">Faltan datos: ${missing.join(', ')}</td></tr>`;
-        if (txtTotalPagar) txtTotalPagar.innerText = "$0.00";
-        return;
-    }
+        if (!tbody) return;
 
-    // Attempt various date fixers
-    let fechaBase = new Date(rawFecha + 'T12:00:00');
-    if (isNaN(fechaBase.getTime())) {
-        fechaBase = new Date(rawFecha.replace(/-/g, '/')); // Fallback
-    }
+        let missing = [];
+        if (!rawFecha) missing.push("Fecha");
+        if (capital <= 0) missing.push("Capital");
+        if (plazoOriginal <= 0) missing.push("Plazo");
+        if (tasaAnual <= 0) missing.push("Tasa (Anual)");
 
-    if (isNaN(fechaBase.getTime())) {
-        console.error("Fecha inválida:", rawFecha);
-        tbody.innerHTML = '<tr><td colspan="5" class="py-10 text-red-400 font-bold">La fecha ingresada no es válida</td></tr>';
-        return;
-    }
-
-    let numPagos = plazoOriginal;
-    if (periodicidad === 'Semanal') { numPagos = plazoOriginal * 4; }
-    if (periodicidad === 'Diario') { numPagos = plazoOriginal * 30; }
-
-    const tasaPeriodo = tasaAnual > 0 ? (tasaAnual / 100) / (12 * (numPagos / plazoOriginal)) : 0;
-
-    if (tasaPeriodo > 0 && (!inputManual.value || inputManual.value == 0)) {
-        try {
-            const mensualidadSugerida = (capital * tasaPeriodo) / (1 - Math.pow(1 + tasaPeriodo, -numPagos));
-            inputManual.value = isFinite(mensualidadSugerida) ? mensualidadSugerida.toFixed(2) : "0.00";
-        } catch (err) {
-            console.error("Error calculando sugerencia:", err);
+        if (missing.length > 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-gray-400 italic font-bold">Faltan datos requeridos: ${missing.join(', ')}</td></tr>`;
+            if (txtTotalPagar) txtTotalPagar.innerText = "$0.00";
+            return;
         }
+
+        // Attempt various date fixers
+        let fechaBase = new Date(rawFecha + 'T12:00:00');
+        if (isNaN(fechaBase.getTime())) {
+            fechaBase = new Date(rawFecha.replace(/-/g, '/')); // Fallback
+        }
+
+        if (isNaN(fechaBase.getTime())) {
+            tbody.innerHTML = '<tr><td colspan="5" class="py-10 text-red-400 font-bold italic underline">La fecha ingresada no es válida</td></tr>';
+            return;
+        }
+
+        let numPagos = plazoOriginal;
+        if (periodicidad === 'Semanal') { numPagos = plazoOriginal * 4; }
+        if (periodicidad === 'Diario') { numPagos = plazoOriginal * 30; }
+
+        const tasaPeriodo = tasaAnual > 0 ? (tasaAnual / 100) / (12 * (numPagos / plazoOriginal)) : 0;
+
+        if (tasaPeriodo > 0 && (!inputManual.value || inputManual.value == 0)) {
+            try {
+                const mensualidadSugerida = (capital * tasaPeriodo) / (1 - Math.pow(1 + tasaPeriodo, -numPagos));
+                inputManual.value = isFinite(mensualidadSugerida) ? mensualidadSugerida.toFixed(2) : "0.00";
+            } catch (err) {
+                console.error("Error calculando sugerencia:", err);
+            }
+        }
+
+        const pagoFijo = parseFloat(inputManual.value) || 0;
+        if (txtTotalPagar) txtTotalPagar.innerText = formatMoney(pagoFijo * numPagos);
+
+        tbody.innerHTML = "";
+
+        let saldoRestante = capital;
+        let alertaActivada = false;
+
+        if (pagoFijo <= 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="py-10 text-gray-300 italic font-bold">Mensualidad inválida</td></tr>';
+            return;
+        }
+
+        for (let i = 1; i <= numPagos; i++) {
+            const interes = saldoRestante * tasaPeriodo;
+            if (pagoFijo <= interes) alertaActivada = true;
+
+            const abonoCapital = pagoFijo - interes;
+            saldoRestante -= abonoCapital;
+
+            const fechaPago = new Date(fechaBase);
+            if (periodicidad === 'Mensual') fechaPago.setMonth(fechaBase.getMonth() + i);
+            if (periodicidad === 'Semanal') fechaPago.setDate(fechaBase.getDate() + (i * 7));
+            if (periodicidad === 'Diario') fechaPago.setDate(fechaBase.getDate() + i);
+
+            // Security check for toISOString() RangeError
+            const strFecha = isNaN(fechaPago.getTime()) ? rawFecha : fechaPago.toISOString().split('T')[0];
+
+            const tr = document.createElement('tr');
+            tr.className = "border-b border-gray-100 hover:bg-white";
+            tr.innerHTML = `
+                <td class="py-3 px-2 text-gray-400 font-bold">${i}</td>
+                <td class="py-3 px-2"><input type="date" class="input-table row-fecha" value="${strFecha}"></td>
+                <td class="py-3 px-2"><input type="number" step="0.01" class="input-table row-capital text-blue-600" value="${abonoCapital.toFixed(2)}"></td>
+                <td class="py-3 px-2"><input type="number" step="0.01" class="input-table row-interes text-orange-600" value="${interes.toFixed(2)}"></td>
+                <td class="py-3 px-2 text-gray-900 font-black">${formatMoney(pagoFijo)}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        if (alerta) alerta.classList.toggle('hidden', !alertaActivada);
+    } catch (e) {
+        console.error("CRASH SIMULACION:", e);
+        const tbody = document.getElementById('cuerpoAmortizacion');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-red-500 font-black uppercase text-xs">Error de Sistema: ${e.message}</td></tr>`;
     }
-
-    const pagoFijo = parseFloat(inputManual.value) || 0;
-    if (txtTotalPagar) txtTotalPagar.innerText = formatMoney(pagoFijo * numPagos);
-
-    tbody.innerHTML = "";
-
-    let saldoRestante = capital;
-    let alertaActivada = false;
-
-    if (pagoFijo <= 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="py-10 text-gray-300 italic font-bold">Mensualidad inválida</td></tr>';
-        return;
-    }
-
-    for (let i = 1; i <= numPagos; i++) {
-        const interes = saldoRestante * tasaPeriodo;
-        if (pagoFijo <= interes) alertaActivada = true;
-
-        const abonoCapital = pagoFijo - interes;
-        saldoRestante -= abonoCapital;
-
-        const fechaPago = new Date(fechaBase);
-        if (periodicidad === 'Mensual') fechaPago.setMonth(fechaBase.getMonth() + i);
-        if (periodicidad === 'Semanal') fechaPago.setDate(fechaBase.getDate() + (i * 7));
-        if (periodicidad === 'Diario') fechaPago.setDate(fechaBase.getDate() + i);
-
-        // Security check for toISOString() RangeError
-        const strFecha = isNaN(fechaPago.getTime()) ? rawFecha : fechaPago.toISOString().split('T')[0];
-
-        const tr = document.createElement('tr');
-        tr.className = "border-b border-gray-100 hover:bg-white";
-        tr.innerHTML = `
-            <td class="py-3 px-2 text-gray-400 font-bold">${i}</td>
-            <td class="py-3 px-2"><input type="date" class="input-table row-fecha" value="${strFecha}"></td>
-            <td class="py-3 px-2"><input type="number" step="0.01" class="input-table row-capital text-blue-600" value="${abonoCapital.toFixed(2)}"></td>
-            <td class="py-3 px-2"><input type="number" step="0.01" class="input-table row-interes text-orange-600" value="${interes.toFixed(2)}"></td>
-            <td class="py-3 px-2 text-gray-900 font-black">${formatMoney(pagoFijo)}</td>
-        `;
-        tbody.appendChild(tr);
-    }
-
-    if (alerta) alerta.classList.toggle('hidden', !alertaActivada);
 }
 
 // 3. GUARDADO EN CASCADA (PRÉSTAMO + GASTOS)
