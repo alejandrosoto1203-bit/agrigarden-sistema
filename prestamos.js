@@ -6,6 +6,12 @@ let prestamoSeleccionado = null;
 // 1. CARGA INICIAL Y MONITOREO DE ESTATUS
 let cacheGastosVinculados = [];
 
+// Auxiliares Globales
+const formatMoney = window.formatMoney || ((n) => {
+    if (n === undefined || n === null) return "$0.00";
+    return `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+});
+
 async function cargarPrestamos() {
     const tabla = document.getElementById('tablaPrestamos');
     if (!tabla) return;
