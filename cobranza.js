@@ -290,7 +290,7 @@ function renderizarTablaPagos(datos) {
     const grupos = {};
     datos.forEach(item => {
         const esCuota = item.notas && item.notas.includes("CUOTA");
-        const llave = esCuota ? item.notas.split(') - ')[1] : item.id;
+        const llave = esCuota ? (item.notas.split(') - ')[1] + "_" + (item.created_at ? item.created_at.split('T')[0] : '')) : item.id;
         if (!grupos[llave]) grupos[llave] = [];
         grupos[llave].push(item);
     });
