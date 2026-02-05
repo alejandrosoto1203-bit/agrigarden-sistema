@@ -232,12 +232,19 @@ function simularAmortizacion() {
     const tasaAnual = parseFloat(document.getElementById('tasaPrestamo').value) || 0;
     const plazoOriginal = parseInt(document.getElementById('plazoPrestamo').value) || 0;
     const periodicidad = document.getElementById('periodicidad').value;
-    const fechaBase = new Date(document.getElementById('fechaPrestamo').value);
+    const rawFecha = document.getElementById('fechaPrestamo').value;
+
+    if (!rawFecha) return;
+    const fechaBase = new Date(rawFecha + 'T12:00:00'); // Safe date parsing
 
     const inputManual = document.getElementById('inputMensualidad');
     const alerta = document.getElementById('alertaInteres');
 
-    if (capital <= 0 || plazoOriginal <= 0) return;
+    // Validation: Capital and Plazo are strictly required
+    if (capital <= 0 || plazoOriginal <= 0 || isNaN(fechaBase.getTime())) {
+        document.getElementById('cuerpoAmortizacion').innerHTML = '<tr><td colspan="5" class="py-10 text-gray-300 italic font-bold">Ingresa los datos para calcular...</td></tr>';
+        return;
+    }
 
     let numPagos = plazoOriginal;
     if (periodicidad === 'Semanal') { numPagos = plazoOriginal * 4; }
@@ -271,11 +278,14 @@ function simularAmortizacion() {
         if (periodicidad === 'Semanal') fechaPago.setDate(fechaBase.getDate() + (i * 7));
         if (periodicidad === 'Diario') fechaPago.setDate(fechaBase.getDate() + i);
 
+        // Security check for toISOString() RangeError
+        const strFecha = isNaN(fechaPago.getTime()) ? rawFecha : fechaPago.toISOString().split('T')[0];
+
         const tr = document.createElement('tr');
         tr.className = "border-b border-gray-100 hover:bg-white";
         tr.innerHTML = `
             <td class="py-3 px-2 text-gray-400 font-bold">${i}</td>
-            <td class="py-3 px-2"><input type="date" class="input-table row-fecha" value="${fechaPago.toISOString().split('T')[0]}"></td>
+            <td class="py-3 px-2"><input type="date" class="input-table row-fecha" value="${strFecha}"></td>
             <td class="py-3 px-2"><input type="number" step="0.01" class="input-table row-capital text-blue-600" value="${abonoCapital.toFixed(2)}"></td>
             <td class="py-3 px-2"><input type="number" step="0.01" class="input-table row-interes text-orange-600" value="${interes.toFixed(2)}"></td>
             <td class="py-3 px-2 text-gray-900 font-black">${formatMoney(pagoFijo)}</td>
@@ -288,9 +298,14 @@ function simularAmortizacion() {
 
 // 3. GUARDADO EN CASCADA (PRÉSTAMO + GASTOS)
 async function guardarPrestamo() {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.innerText = "PROCESANDO...";
+    // Get the button element reliably (can be the target or its parent)
+    const btn = document.querySelector('#modalNuevoPrestamo button[onclick="guardarPrestamo()"]') ||
+        (event ? event.currentTarget : null);
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "PROCESANDO...";
+    }
 
     const capital = parseFloat(document.getElementById('capitalPrestamo').value);
     const mensualidad = parseFloat(document.getElementById('inputMensualidad').value);
@@ -319,6 +334,12 @@ async function guardarPrestamo() {
 
         if (resP.ok) {
             const filas = document.querySelectorAll('#cuerpoAmortizacion tr');
+
+            // Check if there are any rows with the necessary inputs
+            if (filas.length === 0 || !filas[0].querySelector('.row-fecha')) {
+                throw new Error("No se ha generado la tabla de amortización. Verifique los datos del préstamo.");
+            }
+
             const gastosLote = [];
 
             filas.forEach((fila, index) => {
