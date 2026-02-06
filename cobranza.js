@@ -772,6 +772,73 @@ function cambiarPestaña(tipo) {
 }
 function cambiarPestañaPagar(tipo) { pestañaActualPagos = tipo; aplicarFiltrosPagos(); }
 
+function renderizarAlertasCobranza(datos) {
+    const container = document.getElementById('panelAlertasVencidas');
+    const lista = document.getElementById('listaAlertasVencidas');
+    if (!container || !lista) return;
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const busqueda = document.getElementById('busquedaCobros')?.value.toLowerCase() || '';
+    const filtroSucursal = document.getElementById('filtroSucursalCobro')?.value || 'Todos';
+
+    const vencidos = datos.filter(item => {
+        if (item.estado_cobro === 'Pagado') return false;
+
+        // Criterio de vencimiento: 30 días
+        const fechaVenc = new Date(item.created_at);
+        fechaVenc.setDate(fechaVenc.getDate() + 30);
+        if (hoy <= fechaVenc) return false;
+
+        // Respetar filtros de sucursal y búsqueda
+        const coincideSuc = filtroSucursal === 'Todos' || item.sucursal === filtroSucursal;
+        const coincideTxt = (item.nombre_cliente?.toLowerCase().includes(busqueda) || item.categoria?.toLowerCase().includes(busqueda));
+
+        return coincideSuc && coincideTxt;
+    });
+
+    if (vencidos.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+    lista.innerHTML = vencidos.map(item => {
+        const fechaVenc = new Date(item.created_at);
+        fechaVenc.setDate(fechaVenc.getDate() + 30);
+
+        // Calcular días de atraso
+        const diffTime = Math.abs(hoy - fechaVenc);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        return `
+            <tr class="text-sm font-bold text-gray-700">
+                <td class="px-4 py-4">
+                    <div class="flex flex-col">
+                        <span class="uppercase text-xs font-black">${item.nombre_cliente}</span>
+                        <span class="text-[9px] text-gray-400 font-bold uppercase tracking-widest">${item.categoria || '#S/N'}</span>
+                    </div>
+                </td>
+                <td class="px-4 py-4 text-center">
+                    <span class="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-[9px] font-black uppercase tracking-tighter border border-red-200">
+                        ${diffDays} días de atraso
+                    </span>
+                </td>
+                <td class="px-4 py-4 text-right text-red-600 font-black">
+                    ${formatMoney(item.saldo_pendiente || item.monto)}
+                </td>
+                <td class="px-4 py-4 text-center">
+                    <button onclick="enviarWhatsAppCobranza(${JSON.stringify(item).replace(/"/g, '&quot;')}, true)" 
+                            class="p-2 bg-green-500 text-white rounded-xl hover:scale-110 active:scale-95 transition-all shadow-lg shadow-green-500/20">
+                        <span class="material-symbols-outlined text-sm font-bold">chat</span>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
 function aplicarFiltrosCobros() {
     const busqueda = document.getElementById('busquedaCobros')?.value.toLowerCase() || '';
     const filtroEstado = document.getElementById('filtroEstadoCobro')?.value || 'Todos';
@@ -793,6 +860,7 @@ function aplicarFiltrosCobros() {
 
     currentFilteredCobros = datosFiltrados; // Store for export
     renderizarTablaCobros(datosFiltrados);
+    renderizarAlertasCobranza(datosCacheCobros);
 }
 
 function cerrarModalAbonoProv() {

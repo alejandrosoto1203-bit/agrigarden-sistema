@@ -118,6 +118,42 @@
             </div>
         </div>
 
+        <div id="panelAlertasVencidas" class="hidden animate-in fade-in slide-in-from-top-4 duration-500">
+            <div
+                class="bg-red-50 border-2 border-red-100 rounded-[2rem] p-6 lg:p-8 space-y-6 shadow-xl shadow-red-900/5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-red-500 text-white rounded-xl shadow-lg shadow-red-500/20 animate-pulse">
+                            <span class="material-symbols-outlined">notification_important</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-black uppercase tracking-widest text-red-600 italic">Acción
+                                Inmediata Requerida</h3>
+                            <p class="text-[10px] font-bold text-red-400 uppercase tracking-widest">Tienes cuentas con
+                                retraso que necesitan gestión</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr
+                                class="text-[9px] font-black uppercase tracking-widest text-red-300 border-b border-red-100">
+                                <th class="px-4 py-3">Cliente</th>
+                                <th class="px-4 py-3 text-center">Atraso</th>
+                                <th class="px-4 py-3 text-right">Saldo Pendiente</th>
+                                <th class="px-4 py-3 text-center">Gestión</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaAlertasVencidas" class="divide-y divide-red-100/50">
+                            <!-- Inyectado via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div class="card overflow-hidden shadow-sm">
             <div class="px-8 pt-4 border-b border-gray-100 flex gap-4 lg:p-8">
                 <button onclick="cambiarPestaña('pendiente')" id="tabPendiente"
