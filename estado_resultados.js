@@ -45,6 +45,7 @@ async function calcularEstadoMes(mes, anio, sucursal) {
         // Filtrar: excluir ABONO, COBRANZA y RENTA
         const ingresosLimpios = (ingresos || []).filter(i =>
             i.tipo !== 'ABONO' &&
+            i.tipo !== 'TRASPASO' &&
             i.categoria !== 'COBRANZA' &&
             !(i.categoria && i.categoria.toUpperCase().includes('RENTA'))
         );
