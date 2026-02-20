@@ -414,77 +414,104 @@ function actualizarContadores() {
 // 4. GUARDAR AVANCE DE CONTEO
 // ============================================================
 async function guardarConteoCompleto() {
-    if (!conteoActivoId) return;
+    if (!conteoActivoId) {
+        alert('Error: no hay conteo activo. Cierra y vuelve a abrir el conteo.');
+        return;
+    }
 
-    const filas = document.querySelectorAll('#tablaCaptura tr[id^="row_"]');
-    if (!filas.length) { alert('Agrega al menos un producto.'); return; }
+    const filas = Array.from(document.querySelectorAll('#tablaCaptura tr[id^="row_"]'));
+    const filasConDatos = filas.filter(tr => tr.querySelector('.row-nombre')?.value.trim() !== '');
+
+    if (!filasConDatos.length) {
+        alert('Escribe al menos un nombre de producto antes de guardar.');
+        return;
+    }
 
     const btn = document.querySelector('[onclick="guardarConteoCompleto()"]');
     if (btn) { btn.disabled = true; btn.innerText = 'Guardando...'; }
 
-    try {
-        const promises = [];
+    let guardados = 0;
+    let errores = 0;
 
-        for (const tr of filas) {
+    try {
+        for (const tr of filasConDatos) {
             const codigo = tr.querySelector('.row-codigo').value.trim().toUpperCase();
             const nombre = tr.querySelector('.row-nombre').value.trim().toUpperCase();
-            if (!nombre) continue;
 
             const rowId = tr.id.replace('row_', '');
             const anotRow = document.getElementById(`anot_${rowId}`);
-            const anotaciones = anotRow ? (anotRow.querySelector('.row-anotaciones')?.value || '') : '';
+            const anotaciones = anotRow ? (anotRow.querySelector('.row-anotaciones')?.value.trim() || null) : null;
 
             const payload = {
                 conteo_id: conteoActivoId,
-                codigo_producto: codigo,
+                codigo_producto: codigo || null,
                 nombre_producto: nombre,
                 existencias_sistema: parseFloat(tr.querySelector('.row-sistema').value) || 0,
                 existencias_reales: parseFloat(tr.querySelector('.row-reales').value) || 0,
                 existencias_taller: parseFloat(tr.querySelector('.row-taller').value) || 0,
-                anotaciones: anotaciones || null
+                anotaciones: anotaciones
             };
 
             const dbId = tr.getAttribute('data-item-id');
+            const esExistente = dbId && !dbId.startsWith('new_');
 
-            if (dbId && !dbId.startsWith('new_')) {
-                // UPDATE
-                promises.push(sbFetch(`conteo_items?id=eq.${dbId}`, {
-                    method: 'PATCH',
-                    headers: { 'Prefer': 'return=minimal' },
-                    body: JSON.stringify(payload)
-                }));
-            } else {
-                // INSERT
-                promises.push(sbFetch('conteo_items', {
-                    method: 'POST',
-                    headers: { 'Prefer': 'return=representation' },
-                    body: JSON.stringify(payload)
-                }).then(async r => {
-                    if (r.ok) {
-                        const [item] = await r.json();
-                        tr.setAttribute('data-item-id', item.id);
-                        // Actualizar ID de fila de anotaciones
-                        const oldAnotId = `anot_${rowId}`;
-                        const newAnotId = `anot_${item.id}`;
-                        const anotEl = document.getElementById(oldAnotId);
-                        if (anotEl) anotEl.id = newAnotId;
-                        tr.id = `row_${item.id}`;
+            try {
+                if (esExistente) {
+                    // ---- UPDATE ----
+                    const res = await sbFetch(`conteo_items?id=eq.${dbId}`, {
+                        method: 'PATCH',
+                        headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) {
+                        const msg = await res.text();
+                        throw new Error(`PATCH falló (${res.status}): ${msg}`);
                     }
-                }));
+                    guardados++;
+                } else {
+                    // ---- INSERT ----
+                    const res = await sbFetch('conteo_items', {
+                        method: 'POST',
+                        headers: { 'Prefer': 'return=representation' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) {
+                        const msg = await res.text();
+                        throw new Error(`INSERT falló (${res.status}): ${msg}`);
+                    }
+                    const [item] = await res.json();
+                    // Actualizar IDs en el DOM con el UUID real de la BD
+                    tr.setAttribute('data-item-id', item.id);
+                    tr.id = `row_${item.id}`;
+                    const anotEl = document.getElementById(`anot_${rowId}`);
+                    if (anotEl) anotEl.id = `anot_${item.id}`;
+                    guardados++;
+                }
+            } catch (rowErr) {
+                console.error(`Error en fila "${nombre}":`, rowErr);
+                errores++;
             }
-            tr.removeAttribute('data-dirty');
         }
 
-        await Promise.all(promises);
-        mostrarToast('✓ Avance guardado correctamente');
+        if (errores > 0 && guardados === 0) {
+            alert(`❌ No se pudo guardar ningún producto.\n\nError: ve la consola (F12) para más detalles.\n\nPosible causa: ejecuta el SQL de permisos en Supabase.`);
+        } else if (errores > 0) {
+            mostrarToast(`⚠️ ${guardados} guardados, ${errores} con error`);
+        } else {
+            mostrarToast(`✓ ${guardados} producto${guardados !== 1 ? 's' : ''} guardado${guardados !== 1 ? 's' : ''} correctamente`);
+        }
 
     } catch (e) {
-        console.error('Error guardar:', e);
+        console.error('Error guardar conteo:', e);
         alert('Error al guardar: ' + e.message);
     } finally {
-        if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-base">save</span> Guardar Avance'; }
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined text-base">save</span> Guardar Avance';
+        }
     }
 }
+
 
 // ============================================================
 // 5. CIERRE DE CONTEO
