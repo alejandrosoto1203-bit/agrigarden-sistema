@@ -5,7 +5,7 @@ const Permisos = {
     MODULOS: [
         'dashboard', 'ventas', 'ingresos', 'cobrar', 'gastos',
         'compras', 'pagar', 'inversiones', 'prestamos', 'rrhh',
-        'inventario', 'productos', 'flotilla', 'efectivo',
+        'inventario', 'conteo_inventario', 'productos', 'flotilla', 'efectivo',
         'estado_resultados', 'reportes', 'configuracion'
     ],
 
