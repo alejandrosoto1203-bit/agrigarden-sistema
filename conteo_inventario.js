@@ -11,6 +11,9 @@ let itemsActivosCache = [];
 let chartVolumen = null;
 let chartFrecuencia = null;
 let itemOriginalParaEdicion = null;
+let _rowCounter = 0; // Contador global para IDs únicos de filas
+
+function newRowId() { return `new_${++_rowCounter}_${Date.now()}`; }
 
 // --- HELPERS ---
 const SB_URL = window.SUPABASE_URL;
@@ -118,10 +121,36 @@ function renderizarTablaConteos(datos) {
                         class="flex items-center gap-1 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-black hover:bg-gray-200 transition-colors">
                         <span class="material-symbols-outlined text-sm">visibility</span> Ver
                     </button>
+                    <button onclick="eliminarConteo('${c.id}', '${c.nombre_responsable}', '${c.sucursal}')"
+                        class="flex items-center gap-1 bg-red-50 text-red-500 px-3 py-1.5 rounded-lg text-xs font-black hover:bg-red-100 transition-colors">
+                        <span class="material-symbols-outlined text-sm">delete</span>
+                    </button>
                 </div>
             </td>
         </tr>`;
     }).join('');
+}
+
+// ---- ELIMINAR CONTEO ----
+async function eliminarConteo(id, responsable, sucursal) {
+    const confirmMsg = `¿Eliminar el conteo de ${sucursal} realizado por ${responsable}?\n\nEsta acción eliminará también todos los productos y la bitácora. No se puede deshacer.`;
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        // Cascade DELETE (conteo_items y conteo_bitacora se eliminan por ON DELETE CASCADE)
+        const res = await sbFetch(`conteos_inventario?id=eq.${id}`, {
+            method: 'DELETE',
+            headers: { 'Prefer': 'return=minimal' }
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+
+        mostrarToast('✓ Conteo eliminado correctamente');
+        await cargarConteos();
+    } catch (e) {
+        console.error('Error eliminar conteo:', e);
+        alert('Error al eliminar el conteo: ' + e.message);
+    }
 }
 
 // ============================================================
@@ -189,7 +218,7 @@ async function continuarConteo(id) {
         const resItems = await sbFetch(`conteo_items?conteo_id=eq.${id}&order=created_at.asc`);
         itemsActivosCache = await resItems.json();
 
-        // Renderizar tabla de captura
+        // Renderizar tabla de captura (items existentes + filas vacías hasta 200)
         renderizarTablaCaptura(itemsActivosCache);
         abrirModal('modalConteoActivo');
 
@@ -199,29 +228,40 @@ async function continuarConteo(id) {
     }
 }
 
+const FILAS_INICIALES = 200;
+
 function renderizarTablaCaptura(items) {
     const tbody = document.getElementById('tablaCaptura');
+    tbody.innerHTML = '';
 
-    if (!items.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-400 italic text-sm">
-            Presiona "Agregar Producto" para iniciar la captura</td></tr>`;
-        actualizarContadores();
-        return;
+    // 1. Renderizar items existentes de la BD
+    items.forEach(item => agregarFilaProducto(item));
+
+    // 2. Rellenar con filas vacías hasta llegar a FILAS_INICIALES
+    const filasActuales = items.length;
+    const filasVacias = Math.max(0, FILAS_INICIALES - filasActuales);
+    for (let i = 0; i < filasVacias; i++) {
+        agregarFilaProductoVacia();
     }
 
-    tbody.innerHTML = '';
-    items.forEach(item => agregarFilaProducto(item));
     actualizarContadores();
 }
 
-function agregarFilaProducto(data = null) {
+// Agrega una fila vacía sin datos (para rellenar hasta 200)
+function agregarFilaProductoVacia() {
+    agregarFilaProducto(null, true);
+}
+
+// Botón "Agregar Producto" — agrega una fila al final sin borrar nada
+function agregarFilaProducto(data = null, esVacia = false) {
     const tbody = document.getElementById('tablaCaptura');
 
-    // Limpiar mensaje vacío si existe
-    if (tbody.querySelector('td[colspan="7"]')) tbody.innerHTML = '';
+    // Solo remover el placeholder si existe (usa clase específica, NO colspan genérico)
+    const placeholder = tbody.querySelector('.placeholder-empty');
+    if (placeholder) placeholder.remove();
 
     const tr = document.createElement('tr');
-    const rowId = data ? data.id : `new_${Date.now()}`;
+    const rowId = data ? data.id : newRowId();
     tr.id = `row_${rowId}`;
     tr.className = 'border-b border-gray-100 transition-all fila-neutral';
 
@@ -359,14 +399,14 @@ function eliminarFilaLocal(btn) {
 
 function actualizarContadores() {
     const filas = document.querySelectorAll('#tablaCaptura tr[id^="row_"]');
-    const totalOk = Array.from(filas).filter(r => r.classList.contains('fila-ok')).length;
-    const totalDiff = Array.from(filas).filter(r => r.classList.contains('fila-diff')).length;
+    // Solo contar filas con nombre de producto ingresado
+    const filasLlenas = Array.from(filas).filter(r => r.querySelector('.row-nombre')?.value.trim() !== '');
+    const totalOk = filasLlenas.filter(r => r.classList.contains('fila-ok')).length;
+    const totalDiff = filasLlenas.filter(r => r.classList.contains('fila-diff')).length;
 
-    document.getElementById('contadorProductos').innerText = filas.length;
+    document.getElementById('contadorProductos').innerText = filasLlenas.length;
     document.getElementById('totalOk').innerText = totalOk;
     document.getElementById('totalDiff').innerText = totalDiff;
-
-    // Actualizar KPI diffs
     document.getElementById('kpiDiffs').innerText = totalDiff;
 }
 
