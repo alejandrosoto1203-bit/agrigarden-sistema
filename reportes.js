@@ -28,9 +28,13 @@ const formatMoneyShort = (n) => {
     return `$${absVal.toFixed(0)}`;
 };
 
-// Excluir abonos y rentas de las ventas reales
+// Excluir exactamente los mismos tipos que excluye ingresos.js:
+// ABONO, TRASPASO, COBRANZA, PRÉSTAMO y RENTA
 const esExcluido = (i) =>
-    i.tipo === 'ABONO' || i.categoria === 'COBRANZA' ||
+    i.tipo === 'ABONO' ||
+    i.tipo === 'TRASPASO' ||
+    i.categoria === 'COBRANZA' ||
+    i.categoria === 'PRÉSTAMO' ||
     (i.categoria && i.categoria.toUpperCase().includes('RENTA'));
 
 // Fetch helper (Raw REST, consistent with cobranza.js pattern)
