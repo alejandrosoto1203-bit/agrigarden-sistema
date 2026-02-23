@@ -649,6 +649,33 @@ window.exportarPDF = function () {
     if (printFecha) printFecha.textContent = `Generado: ${fechaStr} a las ${horaStr}`;
     if (printPeriodo) printPeriodo.textContent = `Período: ${meses[mes - 1]} ${anio}`;
 
+    // Mover leyenda de gastos a "bottom" para que quepa en media página
+    if (chartGastosCategoria) {
+        chartGastosCategoria.options.plugins.legend.position = 'bottom';
+        chartGastosCategoria.options.plugins.legend.labels = {
+            ...chartGastosCategoria.options.plugins.legend.labels,
+            font: { size: 8, weight: 'bold' },
+            boxWidth: 10,
+            padding: 6
+        };
+        chartGastosCategoria.update();
+    }
+
+    // Restaurar después de que cierre el diálogo de impresión
+    const restoreChart = () => {
+        if (chartGastosCategoria) {
+            chartGastosCategoria.options.plugins.legend.position = 'right';
+            chartGastosCategoria.options.plugins.legend.labels = {
+                font: { size: 10, weight: 'bold' },
+                padding: 10
+            };
+            chartGastosCategoria.update();
+        }
+        window.removeEventListener('afterprint', restoreChart);
+    };
+    window.addEventListener('afterprint', restoreChart);
+
     // Allow DOM to settle before triggering print dialog
-    setTimeout(() => window.print(), 200);
+    setTimeout(() => window.print(), 300);
 };
+
