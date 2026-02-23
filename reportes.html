@@ -66,6 +66,39 @@
             background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
             color: white;
         }
+
+        /* Progress bar */
+        .progress-bar {
+            height: 8px;
+            background: #f1f5f9;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.6s ease;
+        }
+
+        /* Credito row */
+        .credito-row {
+            border-bottom: 1px solid #f8fafc;
+        }
+
+        .credito-row:hover {
+            background: #f8fafc;
+        }
+
+        /* Section label */
+        .section-label {
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #94a3b8;
+            margin-bottom: 1rem;
+        }
     </style>
 </head>
 
@@ -75,14 +108,13 @@
     <div id="sidebar-container"></div>
 
     <!-- MAIN CONTENT -->
-    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8 min-w-0 overflow-y-auto">
-        <header class="flex justify-between items-center">
+    <main class="pt-20 lg:pt-0 flex-1 p-4 lg:p-10 space-y-8 min-w-0 overflow-y-auto">
+        <header class="flex justify-between items-center flex-wrap gap-4">
             <div>
                 <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Reportes</h1>
                 <p class="text-gray-400 font-medium">Análisis de rendimiento por sucursal</p>
             </div>
-
-            <div class="flex gap-3 items-center">
+            <div class="flex gap-3 items-center flex-wrap">
                 <select id="filtroMes" onchange="cargarReportes()"
                     class="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-bold focus:outline-none">
                     <option value="1">Enero</option>
@@ -106,10 +138,12 @@
             </div>
         </header>
 
-        <!-- KPIs COMPARATIVOS -->
+        <!-- ===================== KPIs COMPARATIVOS ===================== -->
         <section>
-            <h3 class="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">Comparativo de Sucursales</h3>
+            <h3 class="section-label">Comparativo de Sucursales</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                <!-- Ingresos -->
                 <div class="card p-5 metric-card border-l-4 border-emerald-500">
                     <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Ingresos Totales</p>
                     <div class="flex justify-between items-end">
@@ -124,6 +158,7 @@
                     </div>
                 </div>
 
+                <!-- Gastos -->
                 <div class="card p-5 metric-card border-l-4 border-red-500">
                     <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Gastos Totales</p>
                     <div class="flex justify-between items-end">
@@ -138,37 +173,83 @@
                     </div>
                 </div>
 
-                <div class="card p-5 metric-card border-l-4 border-blue-500">
-                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Margen Bruto</p>
-                    <div class="flex justify-between items-end">
-                        <div>
-                            <span class="branch-badge branch-sur">Sur</span>
-                            <p id="kpiMargenSur" class="text-xl font-extrabold text-blue-600 mt-2">0%</p>
-                        </div>
-                        <div class="text-right">
-                            <span class="branch-badge branch-norte">Norte</span>
-                            <p id="kpiMargenNorte" class="text-xl font-extrabold text-blue-600 mt-2">0%</p>
-                        </div>
-                    </div>
+                <!-- Cuentas por Pagar (nuevo) -->
+                <div class="card p-5 metric-card border-l-4 border-orange-500">
+                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Cuentas por Pagar</p>
+                    <p id="kpiCxP" class="text-2xl font-extrabold text-orange-600 mt-3">$0</p>
+                    <p class="text-[10px] text-gray-400 font-bold mt-1">Saldo pendiente con proveedores</p>
                 </div>
 
-                <div class="card p-5 metric-card border-l-4 border-purple-500">
-                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Utilidad Neta</p>
-                    <div class="flex justify-between items-end">
-                        <div>
-                            <span class="branch-badge branch-sur">Sur</span>
-                            <p id="kpiUtilidadSur" class="text-xl font-extrabold mt-2">$0</p>
-                        </div>
+                <!-- Avance de Ventas % (nuevo) -->
+                <div class="card p-5 metric-card border-l-4 border-blue-500">
+                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Avance de Ventas vs
+                        Meta</p>
+                    <div class="flex items-end justify-between mt-2">
+                        <p id="kpiAvancePct" class="text-2xl font-extrabold text-blue-600">0%</p>
                         <div class="text-right">
-                            <span class="branch-badge branch-norte">Norte</span>
-                            <p id="kpiUtilidadNorte" class="text-xl font-extrabold mt-2">$0</p>
+                            <p class="text-[10px] text-gray-400 font-bold">Meta:</p>
+                            <p id="kpiMetaMonto" class="text-xs font-black text-gray-600">$0</p>
                         </div>
                     </div>
+                    <div class="progress-bar mt-3">
+                        <div id="kpiAvanceBar" class="progress-fill bg-blue-500" style="width:0%"></div>
+                    </div>
+                    <p id="kpiAvanceDetalle" class="text-[10px] text-gray-400 font-bold mt-1">Sur + Norte</p>
                 </div>
+
             </div>
         </section>
 
-        <!-- GRÁFICAS -->
+        <!-- ===================== KPI: VENTAS VS MES ANTERIOR ===================== -->
+        <section>
+            <h3 class="section-label">Comparativa de Ventas</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                <div class="card p-5 metric-card border-l-4 border-violet-500">
+                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Ventas Mes Actual (a
+                        hoy)</p>
+                    <p id="kpiVentasActual" class="text-2xl font-extrabold text-violet-600 mt-2">$0</p>
+                    <p id="kpiVentasActualFecha" class="text-[10px] text-gray-400 font-bold mt-1">Hasta hoy</p>
+                </div>
+
+                <div class="card p-5 metric-card border-l-4 border-slate-400">
+                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Ventas Mes Anterior
+                        (mismo período)</p>
+                    <p id="kpiVentasAnterior" class="text-2xl font-extrabold text-slate-600 mt-2">$0</p>
+                    <p id="kpiVentasAnteriorLabel" class="text-[10px] text-gray-400 font-bold mt-1">Mismo día del mes
+                        anterior</p>
+                </div>
+
+                <div class="card p-5 metric-card border-l-4 border-emerald-400">
+                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Diferencia vs Mes
+                        Anterior</p>
+                    <p id="kpiDifVentas" class="text-2xl font-extrabold mt-2">$0</p>
+                    <div class="flex items-center gap-1 mt-1">
+                        <span id="kpiDifIcon" class="material-symbols-outlined text-sm">remove</span>
+                        <p id="kpiDifPct" class="text-[10px] font-black text-gray-400">0% vs mes anterior</p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ===================== COBRANZA POR MES ===================== -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="section-label mb-0">Cobranza por Mes — Meses Incompletos</h3>
+                <select id="filtroCobranzaSucursal" onchange="cargarCobranzaPorMes()"
+                    class="bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none">
+                    <option value="Todos">Todas las sucursales</option>
+                    <option value="Norte">Norte</option>
+                    <option value="Sur">Sur</option>
+                </select>
+            </div>
+            <div id="seccionCobranzaMeses" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <p class="text-gray-400 italic text-sm col-span-full text-center py-6">Cargando cobranza...</p>
+            </div>
+        </section>
+
+        <!-- ===================== GRÁFICAS ===================== -->
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Ingresos por Día -->
             <div class="card p-6">
@@ -193,14 +274,13 @@
             </div>
         </section>
 
-        <!-- DETALLE POR SUCURSAL -->
+        <!-- ===================== DETALLE POR SUCURSAL ===================== -->
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Sucursal Sur -->
             <div class="space-y-4">
                 <h3 class="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
                     <span class="w-3 h-3 rounded-full bg-blue-500"></span> Sucursal Sur
                 </h3>
-
                 <div class="card p-5">
                     <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Métricas Clave</h4>
                     <div class="space-y-3">
@@ -220,17 +300,12 @@
                             <span class="text-sm text-gray-600">Gastos Operación</span>
                             <span id="metricGastosOpSur" class="font-bold text-red-600">$0</span>
                         </div>
-                        <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <div class="flex justify-between items-center py-2">
                             <span class="text-sm text-gray-600">Cuentas por Cobrar</span>
                             <span id="metricCxCSur" class="font-bold text-amber-600">$0</span>
                         </div>
-                        <div class="flex justify-between items-center py-2">
-                            <span class="text-sm text-gray-600">Inventario Actual</span>
-                            <span id="metricInventarioSur" class="font-bold text-blue-600">$0</span>
-                        </div>
                     </div>
                 </div>
-
                 <div class="card p-5">
                     <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Top Subcategorías de
                         Gasto</h4>
@@ -245,7 +320,6 @@
                 <h3 class="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
                     <span class="w-3 h-3 rounded-full bg-purple-500"></span> Sucursal Norte
                 </h3>
-
                 <div class="card p-5">
                     <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Métricas Clave</h4>
                     <div class="space-y-3">
@@ -265,17 +339,12 @@
                             <span class="text-sm text-gray-600">Gastos Operación</span>
                             <span id="metricGastosOpNorte" class="font-bold text-red-600">$0</span>
                         </div>
-                        <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <div class="flex justify-between items-center py-2">
                             <span class="text-sm text-gray-600">Cuentas por Cobrar</span>
                             <span id="metricCxCNorte" class="font-bold text-amber-600">$0</span>
                         </div>
-                        <div class="flex justify-between items-center py-2">
-                            <span class="text-sm text-gray-600">Inventario Actual</span>
-                            <span id="metricInventarioNorte" class="font-bold text-blue-600">$0</span>
-                        </div>
                     </div>
                 </div>
-
                 <div class="card p-5">
                     <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Top Subcategorías de
                         Gasto</h4>
@@ -286,9 +355,71 @@
             </div>
         </section>
 
-        <!-- TENDENCIA MENSUAL -->
+        <!-- ===================== DETALLE DE CRÉDITOS ===================== -->
         <section>
-            <h3 class="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">Tendencia Anual</h3>
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <h3 class="section-label mb-0">Detalle de Créditos Activos</h3>
+                <div class="flex gap-2">
+                    <select id="filtroCredSucursal" onchange="cargarDetalleCreditos()"
+                        class="bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none">
+                        <option value="Todos">Todas las sucursales</option>
+                        <option value="Norte">Norte</option>
+                        <option value="Sur">Sur</option>
+                    </select>
+                    <select id="filtroCredEstado" onchange="cargarDetalleCreditos()"
+                        class="bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none">
+                        <option value="Pendiente">Solo pendientes</option>
+                        <option value="Todos">Todos</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-100 bg-gray-50">
+                            <th
+                                class="px-5 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                                Fecha</th>
+                            <th
+                                class="px-5 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                                Cliente</th>
+                            <th
+                                class="px-5 py-3 text-center text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                                Sucursal</th>
+                            <th
+                                class="px-5 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                                Original</th>
+                            <th
+                                class="px-5 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                                Recuperado</th>
+                            <th
+                                class="px-5 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                                Pendiente</th>
+                            <th
+                                class="px-5 py-3 text-center text-[10px] font-black text-gray-400 uppercase tracking-wider min-w-[140px]">
+                                Avance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaDetalleCreditos">
+                        <tr>
+                            <td colspan="7" class="text-center py-8 text-gray-400 italic text-sm">Cargando créditos...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div id="resumenCreditos"
+                    class="px-5 py-3 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-6 text-xs font-black text-gray-500 hidden">
+                    <span>Total otorgado: <span id="resumenTotal" class="text-gray-800">$0</span></span>
+                    <span>Recuperado: <span id="resumenRecuperado" class="text-emerald-600">$0</span></span>
+                    <span>Pendiente: <span id="resumenPendiente" class="text-red-600">$0</span></span>
+                    <span>% Recuperación: <span id="resumenPct" class="text-blue-600">0%</span></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================== TENDENCIA ANUAL ===================== -->
+        <section>
+            <h3 class="section-label">Tendencia Anual</h3>
             <div class="card p-6">
                 <div style="height: 280px;">
                     <canvas id="chartTendenciaAnual"></canvas>
@@ -306,9 +437,10 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             inyectarMenu('reportes');
-            // Set current month
             document.getElementById('filtroMes').value = new Date().getMonth() + 1;
             cargarReportes();
+            cargarCobranzaPorMes();
+            cargarDetalleCreditos();
         });
     </script>
 </body>
