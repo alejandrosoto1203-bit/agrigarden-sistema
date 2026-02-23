@@ -624,3 +624,27 @@ async function renderizarGraficaTendenciaAnual(anio) {
         }
     });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPORTAR PDF
+// ─────────────────────────────────────────────────────────────────────────────
+
+window.exportarPDF = function () {
+    const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    const mes = parseInt(document.getElementById('filtroMes')?.value) || (new Date().getMonth() + 1);
+    const anio = parseInt(document.getElementById('filtroAnio')?.value) || new Date().getFullYear();
+
+    const hoy = new Date();
+    const fechaStr = hoy.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const horaStr = hoy.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+    const printFecha = document.getElementById('printFecha');
+    const printPeriodo = document.getElementById('printPeriodo');
+    if (printFecha) printFecha.textContent = `Generado: ${fechaStr} a las ${horaStr}`;
+    if (printPeriodo) printPeriodo.textContent = `Período: ${meses[mes - 1]} ${anio}`;
+
+    // Allow DOM to settle before triggering print dialog
+    setTimeout(() => window.print(), 200);
+};

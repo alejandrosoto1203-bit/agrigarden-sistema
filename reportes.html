@@ -99,6 +99,181 @@
             color: #94a3b8;
             margin-bottom: 1rem;
         }
+
+        /* ================================================================
+           ESTILOS DE IMPRESIÓN / PDF
+        ================================================================ */
+        @media print {
+
+            /* Forzar colores en impresión */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            /* Ocultar elementos de interfaz */
+            #sidebar-container,
+            header .pdf-controls,
+            #seccionCreditos,
+            .no-print {
+                display: none !important;
+            }
+
+            /* Reset del body para impresión */
+            body {
+                display: block !important;
+                background: #fff !important;
+                font-family: 'Inter', sans-serif;
+            }
+
+            main {
+                overflow: visible !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                height: auto !important;
+            }
+
+            /* Encabezado de impresión */
+            #printHeader {
+                display: flex !important;
+                justify-content: space-between;
+                align-items: flex-end;
+                border-bottom: 3px solid #1e293b;
+                padding-bottom: 16px;
+                margin-bottom: 24px;
+            }
+
+            #printHeader .brand-name {
+                font-family: 'Outfit', sans-serif;
+                font-size: 28px;
+                font-weight: 900;
+                color: #1e293b;
+                letter-spacing: -0.5px;
+                text-transform: uppercase;
+                font-style: italic;
+            }
+
+            #printHeader .brand-sub {
+                font-size: 11px;
+                color: #64748b;
+                font-weight: 600;
+                margin-top: 2px;
+            }
+
+            #printHeader .report-meta {
+                text-align: right;
+                font-size: 10px;
+                color: #64748b;
+                font-weight: 700;
+                line-height: 1.6;
+            }
+
+            /* Ocultar el header de pantalla */
+            header {
+                display: none !important;
+            }
+
+            /* Secciones */
+            section {
+                page-break-inside: avoid;
+                margin-bottom: 20px;
+            }
+
+            .section-label {
+                color: #64748b;
+                font-size: 9px;
+                margin-bottom: 8px;
+            }
+
+            /* Cards en impresión */
+            .card {
+                border: 1px solid #e2e8f0 !important;
+                border-radius: 8px !important;
+                box-shadow: none !important;
+                background: #fff !important;
+            }
+
+            /* Grids de KPI: 4 columnas en impresión */
+            .grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-4 {
+                display: grid !important;
+                grid-template-columns: repeat(4, 1fr) !important;
+                gap: 8px !important;
+            }
+
+            .grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-3 {
+                display: grid !important;
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 8px !important;
+            }
+
+            /* Gráficas: lado a lado */
+            .grid-cols-1.lg\:grid-cols-2 {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 12px !important;
+            }
+
+            /* Cobranza grid */
+            #seccionCobranzaMeses {
+                display: grid !important;
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 8px !important;
+            }
+
+            /* Badges */
+            .branch-sur {
+                background: #3b82f6 !important;
+                color: white !important;
+            }
+
+            .branch-norte {
+                background: #8b5cf6 !important;
+                color: white !important;
+            }
+
+            /* Barras de progreso */
+            .progress-bar {
+                background: #e2e8f0 !important;
+            }
+
+            /* Salto de página antes de la sección de tendencia */
+            #seccionTendencia {
+                page-break-before: always;
+            }
+
+            /* Tamaños de fuente en impresión */
+            .text-4xl {
+                font-size: 18px !important;
+            }
+
+            .text-2xl {
+                font-size: 14px !important;
+            }
+
+            .text-xl {
+                font-size: 13px !important;
+            }
+
+            .text-lg {
+                font-size: 12px !important;
+            }
+
+            .text-sm {
+                font-size: 10px !important;
+            }
+
+            .text-xs {
+                font-size: 9px !important;
+            }
+
+            .text-\[9px\] {
+                font-size: 8px !important;
+            }
+
+            .text-\[10px\] {
+                font-size: 8px !important;
+            }
+        }
     </style>
 </head>
 
@@ -107,6 +282,19 @@
     <!-- SIDEBAR -->
     <div id="sidebar-container"></div>
 
+    <!-- PRINT HEADER (solo visible en PDF/impresión) -->
+    <div id="printHeader" style="display:none;">
+        <div>
+            <div class="brand-name">Agrigarden</div>
+            <div class="brand-sub">Sistema de Gestión Empresarial — Reporte Ejecutivo</div>
+        </div>
+        <div class="report-meta">
+            <div id="printFecha">Fecha: —</div>
+            <div id="printPeriodo">Periodo: —</div>
+            <div style="margin-top:4px;font-size:9px;color:#94a3b8;">Generado automáticamente por el sistema</div>
+        </div>
+    </div>
+
     <!-- MAIN CONTENT -->
     <main class="pt-20 lg:pt-0 flex-1 p-4 lg:p-10 space-y-8 min-w-0 overflow-y-auto">
         <header class="flex justify-between items-center flex-wrap gap-4">
@@ -114,7 +302,7 @@
                 <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Reportes</h1>
                 <p class="text-gray-400 font-medium">Análisis de rendimiento por sucursal</p>
             </div>
-            <div class="flex gap-3 items-center flex-wrap">
+            <div class="flex gap-3 items-center flex-wrap pdf-controls">
                 <select id="filtroMes" onchange="cargarReportes()"
                     class="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-bold focus:outline-none">
                     <option value="1">Enero</option>
@@ -135,6 +323,11 @@
                     <option value="2026">2026</option>
                     <option value="2025">2025</option>
                 </select>
+                <button onclick="exportarPDF()"
+                    class="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-black hover:bg-gray-700 transition-colors">
+                    <span class="material-symbols-outlined text-sm">picture_as_pdf</span>
+                    Exportar PDF
+                </button>
             </div>
         </header>
 
@@ -407,7 +600,7 @@
         </section>
 
         <!-- ===================== DETALLE DE CRÉDITOS ===================== -->
-        <section>
+        <section id="seccionCreditos">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <h3 class="section-label mb-0">Detalle de Créditos Activos</h3>
                 <div class="flex gap-2">
@@ -469,7 +662,7 @@
         </section>
 
         <!-- ===================== TENDENCIA ANUAL ===================== -->
-        <section>
+        <section id="seccionTendencia">
             <h3 class="section-label">Tendencia Anual</h3>
             <div class="card p-6">
                 <div style="height: 280px;">
@@ -477,6 +670,7 @@
                 </div>
             </div>
         </section>
+
 
     </main>
 
