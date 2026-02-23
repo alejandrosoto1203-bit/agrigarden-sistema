@@ -200,11 +200,9 @@ async function cargarKpiVsAnterior(mes, anio) {
         const hoy = new Date();
         const diaHoy = hoy.getDate();
 
-        // Mes actual: del 1 al día de hoy
         const inicioActual = new Date(anio, mes - 1, 1);
         const finActual = new Date(anio, mes - 1, diaHoy, 23, 59, 59);
 
-        // Mes anterior: del 1 al mismo día
         const mesAnt = mes === 1 ? 12 : mes - 1;
         const anioAnt = mes === 1 ? anio - 1 : anio;
         const diasEnMesAnt = new Date(anioAnt, mesAnt, 0).getDate();
@@ -221,42 +219,63 @@ async function cargarKpiVsAnterior(mes, anio) {
                 .lte('created_at', finAnt.toISOString())
         ]);
 
-        const ventasActual = (rawActual.data || []).filter(i => !esExcluido(i)).reduce((s, i) => s + (parseFloat(i.monto) || 0), 0);
-        const ventasAnterior = (rawAnterior.data || []).filter(i => !esExcluido(i)).reduce((s, i) => s + (parseFloat(i.monto) || 0), 0);
-        const diferencia = ventasActual - ventasAnterior;
-        const pct = ventasAnterior > 0 ? ((diferencia / ventasAnterior) * 100).toFixed(1) : null;
+        const datosActual = (rawActual.data || []).filter(i => !esExcluido(i));
+        const datosAnterior = (rawAnterior.data || []).filter(i => !esExcluido(i));
+
+        const sum = (arr, suc) => arr.filter(i => i.sucursal === suc).reduce((s, i) => s + (parseFloat(i.monto) || 0), 0);
+
+        const actSur = sum(datosActual, 'Sur');
+        const actNorte = sum(datosActual, 'Norte');
+        const antSur = sum(datosAnterior, 'Sur');
+        const antNorte = sum(datosAnterior, 'Norte');
 
         const mesesNombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-        document.getElementById('kpiVentasActual').textContent = formatMoneyShort(ventasActual);
+        // Ventas actuales
+        document.getElementById('kpiVentasActualSur').textContent = formatMoneyShort(actSur);
+        document.getElementById('kpiVentasActualNorte').textContent = formatMoneyShort(actNorte);
         document.getElementById('kpiVentasActualFecha').textContent = `Del 1 al ${diaHoy} de ${mesesNombres[mes - 1]}`;
-        document.getElementById('kpiVentasAnterior').textContent = formatMoneyShort(ventasAnterior);
+
+        // Ventas anteriores
+        document.getElementById('kpiVentasAnteriorSur').textContent = formatMoneyShort(antSur);
+        document.getElementById('kpiVentasAnteriorNorte').textContent = formatMoneyShort(antNorte);
         document.getElementById('kpiVentasAnteriorLabel').textContent = `Del 1 al ${diaComp} de ${mesesNombres[mesAnt - 1]}`;
 
-        const difEl = document.getElementById('kpiDifVentas');
-        const iconEl = document.getElementById('kpiDifIcon');
-        const pctEl = document.getElementById('kpiDifPct');
+        // Diferencia helper
+        const applyDif = (sufijo, actual, anterior) => {
+            const dif = actual - anterior;
+            const pct = anterior > 0 ? ((dif / anterior) * 100).toFixed(1) : null;
+            const el = document.getElementById(`kpiDifVentas${sufijo}`);
+            const icon = document.getElementById(`kpiDifIcon${sufijo}`);
+            const pctEl = document.getElementById(`kpiDifPct${sufijo}`);
 
-        difEl.textContent = formatMoneyShort(Math.abs(diferencia));
-        if (diferencia > 0) {
-            difEl.className = 'text-2xl font-extrabold mt-2 text-emerald-600';
-            iconEl.textContent = 'trending_up';
-            iconEl.className = 'material-symbols-outlined text-sm text-emerald-500';
-        } else if (diferencia < 0) {
-            difEl.className = 'text-2xl font-extrabold mt-2 text-red-600';
-            iconEl.textContent = 'trending_down';
-            iconEl.className = 'material-symbols-outlined text-sm text-red-500';
-        } else {
-            difEl.className = 'text-2xl font-extrabold mt-2 text-gray-600';
-            iconEl.textContent = 'remove';
-            iconEl.className = 'material-symbols-outlined text-sm text-gray-400';
-        }
-        pctEl.textContent = pct !== null ? `${diferencia >= 0 ? '+' : ''}${pct}% vs mes anterior` : 'Sin datos del mes anterior';
+            el.textContent = formatMoneyShort(Math.abs(dif));
+            if (dif > 0) {
+                el.className = 'text-lg font-extrabold text-emerald-600';
+                icon.textContent = 'trending_up';
+                icon.className = 'material-symbols-outlined text-sm text-emerald-500';
+            } else if (dif < 0) {
+                el.className = 'text-lg font-extrabold text-red-600';
+                icon.textContent = 'trending_down';
+                icon.className = 'material-symbols-outlined text-sm text-red-500';
+            } else {
+                el.className = 'text-lg font-extrabold text-gray-600';
+                icon.textContent = 'remove';
+                icon.className = 'material-symbols-outlined text-sm text-gray-400';
+            }
+            pctEl.textContent = pct !== null
+                ? `${dif >= 0 ? '+' : ''}${pct}% vs ant.`
+                : 'Sin datos';
+        };
+
+        applyDif('Sur', actSur, antSur);
+        applyDif('Norte', actNorte, antNorte);
 
     } catch (e) {
         console.error('Error vs anterior:', e);
     }
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COBRANZA POR MES (solo meses con < 100% recuperado)
