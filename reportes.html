@@ -173,19 +173,19 @@
                 display: none !important;
             }
 
-            /* Secciones */
+            /* Secciones — sin forzar saltos, dejar que fluya */
             section {
                 page-break-inside: avoid;
-                margin-bottom: 20px;
+                margin-bottom: 12px;
             }
 
             .section-label {
                 color: #64748b;
                 font-size: 9px;
-                margin-bottom: 8px;
+                margin-bottom: 6px;
             }
 
-            /* Cards en impresión */
+            /* Reducir padding de cards en print */
             .card {
                 border: 1px solid #e2e8f0 !important;
                 border-radius: 8px !important;
@@ -193,31 +193,48 @@
                 background: #fff !important;
             }
 
-            /* Grids de KPI: 4 columnas en impresión */
+            .card.p-5 {
+                padding: 10px !important;
+            }
+
+            .card.p-6 {
+                padding: 12px !important;
+            }
+
+            /* Grids de KPI: 4 columnas */
             .grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-4 {
                 display: grid !important;
                 grid-template-columns: repeat(4, 1fr) !important;
-                gap: 8px !important;
+                gap: 6px !important;
             }
 
             .grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-3 {
                 display: grid !important;
                 grid-template-columns: repeat(3, 1fr) !important;
-                gap: 8px !important;
+                gap: 6px !important;
             }
 
             /* Gráficas: lado a lado */
             .grid-cols-1.lg\:grid-cols-2 {
                 display: grid !important;
                 grid-template-columns: repeat(2, 1fr) !important;
-                gap: 12px !important;
+                gap: 10px !important;
             }
 
             /* Cobranza grid */
             #seccionCobranzaMeses {
                 display: grid !important;
                 grid-template-columns: repeat(3, 1fr) !important;
-                gap: 8px !important;
+                gap: 6px !important;
+            }
+
+            /* Reducir altura de gráficas para que quepan en menos espacio */
+            .chart-container {
+                height: 150px !important;
+            }
+
+            #seccionTendencia .card>div {
+                height: 180px !important;
             }
 
             /* Badges */
@@ -236,9 +253,9 @@
                 background: #e2e8f0 !important;
             }
 
-            /* Salto de página antes de la sección de tendencia */
+            /* Sin salto forzado — dejar que el browser acomode */
             #seccionTendencia {
-                page-break-before: always;
+                page-break-before: auto;
             }
 
             /* Tamaños de fuente en impresión */
