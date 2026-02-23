@@ -133,7 +133,7 @@ window.cargarReportes = async function () {
 
         // ── NUEVOS KPIs (en paralelo, independientes) ─────────────────────
         cargarKpiCxP();
-        cargarKpiAvanceVentas(mes, anio, totalIngresosSur + totalIngresosNorte);
+        cargarKpiAvanceVentas(mes, anio, totalIngresosSur, totalIngresosNorte);
         cargarKpiVsAnterior(mes, anio);
 
     } catch (err) {
@@ -147,13 +147,12 @@ window.cargarReportes = async function () {
 
 async function cargarKpiCxP() {
     try {
-        // gastos con metodo_pago = Crédito que no estén pagados
-        const datos = await repFetch(`gastos?metodo_pago=eq.Cr%C3%A9dito&estado_pago=neq.Pagado&select=saldo_pendiente,monto_total`);
-        const total = (datos || []).reduce((s, g) => {
-            const saldo = g.saldo_pendiente !== null ? g.saldo_pendiente : g.monto_total;
-            return s + (parseFloat(saldo) || 0);
-        }, 0);
-        document.getElementById('kpiCxP').textContent = formatMoneyShort(total);
+        const datos = await repFetch(`gastos?metodo_pago=eq.Cr%C3%A9dito&estado_pago=neq.Pagado&select=saldo_pendiente,monto_total,sucursal`);
+        const calcSaldo = (g) => parseFloat(g.saldo_pendiente !== null ? g.saldo_pendiente : g.monto_total) || 0;
+        const totalSur = (datos || []).filter(g => g.sucursal === 'Sur').reduce((s, g) => s + calcSaldo(g), 0);
+        const totalNorte = (datos || []).filter(g => g.sucursal === 'Norte').reduce((s, g) => s + calcSaldo(g), 0);
+        document.getElementById('kpiCxPSur').textContent = formatMoneyShort(totalSur);
+        document.getElementById('kpiCxPNorte').textContent = formatMoneyShort(totalNorte);
     } catch (e) {
         console.error('Error CxP:', e);
     }
@@ -163,24 +162,34 @@ async function cargarKpiCxP() {
 // NUEVO KPI 2: AVANCE DE VENTAS VS META
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function cargarKpiAvanceVentas(mes, anio, ventasMes) {
+async function cargarKpiAvanceVentas(mes, anio, ventasSur, ventasNorte) {
     try {
-        // Obtener metas de ambas sucursales
         const metas = await repFetch(`sys_metas_ingresos?anio=eq.${anio}&mes=eq.${mes}&select=sucursal,monto_meta`);
-        const metaTotal = (metas || []).reduce((s, m) => s + (parseFloat(m.monto_meta) || 0), 0);
+        const metaSur = parseFloat((metas || []).find(m => m.sucursal === 'Sur')?.monto_meta || 0);
+        const metaNorte = parseFloat((metas || []).find(m => m.sucursal === 'Norte')?.monto_meta || 0);
 
-        const pct = metaTotal > 0 ? Math.min(((ventasMes / metaTotal) * 100), 999).toFixed(1) : 0;
-        const barPct = Math.min(parseFloat(pct), 100);
+        const calcPct = (ventas, meta) => meta > 0 ? Math.min((ventas / meta) * 100, 999).toFixed(1) : '0.0';
+        const barColor = (pct) => pct >= 100 ? '#10b981' : pct >= 70 ? '#3b82f6' : '#f59e0b';
 
-        document.getElementById('kpiAvancePct').textContent = `${pct}%`;
-        document.getElementById('kpiMetaMonto').textContent = formatMoneyShort(metaTotal);
-        document.getElementById('kpiAvanceBar').style.width = `${barPct}%`;
-        document.getElementById('kpiAvanceBar').style.background = barPct >= 100 ? '#10b981' : barPct >= 70 ? '#3b82f6' : '#f59e0b';
-        document.getElementById('kpiAvanceDetalle').textContent = `${formatMoneyShort(ventasMes)} de ${formatMoneyShort(metaTotal)}`;
+        // Sur
+        const pctSur = parseFloat(calcPct(ventasSur, metaSur));
+        document.getElementById('kpiAvancePctSur').textContent = `${pctSur.toFixed(1)}%`;
+        document.getElementById('kpiAvanceBarSur').style.width = `${Math.min(pctSur, 100)}%`;
+        document.getElementById('kpiAvanceBarSur').style.background = barColor(pctSur);
+
+        // Norte
+        const pctNorte = parseFloat(calcPct(ventasNorte, metaNorte));
+        document.getElementById('kpiAvancePctNorte').textContent = `${pctNorte.toFixed(1)}%`;
+        document.getElementById('kpiAvanceBarNorte').style.width = `${Math.min(pctNorte, 100)}%`;
+        document.getElementById('kpiAvanceBarNorte').style.background = barColor(pctNorte);
+
+        document.getElementById('kpiAvanceDetalle').textContent =
+            `Meta Sur: ${formatMoneyShort(metaSur)} · Norte: ${formatMoneyShort(metaNorte)}`;
     } catch (e) {
         console.error('Error avance ventas:', e);
     }
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NUEVO KPI 3: VENTAS VS MES ANTERIOR (HASTA MISMA FECHA)
