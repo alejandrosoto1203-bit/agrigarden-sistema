@@ -53,9 +53,10 @@ function mapearMetodoPago(metodoPulpos, comentarios = '') {
     // Efectivo
     if (metodo.includes('efectivo')) return { metodo: 'Efectivo', claro: true };
 
-    // "A crédito" = venta a crédito (el cliente debe pagar después)
-    // OJO: "tarjeta de crédito" NO es lo mismo ↓
-    if (metodo === 'crédito' || metodo === 'a crédito' || metodo === 'credito' || metodo === 'a credito')
+    // "A crédito" = venta a crédito (el cliente paga después)
+    // Excluimos "tarjeta de crédito" que va al bloque de tarjetas ↓
+    if ((metodo.includes('crédito') || metodo.includes('credito'))
+        && !metodo.includes('tarjeta'))
         return { metodo: 'Crédito', claro: true };
 
     // Transferencias — identificar banco por comentario
