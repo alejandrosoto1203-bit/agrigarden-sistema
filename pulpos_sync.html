@@ -221,6 +221,16 @@
 
     <script>
         // =====================================================
+        // CLIENTE SUPABASE LOCAL (mismo patrón que inventario.js)
+        // =====================================================
+        const _SB_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+        const _SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+        let sbPulpos;
+        if (window.supabase && window.supabase.createClient) {
+            sbPulpos = window.supabase.createClient(_SB_URL, _SB_KEY);
+        }
+
+        // =====================================================
         // CONFIGURACIÓN GITHUB
         // =====================================================
         // Estos valores se leen desde sys_config en Supabase
@@ -302,7 +312,7 @@
             }
 
             // Verificar si ya fue sincronizado
-            const { data: syncExistente } = await window.sb
+            const { data: syncExistente } = await sbPulpos
                 .from('pulpos_sync_log')
                 .select('id, estado, ventas_importadas')
                 .eq('fecha_sync', fecha)
@@ -379,7 +389,7 @@
                 if (segundos > 30) { completarStep(2); activarStep(3); }
                 if (segundos > 60) { completarStep(3); activarStep(4); }
 
-                const { data: log } = await window.sb
+                const { data: log } = await sbPulpos
                     .from('pulpos_sync_log')
                     .select('*')
                     .eq('fecha_sync', fecha)
@@ -532,7 +542,7 @@
         async function cargarHistorial() {
             const container = document.getElementById('tablaHistorial');
 
-            const { data: logs } = await window.sb
+            const { data: logs } = await sbPulpos
                 .from('pulpos_sync_log')
                 .select('*')
                 .order('created_at', { ascending: false })
