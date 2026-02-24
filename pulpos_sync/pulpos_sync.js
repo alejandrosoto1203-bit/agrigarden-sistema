@@ -152,50 +152,42 @@ async function sincronizar() {
 
         // ------------------------------------------------------------------
         // FASE 3: Extraer ventas del DOM
-        // ------------------------------------------------------------------
         console.log('🔍 Extrayendo ventas del día...');
 
-        // Intentar leer ventas directamente del DOM
-        const ventasDOM = await page.evaluate((fechaFiltro) => {
-            const rows = document.querySelectorAll('table tr, [data-testid="sale-row"], .sale-row');
-            const resultados = [];
+        // Obtener links de ventas - SOLO del día seleccionado
+        // Pulpos muestra "Hoy" para ventas de hoy, "Ayer" para ayer
+        // Determinamos qué texto buscar según la fecha seleccionada
+        const hoy = new Date().toISOString().split('T')[0];
+        const ayer = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        let textoBuscado;
+        if (FECHA_SYNC === hoy) textoBuscado = 'hoy';
+        else if (FECHA_SYNC === ayer) textoBuscado = 'ayer';
+        else {
+            // Para fechas anteriores, convertir a formato que muestra Pulpos (ej: "24 feb 2026")
+            const [anio, mes, dia] = FECHA_SYNC.split('-');
+            const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+            textoBuscado = `${parseInt(dia)} ${meses[parseInt(mes) - 1]}`;
+        }
+        console.log(`   📅 Filtrando por texto de fecha: "${textoBuscado}"`);
 
-            rows.forEach(row => {
-                const textoFila = row.innerText || '';
-                // Buscar número de venta (#XXXX)
-                const matchNum = textoFila.match(/#(\d+)/);
-                if (!matchNum) return;
-
-                const numeroVenta = '#' + matchNum[1];
-
-                // Buscar fecha en la fila
-                const textoFecha = textoFila;
-                const esHoy = textoFecha.toLowerCase().includes('hoy');
-                const esAyer = textoFecha.toLowerCase().includes('ayer');
-
-                resultados.push({
-                    numero: numeroVenta,
-                    texto: textoFila.substring(0, 200),
-                    esHoy,
-                    esAyer
-                });
-            });
-
-            return resultados;
-        }, FECHA_SYNC);
-
-        console.log(`   📊 Filas encontradas en DOM: ${ventasDOM.length}`);
-
-        // Obtener links de ventas del día
-        const linksVentas = await page.evaluate(() => {
+        const linksVentas = await page.evaluate((texto) => {
             const links = Array.from(document.querySelectorAll('a[href*="/sales/detail"]'));
-            return links.map(a => ({
-                href: a.href,
-                texto: a.closest('tr')?.innerText || a.innerText || ''
-            }));
-        });
+            return links
+                .filter(a => {
+                    const fila = a.closest('tr') || a.parentElement;
+                    const textoFila = (fila?.innerText || a.innerText || '').toLowerCase();
+                    return textoFila.includes(texto);
+                })
+                .map(a => ({
+                    href: a.href,
+                    texto: (a.closest('tr')?.innerText || a.innerText || '').substring(0, 200)
+                }));
+        }, textoBuscado);
 
-        console.log(`   🔗 Links de ventas encontrados: ${linksVentas.length}`);
+        console.log(`   🔗 Ventas del día encontradas: ${linksVentas.length}`);
+        if (linksVentas.length === 0) {
+            console.log('   ⚠️ No se encontraron ventas para esta fecha. Verifica que Pulpos muestre ventas de este día.');
+        }
 
         // ------------------------------------------------------------------
         // FASE 4: Procesar cada venta individualmente
@@ -210,70 +202,71 @@ async function sincronizar() {
                 await page.waitForLoadState('domcontentloaded');
                 await page.waitForTimeout(2000);
 
-                // Extraer todos los datos de la venta
+                // Extraer todos los datos de la venta con selectores precisos
                 const datosVenta = await page.evaluate(() => {
-                    const getText = (sel) => document.querySelector(sel)?.innerText?.trim() || '';
-                    const getAll = (sel) => Array.from(document.querySelectorAll(sel)).map(e => e.innerText?.trim());
-
-                    // Número de venta del título
+                    // Número de venta del título (ej: "Venta #9357")
                     const titulo = document.querySelector('h1, h2')?.innerText || '';
                     const matchNum = titulo.match(/#(\d+)/);
                     const numeroVenta = matchNum ? '#' + matchNum[1] : null;
-
                     if (!numeroVenta) return null;
 
-                    // Contenido completo de la página para extraer datos
                     const pageText = document.body.innerText;
 
-                    // Fecha
-                    const sidebarItems = document.querySelectorAll('aside [class*="detail"], [class*="sidebar"] [class*="item"], [class*="info-row"]');
+                    // TOTAL: buscar la línea que dice "Total" seguida de un monto
+                    // Estrategia: buscar el último "Total" en la página (es el definitivo)
+                    // El patrón en Pulpos es "Total\n$X,XXX.XX" o "Total $X,XXX.XX"
+                    let totalVenta = 0;
+                    // Buscar elemento bold/strong con "Total" y tomar su precio adyacente
+                    const allElements = Array.from(document.querySelectorAll('*'));
+                    for (const el of allElements) {
+                        const txt = el.innerText?.trim() || '';
+                        // Buscamos el elemento que contenga SOLO "Total" o "Total $X"
+                        if (/^Total\s*\$[\d,]+/.test(txt) && !txt.includes('Subtotal')) {
+                            const match = txt.match(/Total\s*\$([\d,]+(?:\.\d{2})?)/);
+                            if (match) {
+                                const val = parseFloat(match[1].replace(/,/g, ''));
+                                if (val > totalVenta) totalVenta = val;
+                            }
+                        }
+                    }
+                    // Fallback: si no encontramos con el método anterior,
+                    // buscar "Total" seguido de monto en el texto plano
+                    if (totalVenta === 0) {
+                        const matches = [...pageText.matchAll(/^Total\s+\$([\d,]+(?:\.\d{2})?)$/gm)];
+                        if (matches.length > 0) {
+                            totalVenta = parseFloat(matches[matches.length - 1][1].replace(/,/g, ''));
+                        }
+                    }
+                    // Fallback 2: buscar el monto en el sidebar derecho ("Total\n$X")
+                    if (totalVenta === 0) {
+                        const sidebarMatch = pageText.match(/Total\n\$([\d,]+(?:\.\d{2})?)/);
+                        if (sidebarMatch) totalVenta = parseFloat(sidebarMatch[1].replace(/,/g, ''));
+                    }
 
-                    // Extraer sucursal
+                    // Sucursal
                     const sucursalMatch = pageText.match(/Agrigarden\s+(Norte|Sur)/i);
                     const sucursal = sucursalMatch ? 'Agrigarden ' + sucursalMatch[1] : '';
 
-                    // Estado (Pagada/Pendiente)
+                    // Estado
                     const pagada = pageText.toLowerCase().includes('pagada');
 
-                    // Total - buscar el monto más grande con formato de moneda
-                    const montos = [...pageText.matchAll(/\$([0-9,]+(?:\.\d{2})?)/g)].map(m =>
-                        parseFloat(m[1].replace(/,/g, ''))
-                    );
-                    const totalVenta = montos.length > 0 ? Math.max(...montos) : 0;
-
-                    // Cliente
+                    // Cliente - buscar link de cliente
                     const clienteLinks = document.querySelectorAll('a[href*="/client"], a[href*="/customer"]');
                     const cliente = clienteLinks.length > 0 ? clienteLinks[0].innerText.trim() : '';
 
                     // Método de pago - buscar en historial
-                    const historial = pageText.match(/Cobro de \$[0-9,.]+ en (.+?)(?:\n|$)/i);
+                    const historial = pageText.match(/Cobro de \$[\d,.]+ en (.+?)(?:\n|$)/i);
                     const metodoPago = historial ? historial[1].trim() : '';
 
-                    // Comentarios del historial para identificar banco
+                    // Comentarios para identificar banco en transferencias/tarjetas
                     const comentariosNodes = document.querySelectorAll('[class*="comment"], [class*="histor"] p, [class*="note"]');
                     const comentarios = Array.from(comentariosNodes).map(n => n.innerText).join(' ');
-
-                    // Fecha - buscar formato de fecha
-                    const fechaMatch = pageText.match(/(\d{1,2})\s+de\s+(\w+)\s+(?:de\s+)?(\d{4})/i) ||
-                        pageText.match(/(\d{4}-\d{2}-\d{2})/);
-                    const fechaTexto = fechaMatch ? fechaMatch[0] : 'hoy';
 
                     // Vendedor
                     const vendedorMatch = pageText.match(/Vendedor[:\s]+([^\n]+)/i);
                     const vendedor = vendedorMatch ? vendedorMatch[1].trim() : '';
 
-                    return {
-                        numeroVenta,
-                        sucursal,
-                        pagada,
-                        totalVenta,
-                        cliente,
-                        metodoPago,
-                        comentarios,
-                        fechaTexto,
-                        vendedor,
-                        urlDetalle: window.location.href
-                    };
+                    return { numeroVenta, sucursal, pagada, totalVenta, cliente, metodoPago, comentarios, vendedor };
                 });
 
                 if (!datosVenta || !datosVenta.numeroVenta) {
