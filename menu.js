@@ -30,7 +30,8 @@ function inyectarMenu(paginaActiva) {
         { id: 'efectivo', nombre: 'Control de Efectivo', icon: 'local_atm', link: 'control_efectivo.html' },
         { id: 'estado_resultados', nombre: 'Estado de Resultados', icon: 'trending_up', link: 'estado_resultados.html' },
         { id: 'reportes', nombre: 'Reportes', icon: 'bar_chart', link: 'reportes.html' },
-        { id: 'configuracion', nombre: 'Configuración', icon: 'settings', link: 'configuracion.html' }
+        { id: 'configuracion', nombre: 'Configuración', icon: 'settings', link: 'configuracion.html' },
+        { id: 'pulpos_sync', nombre: 'Sync Pulpos', icon: 'sync', link: 'pulpos_sync.html' }
     ];
 
     const renderItem = (item) => {

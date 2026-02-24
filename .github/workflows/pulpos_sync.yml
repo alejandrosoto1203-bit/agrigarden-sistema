@@ -1,0 +1,45 @@
+name: Sincronizar Pulpos → Agrigarden
+
+on:
+  workflow_dispatch:
+    inputs:
+      fecha:
+        description: 'Fecha a sincronizar (YYYY-MM-DD)'
+        required: true
+        default: ''
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias
+        working-directory: ./pulpos_sync
+        run: npm install
+
+      - name: Instalar Chromium (Playwright)
+        working-directory: ./pulpos_sync
+        run: npx playwright install chromium --with-deps
+
+      - name: Ejecutar sincronización
+        working-directory: ./pulpos_sync
+        env:
+          PULPOS_EMAIL:        ${{ secrets.PULPOS_EMAIL }}
+          PULPOS_PASSWORD:     ${{ secrets.PULPOS_PASSWORD }}
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node pulpos_sync.js --fecha=${{ inputs.fecha }}
+
+      - name: Resultado
+        if: always()
+        run: echo "✅ Sincronización terminada para fecha ${{ inputs.fecha }}"
