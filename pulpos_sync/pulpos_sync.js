@@ -128,12 +128,13 @@ async function sincronizar() {
 
         // Login
         console.log('🔑 Iniciando sesión en Pulpos...');
-        await page.goto('https://app.pulpos.com/login', { waitUntil: 'networkidle' });
+        await page.goto('https://app.pulpos.com/login', { waitUntil: 'domcontentloaded' });
         await page.fill('input[name="email"]', PULPOS_EMAIL);
         await page.fill('input[name="password"]', PULPOS_PASSWORD);
         await page.click('button[type="submit"]');
-        await page.waitForURL('**/dashboard**', { timeout: 15000 }).catch(() => { });
-        await page.waitForLoadState('networkidle');
+        await page.waitForURL('**/dashboard**', { timeout: 20000 }).catch(() => { });
+        await page.waitForLoadState('domcontentloaded');
+        await page.waitForTimeout(2000);
         console.log('✅ Login exitoso');
 
         // ------------------------------------------------------------------
@@ -145,9 +146,9 @@ async function sincronizar() {
         const fechaInicio = FECHA_SYNC + 'T00:00:00';
         const fechaFin = FECHA_SYNC + 'T23:59:59';
 
-        await page.goto('https://app.pulpos.com/sales', { waitUntil: 'networkidle' });
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(2000);
+        await page.goto('https://app.pulpos.com/sales', { waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('domcontentloaded');
+        await page.waitForTimeout(3000);
 
         // ------------------------------------------------------------------
         // FASE 3: Extraer ventas del DOM
@@ -205,9 +206,9 @@ async function sincronizar() {
 
         for (const link of linksVentas) {
             try {
-                await page.goto(link.href, { waitUntil: 'networkidle' });
-                await page.waitForLoadState('networkidle');
-                await page.waitForTimeout(1000);
+                await page.goto(link.href, { waitUntil: 'domcontentloaded' });
+                await page.waitForLoadState('domcontentloaded');
+                await page.waitForTimeout(2000);
 
                 // Extraer todos los datos de la venta
                 const datosVenta = await page.evaluate(() => {
