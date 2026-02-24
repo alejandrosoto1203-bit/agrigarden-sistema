@@ -246,19 +246,20 @@
 
         async function cargarConfigGithub() {
             try {
-                // Fetch directo para evitar problemas de timing con window.sb
-                const sbUrl = (window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co');
-                const sbKey = window.SUPABASE_KEY;
+                // Supabase anon key (ya expuesto en api.js y otros archivos del proyecto)
+                const SB_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+                const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+
                 const resp = await fetch(
-                    `${sbUrl}/rest/v1/sys_config?key=eq.github_sync_config&select=value`,
-                    { headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` } }
+                    `${SB_URL}/rest/v1/sys_config?key=eq.github_sync_config&select=value`,
+                    { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
                 );
                 if (resp.ok) {
                     const rows = await resp.json();
                     if (rows && rows.length > 0 && rows[0].value) {
                         const cfg = rows[0].value;
                         GITHUB_OWNER = cfg.owner || '';
-                        GITHUB_REPO  = cfg.repo  || '';
+                        GITHUB_REPO = cfg.repo || '';
                         GITHUB_TOKEN = cfg.token || '';
                         console.log('✅ GitHub config cargada:', GITHUB_OWNER + '/' + GITHUB_REPO);
                     } else {
@@ -266,7 +267,7 @@
                     }
                 }
             } catch (e) {
-                console.warn('No se pudo obtener configuración de GitHub:', e);
+                console.warn('Error cargando config de GitHub:', e);
             }
         }
 
@@ -278,13 +279,25 @@
 
         async function iniciarSync() {
             const fecha = document.getElementById('inputFecha').value;
+            const btn = document.getElementById('btnSincronizar');
+
             if (!fecha) {
                 alert('Selecciona una fecha para sincronizar');
                 return;
             }
 
+            // Feedback visual inmediato en el botón
+            btn.disabled = true;
+            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-base">sync</span> Verificando configuración...`;
+
+            // Reintentar carga de config si no está disponible
+            if (!GITHUB_TOKEN) await cargarConfigGithub();
+
             if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
+                btn.disabled = false;
+                btn.innerHTML = `<span class="material-symbols-outlined text-base">sync</span> Sincronizar con Pulpos`;
                 mostrarErrorConfig();
+                document.getElementById('panelResultado').scrollIntoView({ behavior: 'smooth' });
                 return;
             }
 
