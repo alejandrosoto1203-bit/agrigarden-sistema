@@ -23,23 +23,7 @@
         }
 
         :root {
-            --theme-color: #19e66b;
-        }
-
-        .bg-primary {
-            background-color: var(--theme-color);
-        }
-
-        .text-primary {
-            color: var(--theme-color);
-        }
-
-        .border-primary {
-            border-color: var(--theme-color);
-        }
-
-        .ring-primary {
-            --tw-ring-color: var(--theme-color);
+            --primary: #19e66b;
         }
 
         @keyframes spin {
@@ -60,21 +44,21 @@
 
             0%,
             100% {
-                opacity: 1;
+                opacity: 1
             }
 
             50% {
-                opacity: 0.4;
+                opacity: .4
             }
         }
 
         .step-card {
-            transition: all 0.3s ease;
+            transition: all .3s ease;
         }
 
         .step-card.active {
-            border-color: var(--theme-color);
-            background: rgba(25, 230, 107, 0.04);
+            border-color: #19e66b;
+            background: rgba(25, 230, 107, .04);
         }
 
         .step-card.done {
@@ -82,63 +66,50 @@
             background: #f0fdf4;
         }
 
-        .step-card.error {
-            border-color: #fecaca;
-            background: #fff5f5;
+        .modal-bg {
+            backdrop-filter: blur(4px);
         }
     </style>
 </head>
 
 <body class="bg-gray-50 min-h-screen">
     <div class="flex h-screen overflow-hidden">
-        <!-- Sidebar -->
         <div id="sidebar-container"></div>
-
-        <!-- Main Content -->
         <main class="flex-1 overflow-y-auto">
             <div class="p-6 lg:p-8 max-w-3xl mx-auto">
 
                 <!-- Header -->
-                <div class="mb-8">
-                    <div class="flex items-center gap-3 mb-2">
-                        <div class="size-10 bg-black rounded-xl flex items-center justify-center">
-                            <span class="material-symbols-outlined text-white text-lg">sync</span>
-                        </div>
-                        <div>
-                            <h1 class="text-2xl font-black text-gray-900">Sincronizar con Pulpos</h1>
-                            <p class="text-sm text-gray-500">Importa ventas desde tu cuenta de Pulpos automáticamente
-                            </p>
-                        </div>
+                <div class="mb-8 flex items-center gap-3">
+                    <div class="size-10 bg-black rounded-xl flex items-center justify-center">
+                        <span class="material-symbols-outlined text-white text-lg">sync</span>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-black text-gray-900">Sincronizar con Pulpos</h1>
+                        <p class="text-sm text-gray-500">Importa ventas desde tu cuenta de Pulpos automáticamente</p>
                     </div>
                 </div>
 
-                <!-- Panel Principal: Configurar Sync -->
+                <!-- Configurar Sync -->
                 <div id="panelConfig" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6">
                     <h2 class="text-base font-black text-gray-800 mb-5">¿Qué día quieres sincronizar?</h2>
-
                     <div class="space-y-4">
                         <div>
                             <label
                                 class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Fecha</label>
                             <input type="date" id="inputFecha"
-                                class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                                class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:border-[#19e66b]"
                                 max="" />
-                            <p class="text-xs text-gray-400 mt-1.5">Los registros del día seleccionado se importarán
-                                desde Pulpos. Los días ya sincronizados no se duplican.</p>
+                            <p class="text-xs text-gray-400 mt-1.5">Los días ya confirmados no se duplican.</p>
                         </div>
-
-                        <!-- Info card -->
                         <div class="bg-gray-50 rounded-xl p-4 flex gap-3">
                             <span class="material-symbols-outlined text-gray-400 text-sm mt-0.5">info</span>
                             <div class="text-xs text-gray-500 space-y-1">
                                 <p>✅ <strong>Efectivo, Cheque y Crédito</strong> se clasifican automáticamente</p>
-                                <p>⚠️ <strong>Tarjeta y Transferencia</strong> sin banco identificado quedan para
-                                    revisión manual</p>
-                                <p>🔒 La sincronización corre en la nube (GitHub) — funciona desde cualquier computadora
-                                </p>
+                                <p>⚠️ <strong>Tarjeta y Transferencia</strong> sin banco identificado las revisas antes
+                                    de confirmar</p>
+                                <p>🔒 El proceso corre en la nube (GitHub) — funciona desde cualquier computadora</p>
                             </div>
                         </div>
-
                         <button id="btnSincronizar" onclick="iniciarSync()"
                             class="w-full bg-black text-white font-black py-3.5 rounded-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 text-sm">
                             <span class="material-symbols-outlined text-base">sync</span>
@@ -147,26 +118,24 @@
                     </div>
                 </div>
 
-                <!-- Panel de Progreso (oculto inicialmente) -->
+                <!-- Progreso -->
                 <div id="panelProgreso" class="hidden bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6">
                     <div class="flex items-center gap-3 mb-6">
-                        <div id="iconoProgreso" class="size-10 bg-gray-100 rounded-xl flex items-center justify-center">
+                        <div class="size-10 bg-gray-100 rounded-xl flex items-center justify-center">
                             <span class="material-symbols-outlined animate-spin text-gray-500">sync</span>
                         </div>
                         <div>
                             <h2 id="tituloProgreso" class="text-base font-black text-gray-800">Sincronizando...</h2>
-                            <p id="subtituloProgreso" class="text-xs text-gray-500">Iniciando proceso en GitHub</p>
+                            <p id="subtituloProgreso" class="text-xs text-gray-500">Iniciando en GitHub</p>
                         </div>
                     </div>
-
-                    <!-- Pasos -->
                     <div class="space-y-3">
                         <div id="step1" class="step-card border border-gray-100 rounded-xl p-4 flex items-center gap-3">
                             <span id="step1-icon"
                                 class="material-symbols-outlined text-gray-300 text-lg">radio_button_unchecked</span>
                             <div>
                                 <p class="text-sm font-bold text-gray-700">Enviando solicitud a GitHub</p>
-                                <p class="text-xs text-gray-400">Activando el proceso de sincronización</p>
+                                <p class="text-xs text-gray-400">Activando proceso</p>
                             </div>
                         </div>
                         <div id="step2" class="step-card border border-gray-100 rounded-xl p-4 flex items-center gap-3">
@@ -174,7 +143,7 @@
                                 class="material-symbols-outlined text-gray-300 text-lg">radio_button_unchecked</span>
                             <div>
                                 <p class="text-sm font-bold text-gray-700">GitHub preparando entorno</p>
-                                <p class="text-xs text-gray-400">Instalando dependencias (~30 segundos)</p>
+                                <p class="text-xs text-gray-400">Instalando dependencias (~30s)</p>
                             </div>
                         </div>
                         <div id="step3" class="step-card border border-gray-100 rounded-xl p-4 flex items-center gap-3">
@@ -182,46 +151,82 @@
                                 class="material-symbols-outlined text-gray-300 text-lg">radio_button_unchecked</span>
                             <div>
                                 <p class="text-sm font-bold text-gray-700">Extrayendo ventas de Pulpos</p>
-                                <p class="text-xs text-gray-400">Iniciando sesión y leyendo datos del día</p>
+                                <p class="text-xs text-gray-400">Iniciando sesión y leyendo datos</p>
                             </div>
                         </div>
                         <div id="step4" class="step-card border border-gray-100 rounded-xl p-4 flex items-center gap-3">
                             <span id="step4-icon"
                                 class="material-symbols-outlined text-gray-300 text-lg">radio_button_unchecked</span>
                             <div>
-                                <p class="text-sm font-bold text-gray-700">Importando a Agrigarden</p>
-                                <p class="text-xs text-gray-400">Guardando ventas en tu base de datos</p>
+                                <p class="text-sm font-bold text-gray-700">Preparando vista previa</p>
+                                <p class="text-xs text-gray-400">Organizando ventas para revisión</p>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Timer -->
                     <div class="mt-4 text-center">
-                        <p class="text-xs text-gray-400">Tiempo transcurrido: <span id="timer"
+                        <p class="text-xs text-gray-400">Tiempo: <span id="timer"
                                 class="font-mono font-bold">0:00</span></p>
                     </div>
                 </div>
 
-                <!-- Panel de Resultado -->
+                <!-- Error / resultado -->
                 <div id="panelResultado" class="hidden bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6">
-                    <!-- Contenido dinámico -->
                 </div>
 
-                <!-- Historial de Sincronizaciones -->
+                <!-- Historial -->
                 <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <h2 class="text-base font-black text-gray-800 mb-4">Historial de Sincronizaciones</h2>
                     <div id="tablaHistorial">
                         <p class="text-sm text-gray-400 italic text-center py-6">Cargando historial...</p>
                     </div>
                 </div>
-
             </div>
         </main>
     </div>
 
+    <!-- ===================== MODAL DE REVISIÓN ===================== -->
+    <div id="modalRevision" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-bg bg-black/50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <!-- Header modal -->
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-black text-gray-900">Vista Previa de Ventas</h2>
+                    <p id="modalSubtitulo" class="text-sm text-gray-500 mt-0.5"></p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="cancelarSync()"
+                        class="px-4 py-2 text-sm font-bold text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button onclick="confirmarSync()" id="btnConfirmar"
+                        class="px-5 py-2 bg-black text-white text-sm font-black rounded-xl hover:bg-gray-800 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">check_circle</span>
+                        Confirmar todo → Ingresos
+                    </button>
+                </div>
+            </div>
+
+            <!-- Aviso de revisión -->
+            <div id="avisoRevision"
+                class="hidden mx-6 mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
+                <span class="material-symbols-outlined text-amber-500 text-sm mt-0.5">warning</span>
+                <div class="text-xs text-amber-800">
+                    <p class="font-bold mb-1">Ventas con banco sin identificar</p>
+                    <p>Selecciona el banco para las ventas marcadas en <span
+                            class="text-amber-600 font-bold">amarillo</span> antes de confirmar.</p>
+                </div>
+            </div>
+
+            <!-- Tabla de ventas -->
+            <div class="flex-1 overflow-y-auto p-6">
+                <div id="tablaRevision"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // =====================================================
-        // CLIENTE SUPABASE LOCAL (mismo patrón que inventario.js)
+        // CLIENTE SUPABASE LOCAL
         // =====================================================
         const _SB_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
         const _SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
@@ -231,78 +236,81 @@
         }
 
         // =====================================================
-        // CONFIGURACIÓN GITHUB
+        // CONFIG GITHUB
         // =====================================================
-        // Estos valores se leen desde sys_config en Supabase
-        let GITHUB_OWNER = '';
-        let GITHUB_REPO = '';
-        let GITHUB_TOKEN = '';
+        let GITHUB_OWNER = '', GITHUB_REPO = '', GITHUB_TOKEN = '';
         const WORKFLOW_FILE = 'pulpos_sync.yml';
 
+        const METODOS_PAGO = [
+            'Efectivo', 'Cheque', 'Crédito',
+            'Tarjeta BBVA', 'Tarjeta Hey Banco', 'Tarjeta Mercado Pago', 'Tarjeta',
+            'Transferencia BBVA', 'Transferencia Hey Banco', 'Transferencia'
+        ];
+
+        // Estado del sync actual
+        let currentFecha = '';
+        let currentLogId = null;
+        let stagingVentas = [];
+
         // =====================================================
-        // INICIALIZACIÓN
+        // INIT
         // =====================================================
         document.addEventListener('DOMContentLoaded', async () => {
             inyectarMenu('pulpos_sync');
-
-            // Fecha máxima = hoy
             const hoy = new Date().toISOString().split('T')[0];
             document.getElementById('inputFecha').max = hoy;
             document.getElementById('inputFecha').value = hoy;
-
             await cargarConfigGithub();
             await cargarHistorial();
+
+            // Si hay ventas en staging esperando revisión, mostrar modal
+            await verificarStagingPendiente();
         });
+
+        async function verificarStagingPendiente() {
+            const { data } = await sbPulpos
+                .from('pulpos_sync_staging')
+                .select('fecha_sync')
+                .eq('confirmado', false)
+                .limit(1)
+                .maybeSingle();
+            if (data) {
+                await abrirModalRevision(data.fecha_sync);
+            }
+        }
 
         async function cargarConfigGithub() {
             try {
-                // Supabase anon key (ya expuesto en api.js y otros archivos del proyecto)
-                const SB_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
-                const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
-
                 const resp = await fetch(
-                    `${SB_URL}/rest/v1/sys_config?key=eq.github_sync_config&select=value`,
-                    { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
+                    `${_SB_URL}/rest/v1/sys_config?key=eq.github_sync_config&select=value`,
+                    { headers: { 'apikey': _SB_KEY, 'Authorization': `Bearer ${_SB_KEY}` } }
                 );
                 if (resp.ok) {
                     const rows = await resp.json();
-                    if (rows && rows.length > 0 && rows[0].value) {
+                    if (rows?.length > 0) {
                         const cfg = rows[0].value;
                         GITHUB_OWNER = cfg.owner || '';
                         GITHUB_REPO = cfg.repo || '';
                         GITHUB_TOKEN = cfg.token || '';
-                        console.log('✅ GitHub config cargada:', GITHUB_OWNER + '/' + GITHUB_REPO);
-                    } else {
-                        console.warn('⚠️ github_sync_config no encontrada en sys_config');
                     }
                 }
-            } catch (e) {
-                console.warn('Error cargando config de GitHub:', e);
-            }
+            } catch (e) { console.warn('Config GitHub:', e); }
         }
 
         // =====================================================
-        // INICIAR SYNC → Llama a GitHub API
+        // INICIAR SYNC
         // =====================================================
-        let timerInterval = null;
-        let segundos = 0;
+        let timerInterval = null, segundos = 0;
 
         async function iniciarSync() {
             const fecha = document.getElementById('inputFecha').value;
             const btn = document.getElementById('btnSincronizar');
+            if (!fecha) { alert('Selecciona una fecha'); return; }
 
-            if (!fecha) {
-                alert('Selecciona una fecha para sincronizar');
-                return;
-            }
-
-            // Feedback visual inmediato en el botón
             btn.disabled = true;
-            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-base">sync</span> Verificando configuración...`;
+            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-base">sync</span> Verificando...`;
 
-            // Reintentar carga de config si no está disponible
             if (!GITHUB_TOKEN) await cargarConfigGithub();
-
             if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
                 btn.disabled = false;
                 btn.innerHTML = `<span class="material-symbols-outlined text-base">sync</span> Sincronizar con Pulpos`;
@@ -311,36 +319,22 @@
                 return;
             }
 
-            // Verificar si ya fue sincronizado
-            const { data: syncExistente } = await sbPulpos
-                .from('pulpos_sync_log')
-                .select('id, estado, ventas_importadas')
-                .eq('fecha_sync', fecha)
-                .eq('estado', 'completado')
-                .maybeSingle();
+            // Limpiar staging previo del mismo día
+            await sbPulpos.from('pulpos_sync_staging').delete().eq('fecha_sync', fecha).eq('confirmado', false);
 
-            if (syncExistente) {
-                if (!confirm(`⚠️ El día ${fecha} ya fue sincronizado anteriormente (${syncExistente.ventas_importadas} ventas).\n\n¿Deseas sincronizar de nuevo? Los registros duplicados no se insertarán.`)) return;
-            }
-
-            // Mostrar panel de progreso
+            currentFecha = fecha;
             document.getElementById('panelConfig').classList.add('hidden');
             document.getElementById('panelProgreso').classList.remove('hidden');
 
-            // Iniciar timer
             segundos = 0;
             timerInterval = setInterval(() => {
                 segundos++;
-                const min = Math.floor(segundos / 60);
-                const sec = segundos % 60;
-                document.getElementById('timer').textContent = `${min}:${sec.toString().padStart(2, '0')}`;
+                const m = Math.floor(segundos / 60), s = segundos % 60;
+                document.getElementById('timer').textContent = `${m}:${s.toString().padStart(2, '0')}`;
             }, 1000);
 
             try {
-                // PASO 1: Activar Step 1
                 activarStep(1);
-
-                // Llamar a GitHub API para disparar el workflow
                 const response = await fetch(
                     `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`,
                     {
@@ -350,25 +344,13 @@
                             'Accept': 'application/vnd.github.v3+json',
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            ref: 'main',
-                            inputs: { fecha: fecha }
-                        })
+                        body: JSON.stringify({ ref: 'main', inputs: { fecha } })
                     }
                 );
-
-                if (!response.ok) {
-                    const err = await response.text();
-                    throw new Error(`GitHub respondió ${response.status}: ${err}`);
-                }
-
+                if (!response.ok) throw new Error(`GitHub ${response.status}: ${await response.text()}`);
                 completarStep(1);
                 activarStep(2);
-                document.getElementById('subtituloProgreso').textContent = 'GitHub está preparando el entorno (~30s)';
-
-                // PASO 2: Esperar y monitorear con polling a Supabase
                 await monitorearSync(fecha);
-
             } catch (error) {
                 clearInterval(timerInterval);
                 mostrarError(error.message);
@@ -376,164 +358,313 @@
         }
 
         // =====================================================
-        // MONITOREAR: Polling cada 10s a pulpos_sync_log
+        // POLLING → escuchar 'listo_para_revision'
         // =====================================================
         async function monitorearSync(fecha) {
             let intentos = 0;
-            const MAX_INTENTOS = 24; // 24 × 10s = 4 minutos máximo
-
             const poll = async () => {
                 intentos++;
-
-                // Simular progreso visual según tiempo
                 if (segundos > 30) { completarStep(2); activarStep(3); }
-                if (segundos > 60) { completarStep(3); activarStep(4); }
+                if (segundos > 90) { completarStep(3); activarStep(4); }
 
                 const { data: log } = await sbPulpos
                     .from('pulpos_sync_log')
                     .select('*')
                     .eq('fecha_sync', fecha)
+                    .eq('estado', 'listo_para_revision')
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .maybeSingle();
 
-                if (log && log.estado === 'completado') {
+                if (log) {
                     clearInterval(timerInterval);
                     completarStep(4);
-                    mostrarExito(log, fecha);
+                    currentLogId = log.id;
+                    document.getElementById('panelProgreso').classList.add('hidden');
+                    await abrirModalRevision(fecha);
                     await cargarHistorial();
                     return;
                 }
 
-                if (log && log.estado === 'error') {
+                // También escuchar 'error'
+                const { data: logError } = await sbPulpos
+                    .from('pulpos_sync_log')
+                    .select('*')
+                    .eq('fecha_sync', fecha)
+                    .eq('estado', 'error')
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (logError) {
                     clearInterval(timerInterval);
-                    mostrarError(log.mensaje || 'Error desconocido en la sincronización');
+                    mostrarError(logError.mensaje || 'Error en el proceso');
                     return;
                 }
 
-                if (intentos >= MAX_INTENTOS) {
+                if (intentos >= 30) {
                     clearInterval(timerInterval);
-                    mostrarError('Tiempo de espera agotado. Revisa GitHub Actions para ver el estado.');
+                    mostrarError('Tiempo de espera agotado. Revisa GitHub Actions para más detalles.');
                     return;
                 }
-
-                // Seguir esperando
                 setTimeout(poll, 10000);
             };
-
-            // Primer check después de 20 segundos (tiempo mínimo que tarda GitHub)
             setTimeout(poll, 20000);
         }
 
         // =====================================================
-        // HELPERS DE UI
+        // MODAL DE REVISIÓN
         // =====================================================
-        function activarStep(n) {
-            const card = document.getElementById(`step${n}`);
-            const icon = document.getElementById(`step${n}-icon`);
-            if (card) card.className = card.className.replace('border-gray-100', '') + ' active';
-            if (icon) { icon.textContent = 'pending'; icon.className = icon.className.replace('text-gray-300', 'text-primary pulse-dot'); }
+        async function abrirModalRevision(fecha) {
+            const { data: ventas } = await sbPulpos
+                .from('pulpos_sync_staging')
+                .select('*')
+                .eq('fecha_sync', fecha)
+                .eq('confirmado', false)
+                .order('numero_venta');
+
+            stagingVentas = ventas || [];
+            const pendientes = stagingVentas.filter(v => v.requiere_revision).length;
+
+            document.getElementById('modalSubtitulo').textContent =
+                `${stagingVentas.length} ventas del ${fecha} • ${pendientes} requieren selección de banco`;
+
+            if (pendientes > 0) document.getElementById('avisoRevision').classList.remove('hidden');
+            else document.getElementById('avisoRevision').classList.add('hidden');
+
+            renderTablaRevision();
+            document.getElementById('modalRevision').classList.remove('hidden');
         }
 
-        function completarStep(n) {
-            const card = document.getElementById(`step${n}`);
-            const icon = document.getElementById(`step${n}-icon`);
-            if (card) { card.className = ''; card.className = 'step-card border rounded-xl p-4 flex items-center gap-3 done'; }
-            if (icon) { icon.textContent = 'check_circle'; icon.className = 'material-symbols-outlined text-green-500 text-lg'; }
-        }
+        function renderTablaRevision() {
+            const container = document.getElementById('tablaRevision');
+            if (stagingVentas.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-400 py-8">No hay ventas en espera de revisión</p>';
+                return;
+            }
 
-        function mostrarExito(log, fecha) {
-            document.getElementById('panelProgreso').classList.add('hidden');
-            const panel = document.getElementById('panelResultado');
-            panel.classList.remove('hidden');
+            const formatMonto = (m) => '$' + parseFloat(m || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
-            const tienePendientes = log.ventas_pendientes > 0;
-
-            panel.innerHTML = `
-        <div class="text-center mb-6">
-            <div class="size-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <span class="material-symbols-outlined text-green-500 text-3xl">check_circle</span>
-            </div>
-            <h3 class="text-xl font-black text-gray-900">¡Sincronización Exitosa!</h3>
-            <p class="text-sm text-gray-500 mt-1">Datos del ${fecha} importados correctamente</p>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4 mb-6">
-            <div class="bg-green-50 rounded-xl p-4 text-center">
-                <p class="text-3xl font-black text-green-600">${log.ventas_importadas}</p>
-                <p class="text-xs text-green-700 font-bold mt-1">Ventas importadas</p>
-            </div>
-            <div class="bg-${tienePendientes ? 'amber' : 'gray'}-50 rounded-xl p-4 text-center">
-                <p class="text-3xl font-black text-${tienePendientes ? 'amber-600' : 'gray-400'}">${log.ventas_pendientes}</p>
-                <p class="text-xs text-${tienePendientes ? 'amber-700' : 'gray-500'} font-bold mt-1">Requieren revisión</p>
-            </div>
-        </div>
-
-        ${tienePendientes ? `
-        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 flex gap-3">
-            <span class="material-symbols-outlined text-amber-500 text-sm mt-0.5">warning</span>
-            <div class="text-xs text-amber-800">
-                <p class="font-bold mb-1">Método de pago no identificado</p>
-                <p>Algunas ventas de <strong>Tarjeta</strong> o <strong>Transferencia</strong> no tenían nota de banco. Encuéntralas en <strong>Ingresos</strong> filtrando por fuente "PULPOS_SYNC".</p>
-            </div>
-        </div>
-        ` : ''}
-
-        <div class="flex gap-3">
-            <button onclick="location.href='ingresos.html'" class="flex-1 bg-black text-white font-bold py-3 rounded-xl text-sm hover:bg-gray-800 transition-all flex items-center justify-center gap-2">
-                <span class="material-symbols-outlined text-sm">payments</span> Ver en Ingresos
-            </button>
-            <button onclick="resetPanel()" class="flex-1 border border-gray-200 text-gray-700 font-bold py-3 rounded-xl text-sm hover:bg-gray-50 transition-all flex items-center justify-center gap-2">
-                <span class="material-symbols-outlined text-sm">sync</span> Sincronizar otro día
-            </button>
+            container.innerHTML = `
+        <div class="space-y-2">
+            ${stagingVentas.map((v, i) => `
+                <div class="rounded-xl border ${v.requiere_revision ? 'border-amber-200 bg-amber-50/50' : 'border-gray-100 bg-white'} p-4">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                ${v.requiere_revision
+                    ? `<span class="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full">⚠️ Revisar banco</span>`
+                    : `<span class="bg-green-50 text-green-700 text-[10px] font-black px-2 py-0.5 rounded-full">✅ OK</span>`
+                }
+                                <span class="text-sm font-black text-gray-800">${v.numero_venta}</span>
+                                <span class="text-xs text-gray-400">${v.sucursal || ''}</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs text-gray-500">
+                                <span>${v.nombre_cliente || 'PÚBLICO GENERAL'}</span>
+                                <span>${v.estado_cobro || ''}</span>
+                                ${v.vendedor ? `<span>Vendedor: ${v.vendedor}</span>` : ''}
+                            </div>
+                            ${v.requiere_revision ? `
+                            <div class="mt-2 flex items-center gap-2">
+                                <span class="text-xs text-amber-700 font-bold">Pulpos dice:</span>
+                                <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-mono">${v.metodo_pulpos || v.metodo_pago}</span>
+                                <span class="text-xs text-gray-400">→ ¿Cuál banco?</span>
+                                <select id="metodo-${i}" 
+                                    class="text-xs border border-amber-300 bg-white rounded-lg px-2 py-1 font-bold focus:outline-none focus:border-amber-500"
+                                    onchange="actualizarMetodo(${i}, this.value)">
+                                    <option value="">-- Seleccionar --</option>
+                                    ${METODOS_PAGO.filter(m => m.includes(v.metodo_pago?.split(' ')[0] || '')).map(m =>
+                    `<option value="${m}" ${m === v.metodo_pago ? 'selected' : ''}>${m}</option>`
+                ).join('')}
+                                    <optgroup label="Todos los métodos">
+                                        ${METODOS_PAGO.map(m => `<option value="${m}">${m}</option>`).join('')}
+                                    </optgroup>
+                                </select>
+                            </div>` : ''}
+                        </div>
+                        <div class="text-right shrink-0">
+                            <p class="text-base font-black text-gray-900">${formatMonto(v.monto)}</p>
+                            <p class="text-xs text-gray-400">${v.metodo_pago || ''}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
         </div>
     `;
         }
 
+        function actualizarMetodo(idx, nuevoMetodo) {
+            stagingVentas[idx].metodo_pago = nuevoMetodo;
+            // Actualizar en Supabase staging
+            sbPulpos.from('pulpos_sync_staging')
+                .update({ metodo_pago: nuevoMetodo, requiere_revision: false })
+                .eq('id', stagingVentas[idx].id)
+                .then(() => {
+                    stagingVentas[idx].requiere_revision = false;
+                    renderTablaRevision();
+                });
+        }
+
+        // =====================================================
+        // CONFIRMAR → Mover de staging a transacciones
+        // =====================================================
+        async function confirmarSync() {
+            const btn = document.getElementById('btnConfirmar');
+            btn.disabled = true;
+            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Guardando...`;
+
+            // Verificar si hay pendientes sin resolver
+            const pendientes = stagingVentas.filter(v => v.requiere_revision || !v.metodo_pago);
+            if (pendientes.length > 0) {
+                if (!confirm(`Hay ${pendientes.length} ventas sin banco seleccionado. ¿Confirmar igualmente? Se guardarán con el método actual.`)) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<span class="material-symbols-outlined text-sm">check_circle</span> Confirmar todo → Ingresos`;
+                    return;
+                }
+            }
+
+            let exitosas = 0;
+            let errores = 0;
+
+            for (const venta of stagingVentas) {
+                // Verificar si ya existe en transacciones
+                const { data: existente } = await sbPulpos
+                    .from('transacciones')
+                    .select('id')
+                    .eq('categoria', venta.numero_venta)
+                    .eq('fuente', 'PULPOS_SYNC')
+                    .maybeSingle();
+
+                if (existente) { exitosas++; continue; }
+
+                const registro = {
+                    created_at: new Date(currentFecha + 'T12:00:00').toISOString(),
+                    categoria: venta.numero_venta,
+                    tipo: 'Venta Directa',
+                    metodo_pago: venta.metodo_pago || 'Otro',
+                    nombre_cliente: venta.nombre_cliente || 'PÚBLICO GENERAL',
+                    monto: venta.monto,
+                    comision_bancaria: 0,
+                    monto_neto: venta.monto,
+                    sucursal: venta.sucursal,
+                    estado_cobro: venta.estado_cobro || 'Pagado',
+                    saldo_pendiente: venta.estado_cobro === 'Pagado' ? 0 : venta.monto,
+                    notas: venta.notas || `Venta Pulpos ${venta.numero_venta}`,
+                    fuente: 'PULPOS_SYNC'
+                };
+
+                const { error } = await sbPulpos.from('transacciones').insert(registro);
+                if (error) {
+                    console.error(`Error en ${venta.numero_venta}:`, error.message);
+                    errores++;
+                } else {
+                    // Marcar como confirmado en staging
+                    await sbPulpos.from('pulpos_sync_staging').update({ confirmado: true }).eq('id', venta.id);
+                    exitosas++;
+                }
+            }
+
+            // Actualizar log
+            if (currentLogId) {
+                await sbPulpos.from('pulpos_sync_log').update({
+                    estado: 'completado',
+                    ventas_importadas: exitosas,
+                    mensaje: `${exitosas} ventas confirmadas a Ingresos`
+                }).eq('id', currentLogId);
+            }
+
+            document.getElementById('modalRevision').classList.add('hidden');
+            mostrarExito(exitosas, errores);
+            await cargarHistorial();
+            resetPanel();
+        }
+
+        async function cancelarSync() {
+            if (!confirm('¿Cancelar? Las ventas en espera se eliminarán del staging.')) return;
+            if (currentFecha) {
+                await sbPulpos.from('pulpos_sync_staging').delete().eq('fecha_sync', currentFecha).eq('confirmado', false);
+                if (currentLogId) {
+                    await sbPulpos.from('pulpos_sync_log').update({ estado: 'cancelado', mensaje: 'Cancelado por el usuario' }).eq('id', currentLogId);
+                }
+            }
+            document.getElementById('modalRevision').classList.add('hidden');
+            resetPanel();
+            await cargarHistorial();
+        }
+
+        // =====================================================
+        // UI HELPERS
+        // =====================================================
+        function mostrarExito(n, errores) {
+            document.getElementById('panelResultado').classList.remove('hidden');
+            document.getElementById('panelResultado').innerHTML = `
+        <div class="text-center mb-5">
+            <div class="size-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <span class="material-symbols-outlined text-green-500 text-3xl">check_circle</span>
+            </div>
+            <h3 class="text-xl font-black text-gray-900">¡Ventas importadas!</h3>
+            <p class="text-sm text-gray-500 mt-1">${n} ventas guardadas en Ingresos${errores > 0 ? ` · ${errores} con error` : ''}</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="location.href='ingresos.html'" class="flex-1 bg-black text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-sm">payments</span> Ver en Ingresos
+            </button>
+            <button onclick="resetPanel()" class="flex-1 border border-gray-200 text-gray-700 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-sm">sync</span> Sincronizar otro día
+            </button>
+        </div>`;
+        }
+
         function mostrarError(msg) {
             document.getElementById('panelProgreso').classList.add('hidden');
-            const panel = document.getElementById('panelResultado');
-            panel.classList.remove('hidden');
-            panel.innerHTML = `
+            const p = document.getElementById('panelResultado');
+            p.classList.remove('hidden');
+            p.innerHTML = `
         <div class="text-center mb-5">
             <div class="size-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <span class="material-symbols-outlined text-red-500 text-3xl">error</span>
             </div>
             <h3 class="text-xl font-black text-gray-900">Error en sincronización</h3>
-            <p class="text-xs text-gray-500 mt-2 font-mono bg-gray-50 p-3 rounded-xl">${msg}</p>
+            <p class="text-xs text-gray-500 mt-2 font-mono bg-gray-50 p-3 rounded-xl break-all">${msg}</p>
         </div>
-        <button onclick="resetPanel()" class="w-full bg-black text-white font-bold py-3 rounded-xl text-sm hover:bg-gray-800 transition-all">
-            Intentar de nuevo
-        </button>
-    `;
+        <button onclick="resetPanel()" class="w-full bg-black text-white font-bold py-3 rounded-xl text-sm">Intentar de nuevo</button>`;
         }
 
         function mostrarErrorConfig() {
-            document.getElementById('panelResultado').classList.remove('hidden');
-            document.getElementById('panelResultado').innerHTML = `
-        <div class="bg-red-50 border border-red-200 rounded-xl p-5">
-            <div class="flex gap-3 items-start">
-                <span class="material-symbols-outlined text-red-500">settings_alert</span>
-                <div>
-                    <p class="font-black text-red-700 text-sm mb-1">Configuración incompleta</p>
-                    <p class="text-xs text-red-600">Falta configurar el token y repositorio de GitHub. Completa el <strong>Paso 6</strong> de la guía de instalación.</p>
-                </div>
+            const p = document.getElementById('panelResultado');
+            p.classList.remove('hidden');
+            p.innerHTML = `
+        <div class="bg-red-50 border border-red-200 rounded-xl p-5 flex gap-3">
+            <span class="material-symbols-outlined text-red-500">settings_alert</span>
+            <div>
+                <p class="font-black text-red-700 text-sm mb-1">Configuración incompleta</p>
+                <p class="text-xs text-red-600">Falta configurar el token de GitHub en Supabase <code>sys_config</code>.</p>
             </div>
-        </div>
-    `;
+        </div>`;
         }
 
         function resetPanel() {
             document.getElementById('panelConfig').classList.remove('hidden');
             document.getElementById('panelProgreso').classList.add('hidden');
             document.getElementById('panelResultado').classList.add('hidden');
-            // Reset steps
+            document.getElementById('btnSincronizar').disabled = false;
+            document.getElementById('btnSincronizar').innerHTML = `<span class="material-symbols-outlined text-base">sync</span> Sincronizar con Pulpos`;
             for (let i = 1; i <= 4; i++) {
-                const card = document.getElementById(`step${i}`);
-                const icon = document.getElementById(`step${i}-icon`);
-                if (card) card.className = 'step-card border border-gray-100 rounded-xl p-4 flex items-center gap-3';
-                if (icon) { icon.textContent = 'radio_button_unchecked'; icon.className = 'material-symbols-outlined text-gray-300 text-lg'; }
+                const c = document.getElementById(`step${i}`), ic = document.getElementById(`step${i}-icon`);
+                if (c) c.className = 'step-card border border-gray-100 rounded-xl p-4 flex items-center gap-3';
+                if (ic) { ic.textContent = 'radio_button_unchecked'; ic.className = 'material-symbols-outlined text-gray-300 text-lg'; }
             }
+        }
+
+        function activarStep(n) {
+            const c = document.getElementById(`step${n}`), ic = document.getElementById(`step${n}-icon`);
+            if (c) c.classList.add('active');
+            if (ic) { ic.textContent = 'pending'; ic.className = 'material-symbols-outlined text-[#19e66b] pulse-dot text-lg'; }
+        }
+        function completarStep(n) {
+            const c = document.getElementById(`step${n}`), ic = document.getElementById(`step${n}-icon`);
+            if (c) { c.className = 'step-card border rounded-xl p-4 flex items-center gap-3 done'; }
+            if (ic) { ic.textContent = 'check_circle'; ic.className = 'material-symbols-outlined text-green-500 text-lg'; }
         }
 
         // =====================================================
@@ -541,7 +672,6 @@
         // =====================================================
         async function cargarHistorial() {
             const container = document.getElementById('tablaHistorial');
-
             const { data: logs } = await sbPulpos
                 .from('pulpos_sync_log')
                 .select('*')
@@ -553,18 +683,19 @@
                 return;
             }
 
-            const estadoBadge = (e) => {
-                if (e === 'completado') return '<span class="bg-green-50 text-green-700 text-[10px] font-black px-2 py-0.5 rounded-full">✅ Completado</span>';
-                if (e === 'error') return '<span class="bg-red-50 text-red-700 text-[10px] font-black px-2 py-0.5 rounded-full">❌ Error</span>';
-                return '<span class="bg-gray-50 text-gray-700 text-[10px] font-black px-2 py-0.5 rounded-full">⏳ Iniciado</span>';
-            };
+            const badge = (e) => ({
+                'completado': '<span class="bg-green-50 text-green-700 text-[10px] font-black px-2 py-0.5 rounded-full">✅ Completado</span>',
+                'listo_para_revision': '<span class="bg-amber-50 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full">⏳ En revisión</span>',
+                'error': '<span class="bg-red-50 text-red-700 text-[10px] font-black px-2 py-0.5 rounded-full">❌ Error</span>',
+                'cancelado': '<span class="bg-gray-50 text-gray-500 text-[10px] font-black px-2 py-0.5 rounded-full">🚫 Cancelado</span>',
+            }[e] || '<span class="bg-gray-50 text-gray-500 text-[10px] font-black px-2 py-0.5 rounded-full">⏳ Iniciado</span>');
 
             container.innerHTML = `
-        <div class="space-y-2">
+        <div class="space-y-1">
             ${logs.map(log => `
-                <div class="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                <div class="flex items-center justify-between py-3 border-b border-gray-50 last:border-0 gap-3">
                     <div class="flex items-center gap-3">
-                        ${estadoBadge(log.estado)}
+                        ${badge(log.estado)}
                         <div>
                             <p class="text-sm font-bold text-gray-800">${log.fecha_sync}</p>
                             <p class="text-xs text-gray-400">${new Date(log.created_at).toLocaleString('es-MX')}</p>
@@ -572,12 +703,12 @@
                     </div>
                     <div class="text-right">
                         <p class="text-sm font-black text-gray-700">${log.ventas_importadas || 0} ventas</p>
-                        ${log.ventas_pendientes > 0 ? `<p class="text-xs text-amber-500 font-bold">${log.ventas_pendientes} revisión</p>` : ''}
+                        ${log.estado === 'listo_para_revision' ? `
+                        <button onclick="abrirModalRevision('${log.fecha_sync}')" 
+                            class="text-[10px] font-black text-amber-600 hover:underline">Ver revisión →</button>` : ''}
                     </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
+                </div>`).join('')}
+        </div>`;
         }
     </script>
 </body>

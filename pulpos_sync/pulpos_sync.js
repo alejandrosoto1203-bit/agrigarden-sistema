@@ -44,29 +44,38 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 // Pulpos → Agrigarden
 // =====================================================
 function mapearMetodoPago(metodoPulpos, comentarios = '') {
-    const metodo = (metodoPulpos || '').toLowerCase();
+    const metodo = (metodoPulpos || '').toLowerCase().trim();
     const notas = (comentarios || '').toLowerCase();
 
-    // Cheque y Efectivo son directos
+    // Cheque
     if (metodo.includes('cheque')) return { metodo: 'Cheque', claro: true };
+
+    // Efectivo
     if (metodo.includes('efectivo')) return { metodo: 'Efectivo', claro: true };
-    if (metodo.includes('crédito') || metodo.includes('credito') || metodo.includes('a crédito'))
+
+    // "A crédito" = venta a crédito (el cliente debe pagar después)
+    // OJO: "tarjeta de crédito" NO es lo mismo ↓
+    if (metodo === 'crédito' || metodo === 'a crédito' || metodo === 'credito' || metodo === 'a credito')
         return { metodo: 'Crédito', claro: true };
 
     // Transferencias — identificar banco por comentario
     if (metodo.includes('transferencia')) {
         if (notas.includes('bbva')) return { metodo: 'Transferencia BBVA', claro: true };
         if (notas.includes('hey')) return { metodo: 'Transferencia Hey Banco', claro: true };
+        if (metodo.includes('bbva')) return { metodo: 'Transferencia BBVA', claro: true };
+        if (metodo.includes('hey')) return { metodo: 'Transferencia Hey Banco', claro: true };
         return { metodo: 'Transferencia', claro: false }; // Requiere revisión
     }
 
-    // Tarjetas — identificar banco por comentario
-    if (metodo.includes('tarjeta') || metodo.includes('débito') || metodo.includes('credito') || metodo.includes('credit') || metodo.includes('debit')) {
-        if (notas.includes('bbva')) return { metodo: 'Tarjeta BBVA', claro: true };
-        if (notas.includes('hey')) return { metodo: 'Tarjeta Hey Banco', claro: true };
+    // Tarjetas (incluyendo "tarjeta de crédito" y "tarjeta de débito")
+    if (metodo.includes('tarjeta') || metodo.includes('débito') || metodo.includes('debito')
+        || (metodo.includes('crédito') && !metodo.startsWith('a ') && metodo !== 'crédito')
+    ) {
+        if (notas.includes('bbva') || metodo.includes('bbva')) return { metodo: 'Tarjeta BBVA', claro: true };
+        if (notas.includes('hey') || metodo.includes('hey')) return { metodo: 'Tarjeta Hey Banco', claro: true };
         if (notas.includes('mp') || notas.includes('mercado pago') || notas.includes('mercadopago'))
             return { metodo: 'Tarjeta Mercado Pago', claro: true };
-        return { metodo: 'Tarjeta', claro: false }; // Requiere revisión
+        return { metodo: 'Tarjeta', claro: false }; // Requiere revisión (falta banco)
     }
 
     // Fallback
@@ -310,63 +319,64 @@ async function sincronizar() {
         }
 
         // ------------------------------------------------------------------
-        // FASE 5: Insertar en Supabase
+        // FASE 5: Guardar en pulpos_sync_staging (para revisión antes de confirmar)
         // ------------------------------------------------------------------
-        console.log(`\n💾 Guardando en Supabase...`);
+        console.log(`\n💾 Guardando en staging para revisión...`);
         console.log(`   ✅ Clasificadas: ${ventasProcesadas.length}`);
         console.log(`   ⚠️  Revisión pendiente: ${ventasPendientes.length}`);
 
-        let insertadas = 0;
+        // Guardar TODAS (clasificadas + pendientes) en staging
+        const todasLasVentas = [
+            ...ventasProcesadas.map(v => ({ ...v, requiere_revision: false })),
+            ...ventasPendientes.map(v => ({ ...v, requiere_revision: true }))
+        ];
 
-        // Verificar duplicados por número de venta antes de insertar
-        const todasLasVentas = [...ventasProcesadas, ...ventasPendientes];
-
+        let stagingInsertadas = 0;
         for (const venta of todasLasVentas) {
-            // Verificar si ya existe esta venta (por número de venta = categoria)
-            const { data: existente } = await supabase
-                .from('transacciones')
-                .select('id')
-                .eq('categoria', venta.categoria)
-                .eq('fuente', 'PULPOS_SYNC')
-                .maybeSingle();
-
-            if (existente) {
-                console.log(`   ⏭️  ${venta.categoria} ya existe, omitiendo`);
-                continue;
-            }
-
-            const { error } = await supabase
-                .from('transacciones')
-                .insert(venta);
-
+            const stagingRecord = {
+                sync_log_id: logId,
+                fecha_sync: FECHA_SYNC,
+                numero_venta: venta.categoria,
+                sucursal: venta.sucursal,
+                monto: venta.monto,
+                metodo_pago: venta.metodo_pago,
+                metodo_pulpos: venta._metodoPulpos || venta.metodo_pago,
+                nombre_cliente: venta.nombre_cliente,
+                estado_cobro: venta.estado_cobro,
+                vendedor: (venta.notas || '').match(/Vendedor: ([^|]+)/)?.[1]?.trim() || '',
+                notas: venta.notas,
+                requiere_revision: venta.requiere_revision,
+                confirmado: false
+            };
+            const { error } = await supabase.from('pulpos_sync_staging').insert(stagingRecord);
             if (error) {
-                console.error(`   ❌ Error insertando ${venta.categoria}: ${error.message}`);
+                console.error(`   ❌ Error en staging ${venta.categoria}: ${error.message}`);
             } else {
-                insertadas++;
+                stagingInsertadas++;
             }
         }
+
+        console.log(`   📴 Total en staging: ${stagingInsertadas}`);
 
         // ------------------------------------------------------------------
         // FASE 6: Actualizar log en Supabase
         // ------------------------------------------------------------------
         await supabase.from('pulpos_sync_log').update({
-            estado: 'completado',
-            ventas_importadas: insertadas,
+            estado: 'listo_para_revision',
+            ventas_importadas: stagingInsertadas,
             ventas_pendientes: ventasPendientes.length,
-            mensaje: `Sync exitoso: ${insertadas} ventas importadas, ${ventasPendientes.length} requieren revisión de método de pago`,
+            mensaje: `Extracción completa: ${stagingInsertadas} ventas listas para revisión (${ventasPendientes.length} requieren ajuste de banco)`,
             detalles: {
                 ventas_clasificadas: ventasProcesadas.length,
-                ventas_revision: ventasPendientes.map(v => ({
-                    numero: v.categoria,
-                    metodo_pulpos: v._metodoPulpos,
-                    metodo_asignado: v.metodo_pago
-                }))
+                ventas_revision: ventasPendientes.length,
+                staging_ids: []
             }
         }).eq('id', logId);
 
-        console.log(`\n🎉 Sincronización completada:`);
-        console.log(`   📥 Ventas importadas: ${insertadas}`);
-        console.log(`   ⚠️  Requieren revisión: ${ventasPendientes.length}`);
+        console.log(`\n🎉 Extracción completada:`);
+        console.log(`   📵 En staging para revisión: ${stagingInsertadas}`);
+        console.log(`   ⚠️  Requieren ajuste de banco: ${ventasPendientes.length}`);
+        console.log(`\n→ Abre el CRM y confirma las ventas para guardarlas en Ingresos.`);
 
     } catch (error) {
         console.error(`\n❌ Error en sincronización: ${error.message}`);
