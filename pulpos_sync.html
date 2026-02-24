@@ -235,12 +235,10 @@
         document.addEventListener('DOMContentLoaded', async () => {
             inyectarMenu('pulpos_sync');
 
-            // Fecha máxima = ayer (no sincronizamos el día en curso para tener datos completos)
-            const ayer = new Date();
-            ayer.setDate(ayer.getDate() - 1);
-            const ayerStr = ayer.toISOString().split('T')[0];
-            document.getElementById('inputFecha').max = ayerStr;
-            document.getElementById('inputFecha').value = ayerStr;
+            // Fecha máxima = hoy
+            const hoy = new Date().toISOString().split('T')[0];
+            document.getElementById('inputFecha').max = hoy;
+            document.getElementById('inputFecha').value = hoy;
 
             await cargarConfigGithub();
             await cargarHistorial();
@@ -248,16 +246,24 @@
 
         async function cargarConfigGithub() {
             try {
-                const { data } = await window.sb
-                    .from('sys_config')
-                    .select('value')
-                    .eq('key', 'github_sync_config')
-                    .maybeSingle();
-
-                if (data && data.value) {
-                    GITHUB_OWNER = data.value.owner || '';
-                    GITHUB_REPO = data.value.repo || '';
-                    GITHUB_TOKEN = data.value.token || '';
+                // Fetch directo para evitar problemas de timing con window.sb
+                const sbUrl = (window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co');
+                const sbKey = window.SUPABASE_KEY;
+                const resp = await fetch(
+                    `${sbUrl}/rest/v1/sys_config?key=eq.github_sync_config&select=value`,
+                    { headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` } }
+                );
+                if (resp.ok) {
+                    const rows = await resp.json();
+                    if (rows && rows.length > 0 && rows[0].value) {
+                        const cfg = rows[0].value;
+                        GITHUB_OWNER = cfg.owner || '';
+                        GITHUB_REPO  = cfg.repo  || '';
+                        GITHUB_TOKEN = cfg.token || '';
+                        console.log('✅ GitHub config cargada:', GITHUB_OWNER + '/' + GITHUB_REPO);
+                    } else {
+                        console.warn('⚠️ github_sync_config no encontrada en sys_config');
+                    }
                 }
             } catch (e) {
                 console.warn('No se pudo obtener configuración de GitHub:', e);
