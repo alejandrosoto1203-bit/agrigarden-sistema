@@ -400,18 +400,19 @@ async function sincronizarClientes(page) {
             }
 
             // Scroll con JS (mas fiable que presionar tecla End)
-            await page.evaluate(() => {
-                const scrollable =
-                    document.querySelector('ul') ||
-                    document.querySelector('[class*="list-content"]') ||
-                    document.querySelector('main') ||
-                    document.body;
-                scrollable.scrollBy(0, 1400);
-                window.scrollBy(0, 1400);
-                document.documentElement.scrollBy(0, 1400);
-            });
+            // UPDATE: ahora forzamos a que el ÚLTIMO cliente visible entre en pantalla
+            // Esto hace que cualquier contenedor interno con scroll (ej. simplebar) baje hasta el final
+            const linksLocator = page.locator('a[href*="/clients/detail"]');
+            const count = await linksLocator.count();
+            if (count > 0) {
+                try {
+                    await linksLocator.nth(count - 1).scrollIntoViewIfNeeded();
+                    // Extra push para forzar el evento en algunos frameworks
+                    await page.mouse.wheel(0, 1000);
+                } catch (e) { }
+            }
 
-            await page.waitForTimeout(1000);
+            await page.waitForTimeout(1200);
             scrollAttempts++;
         }
 
