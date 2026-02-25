@@ -555,6 +555,86 @@ function abrirDetalleProducto(id) {
 
     document.getElementById('btnEditarProducto').onclick = () => editarProducto(id);
     document.getElementById('slideDetalleProducto').classList.add('active');
+
+    // Cargar movimientos de stock asincrónicamente
+    cargarMovimientosProducto(p.id);
+}
+
+async function cargarMovimientosProducto(productoId) {
+    // Agregar sección de movimientos al contenido del detalle
+    const contenido = document.getElementById('contenidoDetalleProducto');
+    if (!contenido) return;
+
+    // Agregar placeholder de movimientos
+    const seccionMov = document.createElement('div');
+    seccionMov.id = 'seccionMovimientos';
+    seccionMov.innerHTML = `
+        <div class="pt-2">
+            <p class="text-xs font-black uppercase text-slate-400 tracking-widest mb-3 flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">history</span>
+                Últimos Movimientos de Stock
+            </p>
+            <p class="text-center text-slate-300 text-xs font-bold animate-pulse py-4">Cargando...</p>
+        </div>
+    `;
+    contenido.appendChild(seccionMov);
+
+    try {
+        const res = await fetch(
+            `${window.SUPABASE_URL}/rest/v1/movimientos_stock?select=*&producto_id=eq.${productoId}&order=created_at.desc&limit=20`,
+            { headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` } }
+        );
+        const movimientos = await res.json();
+
+        if (!Array.isArray(movimientos) || movimientos.length === 0) {
+            seccionMov.innerHTML = `
+                <div class="pt-2">
+                    <p class="text-xs font-black uppercase text-slate-400 tracking-widest mb-3 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">history</span>
+                        Últimos Movimientos de Stock
+                    </p>
+                    <p class="text-center text-slate-300 text-xs italic py-4">Sin movimientos registrados</p>
+                </div>`;
+            return;
+        }
+
+        const badgeColor = {
+            'ENTRADA': 'bg-green-100 text-green-700',
+            'SALIDA': 'bg-red-100 text-red-700',
+            'AJUSTE': 'bg-yellow-100 text-yellow-700',
+            'TRANSFERENCIA_IN': 'bg-blue-100 text-blue-700',
+            'TRANSFERENCIA_OUT': 'bg-purple-100 text-purple-700'
+        };
+
+        seccionMov.innerHTML = `
+            <div class="pt-2">
+                <p class="text-xs font-black uppercase text-slate-400 tracking-widest mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">history</span>
+                    Últimos Movimientos (${movimientos.length})
+                </p>
+                <div class="space-y-2">
+                    ${movimientos.map(m => {
+            const fecha = new Date(m.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+            const tipoClass = badgeColor[m.tipo] || 'bg-slate-100 text-slate-600';
+            const cantSign = (m.tipo === 'SALIDA' || m.tipo === 'TRANSFERENCIA_OUT') ? '-' : '+';
+            return `
+                        <div class="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] font-bold text-slate-400">${fecha}</span>
+                                <span class="px-1.5 py-0.5 rounded text-[8px] uppercase font-black ${tipoClass}">${m.tipo?.replace('_', ' ') || '—'}</span>
+                                <span class="text-[9px] text-slate-500 font-bold truncate max-w-[80px]">${m.referencia || ''}</span>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs font-black ${cantSign === '-' ? 'text-red-500' : 'text-green-600'}">${cantSign}${m.cantidad}</p>
+                                <p class="text-[8px] text-slate-400">${m.sucursal || ''}</p>
+                            </div>
+                        </div>`;
+        }).join('')}
+                </div>
+            </div>`;
+    } catch (e) {
+        seccionMov.innerHTML = '<p class="text-xs text-red-400 italic text-center py-2">Error cargando movimientos</p>';
+    }
 }
 
 function cerrarDetalleProducto() {

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Clientes - Agrigarden CRM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "var(--theme-color)", background: "#f8fafc" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .slide-over {
+            position: fixed;
+            right: -100%;
+            top: 0;
+            width: 100%;
+            max-width: 480px;
+            height: 100%;
+            background: white;
+            transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+            box-shadow: -15px 0 50px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slide-over.active {
+            right: 0;
+        }
+
+        .input-filter {
+            border: none;
+            border-radius: 0.75rem;
+            background: #f3f4f6;
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#1e293b] flex">
+    <div id="sidebar-container"></div>
+
+    <main class="pt-20 lg:pt-0 flex-1 p-4 lg:p-10 space-y-8 min-w-0">
+        <!-- HEADER -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
+            <div>
+                <nav class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">CRM › Clientes</nav>
+                <h1 class="text-3xl lg:text-4xl font-extrabold tracking-tight italic uppercase">Clientes</h1>
+                <p class="text-slate-500 font-medium text-sm mt-1">Directorio sincronizado desde Pulpos POS</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="syncBadge"
+                    class="hidden text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary px-3 py-1.5 rounded-full flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">sync</span>
+                    Sincronizado desde Pulpos
+                </span>
+                <button onclick="cargarClientes()"
+                    class="bg-white border border-slate-200 px-5 py-3 rounded-2xl font-bold flex items-center gap-2 text-sm text-slate-600 hover:bg-slate-50 transition-all">
+                    <span class="material-symbols-outlined text-lg">refresh</span> Actualizar
+                </button>
+            </div>
+        </header>
+
+        <!-- KPIs -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Total Clientes</p>
+                <p id="kpiTotal" class="text-3xl font-black text-slate-800 mt-1">0</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Con Deuda Pendiente</p>
+                <p id="kpiConDeuda" class="text-3xl font-black text-red-500 mt-1">0</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Deuda Total</p>
+                <p id="kpiDeudaTotal" class="text-3xl font-black text-red-600 mt-1">$0</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Ventas Registradas</p>
+                <p id="kpiVentasTotal" class="text-3xl font-black text-primary mt-1">0</p>
+            </div>
+        </div>
+
+        <!-- FILTROS -->
+        <div
+            class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 items-stretch lg:items-center">
+            <div class="flex-1 relative">
+                <span class="material-symbols-outlined absolute left-4 top-3 text-slate-300">search</span>
+                <input type="text" id="busquedaCliente" oninput="filtrarClientes()"
+                    placeholder="Buscar por nombre, RFC, teléfono..."
+                    class="w-full pl-12 pr-5 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary text-sm font-bold text-slate-700">
+            </div>
+            <select id="filtroDeuda" onchange="filtrarClientes()" class="input-filter lg:w-48">
+                <option value="Todos">Todos</option>
+                <option value="ConDeuda">Solo con Deuda</option>
+                <option value="SinDeuda">Sin Deuda</option>
+            </select>
+            <select id="filtroOrden" onchange="filtrarClientes()" class="input-filter lg:w-48">
+                <option value="nombre">Ordenar: A-Z</option>
+                <option value="saldo">Ordenar: Mayor Deuda</option>
+                <option value="total_ventas">Ordenar: + Ventas</option>
+                <option value="total_vendido">Ordenar: Mayor Monto</option>
+            </select>
+        </div>
+
+        <!-- TABLA CLIENTES -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50/80 border-b border-slate-100 sticky top-0 z-10">
+                        <tr class="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                            <th class="px-5 py-4 text-left">Cliente</th>
+                            <th class="px-5 py-4 text-left">RFC / Razón Social</th>
+                            <th class="px-5 py-4 text-center">Teléfono</th>
+                            <th class="px-5 py-4 text-center"># Ventas</th>
+                            <th class="px-5 py-4 text-right">Total Vendido</th>
+                            <th class="px-5 py-4 text-right">Deuda</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaClientes">
+                        <tr>
+                            <td colspan="6" class="py-16 text-center text-slate-300 italic font-bold">Cargando
+                                clientes...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="emptyStateClientes" class="hidden py-16 text-center">
+                <span class="material-symbols-outlined text-6xl text-slate-200">people</span>
+                <p class="text-slate-400 font-bold mt-4">No hay clientes que coincidan</p>
+                <p class="text-slate-300 text-sm mt-1">Ejecuta el sync de Pulpos para importar clientes</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- SLIDE-OVER DETALLE CLIENTE -->
+    <div id="slideDetalleCliente" class="slide-over">
+        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h2 class="text-xl font-black uppercase italic text-slate-900">Detalle del Cliente</h2>
+            <button onclick="cerrarDetalleCliente()"
+                class="size-10 rounded-full hover:bg-slate-100 flex items-center justify-center">
+                <span class="material-symbols-outlined text-slate-400">close</span>
+            </button>
+        </div>
+        <div id="contenidoDetalleCliente" class="flex-1 overflow-y-auto p-6 space-y-5"></div>
+    </div>
+    <div id="overlayCliente" class="hidden fixed inset-0 bg-black/20 z-[99]" onclick="cerrarDetalleCliente()"></div>
+
+    <script src="api.js"></script>
+    <script src="auth.js"></script>
+    <script src="menu.js"></script>
+    <script src="clientes.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof inyectarMenu === 'function') inyectarMenu('clientes');
+            if (typeof cargarClientes === 'function') cargarClientes();
+        });
+    </script>
+</body>
+
+</html>
