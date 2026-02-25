@@ -259,17 +259,16 @@
 
         <!-- TABLAS LADO A LADO -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- TABLA SUCURSAL SUR (IZQUIERDA) -->
-            <div class="card overflow-hidden shadow-sm">
+            <div class="card overflow-hidden shadow-sm border-l-4 border-emerald-500">
                 <div class="bg-emerald-50 px-6 py-4 border-b border-emerald-100 flex items-center gap-3">
                     <span class="material-symbols-outlined text-emerald-600">storefront</span>
                     <h3 class="font-black text-emerald-800 uppercase text-sm tracking-wide">Sucursal Sur</h3>
                     <span id="contadorGastosSur" class="text-xs text-emerald-500 font-bold">(0 items)</span>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto max-h-[520px] overflow-y-auto">
                     <table class="w-full text-left text-xs">
                         <thead
-                            class="bg-[#f1f4f2] text-gray-500 text-[10px] font-black uppercase tracking-wide border-b border-gray-100">
+                            class="bg-[#f1f4f2] text-gray-500 text-[10px] font-black uppercase tracking-wide border-b border-gray-100 sticky top-0 z-10">
                             <tr>
                                 <th class="px-2 py-3 text-center">Fecha</th>
                                 <th class="px-2 py-3 text-center">Proveedor</th>
@@ -288,16 +287,16 @@
             </div>
 
             <!-- TABLA SUCURSAL NORTE (DERECHA) -->
-            <div class="card overflow-hidden shadow-sm">
+            <div class="card overflow-hidden shadow-sm border-l-4 border-blue-500">
                 <div class="bg-blue-50 px-6 py-4 border-b border-blue-100 flex items-center gap-3">
                     <span class="material-symbols-outlined text-blue-600">storefront</span>
                     <h3 class="font-black text-blue-800 uppercase text-sm tracking-wide">Sucursal Norte</h3>
                     <span id="contadorGastosNorte" class="text-xs text-blue-500 font-bold">(0 items)</span>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto max-h-[520px] overflow-y-auto">
                     <table class="w-full text-left text-xs">
                         <thead
-                            class="bg-[#f1f4f2] text-gray-500 text-[10px] font-black uppercase tracking-wide border-b border-gray-100">
+                            class="bg-[#f1f4f2] text-gray-500 text-[10px] font-black uppercase tracking-wide border-b border-gray-100 sticky top-0 z-10">
                             <tr>
                                 <th class="px-2 py-3 text-center">Fecha</th>
                                 <th class="px-2 py-3 text-center">Proveedor</th>
@@ -315,124 +314,158 @@
                 </div>
             </div>
         </div>
-    </main>
 
-    <div id="modalEditarGasto"
-        class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center backdrop-blur-sm p-4">
-        <div
-            class="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden scale-95 animate-in fade-in zoom-in duration-200">
-            <div class="p-4 lg:p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                <div>
-                    <h3 class="text-xl font-black uppercase italic tracking-tight">Editar Registro de Gasto</h3>
-                    <p class="text-[10px] text-gray-400 font-black uppercase mt-1 tracking-widest">Modifica la
-                        información del egreso seleccionado</p>
-                </div>
-                <button onclick="cerrarModalEdicion()"
-                    class="size-10 rounded-full hover:bg-gray-200 transition-colors flex items-center justify-center">
-                    <span class="material-symbols-outlined text-gray-400">close</span>
-                </button>
+        <!-- BARRA DE TOTALES FILTRADOS -->
+        <div id="baraTotalesGastos"
+            class="sticky bottom-0 bg-gray-900 text-white rounded-2xl shadow-2xl px-6 py-4 flex flex-wrap items-center gap-4 lg:gap-8 border border-gray-700 z-10">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-red-400 text-sm">filter_alt</span>
+                <span class="text-[9px] font-black uppercase tracking-widest text-gray-400">Totales filtrados</span>
             </div>
-
-            <form id="formEditarGasto" class="p-4 lg:p-8 grid grid-cols-2 gap-6">
-                <input type="hidden" id="editGastoId">
-                <div class="col-span-1">
-                    <label
-                        class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Fecha</label>
-                    <input type="date" id="editFecha" class="input-edit" required>
+            <div class="flex items-center gap-2 border-l border-gray-700 pl-4 lg:pl-8">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                <div>
+                    <p class="text-[8px] font-bold text-gray-500 uppercase">Sur</p>
+                    <p id="totalGastosSur" class="text-sm font-black text-emerald-400">$0.00</p>
                 </div>
-                <div class="col-span-1">
-                    <label
-                        class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Proveedor</label>
-                    <input type="text" id="editProveedor" class="input-edit uppercase" required>
+            </div>
+            <div class="flex items-center gap-2 border-l border-gray-700 pl-4 lg:pl-8">
+                <span class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span>
+                <div>
+                    <p class="text-[8px] font-bold text-gray-500 uppercase">Norte</p>
+                    <p id="totalGastosNorte" class="text-sm font-black text-blue-400">$0.00</p>
                 </div>
-                <div class="col-span-1">
-                    <label
-                        class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Categoría</label>
-                    <select id="editCategoria" class="input-edit">
-                        <option value="Gasto">Gasto</option>
-                        <option value="Costo">Costo</option>
-                        <option value="Gasto Financiero">Gasto Financiero</option>
-                        <option value="Gasto Contable">Gasto Contable</option>
-                        <option value="Pago de Pasivo">Pago de Pasivo</option>
-                    </select>
-                </div>
-                <div class="col-span-1">
-                    <label
-                        class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Sucursal</label>
-                    <select id="editSucursalGasto" class="input-edit">
-                        <option value="Matriz">Matriz</option>
-                        <option value="Norte">Norte</option>
-                        <option value="Sur">Sur</option>
-                    </select>
-                </div>
-                <div class="col-span-1">
-                    <label
-                        class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Subcategoría
-                        / Concepto</label>
-                    <input type="text" id="editSubcategoria" class="input-edit">
-                </div>
-                <div class="col-span-1">
-                    <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Método
-                        de Pago</label>
-                    <select id="editMetodo" class="input-edit">
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
-                        <option value="Transferencia BBVA">Transferencia BBVA</option>
-                        <option value="Tarjeta de Credito BBVA">Tarjeta de Credito BBVA</option>
-                        <option value="Tarjeta de credito Hey Banco">Tarjeta de credito Hey Banco</option>
-                        <option value="cuenta Mercado Pago">cuenta Mercado Pago</option>
-                        <option value="Crédito">Crédito</option>
-                    </select>
-                </div>
-                <div id="containerDiasCredito" class="col-span-1 hidden">
-                    <label class="text-[9px] font-black uppercase text-blue-500 tracking-[0.2em] block mb-2 px-1">Días
-                        de Crédito</label>
-                    <input type="number" id="editDiasCredito" class="input-edit border-blue-100 bg-blue-50/50">
-                </div>
-                <div class="col-span-1">
-                    <label class="text-[9px] font-black uppercase text-red-500 tracking-[0.2em] block mb-2 px-1">Monto
-                        Total ($)</label>
-                    <input type="number" step="0.01" id="editMonto" class="input-edit font-black text-red-500 text-lg"
-                        required>
-                </div>
-                <div class="col-span-2">
-                    <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Notas
-                        / Descripción</label>
-                    <textarea id="editNotas" class="input-edit min-h-[80px] uppercase"></textarea>
-                </div>
-            </form>
-
-            <div class="p-4 lg:p-8 bg-gray-50/50 border-t border-gray-100 flex gap-3">
-                <button onclick="cerrarModalEdicion()"
-                    class="flex-1 py-4 text-[11px] font-black uppercase text-gray-400 hover:text-gray-600 transition-all">Cancelar</button>
-                <button onclick="actualizarGasto()"
-                    class="flex-[2] bg-black text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-[0.15em] hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10">
-                    <span class="material-symbols-outlined text-sm">save</span> Guardar Cambios
-                </button>
+            </div>
+            <div class="flex-1 border-l border-gray-700 pl-4 lg:pl-8">
+                <p class="text-[8px] font-bold text-gray-500 uppercase">Total General</p>
+                <p id="totalGastosGeneral" class="text-xl font-black text-red-400">$0.00</p>
+            </div>
+            <div class="text-right border-l border-gray-700 pl-4 lg:pl-8">
+                <p class="text-[8px] font-bold text-gray-500 uppercase">Registros</p>
+                <p id="totalGastosTxn" class="text-sm font-black text-white">0</p>
             </div>
         </div>
-    </div>
 
-    <script src="api.js"></script>
-    <script src="auth.js"></script>
-    <script src="menu.js"></script>
-    <script src="export_helper.js"></script>
-    <script src="gastos.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            if (typeof inyectarMenu === 'function') inyectarMenu('gastos');
-            if (typeof cargarGastos === 'function') cargarGastos();
+        <div id="modalEditarGasto"
+            class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center backdrop-blur-sm p-4">
+            <div
+                class="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden scale-95 animate-in fade-in zoom-in duration-200">
+                <div class="p-4 lg:p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <div>
+                        <h3 class="text-xl font-black uppercase italic tracking-tight">Editar Registro de Gasto</h3>
+                        <p class="text-[10px] text-gray-400 font-black uppercase mt-1 tracking-widest">Modifica la
+                            información del egreso seleccionado</p>
+                    </div>
+                    <button onclick="cerrarModalEdicion()"
+                        class="size-10 rounded-full hover:bg-gray-200 transition-colors flex items-center justify-center">
+                        <span class="material-symbols-outlined text-gray-400">close</span>
+                    </button>
+                </div>
 
-            const selectMetodo = document.getElementById('editMetodo');
-            if (selectMetodo) {
-                selectMetodo.addEventListener('change', (e) => {
-                    const container = document.getElementById('containerDiasCredito');
-                    if (e.target.value === 'Crédito') container.classList.remove('hidden');
-                    else container.classList.add('hidden');
-                });
-            }
-        });
-    </script>
+                <form id="formEditarGasto" class="p-4 lg:p-8 grid grid-cols-2 gap-6">
+                    <input type="hidden" id="editGastoId">
+                    <div class="col-span-1">
+                        <label
+                            class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Fecha</label>
+                        <input type="date" id="editFecha" class="input-edit" required>
+                    </div>
+                    <div class="col-span-1">
+                        <label
+                            class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Proveedor</label>
+                        <input type="text" id="editProveedor" class="input-edit uppercase" required>
+                    </div>
+                    <div class="col-span-1">
+                        <label
+                            class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Categoría</label>
+                        <select id="editCategoria" class="input-edit">
+                            <option value="Gasto">Gasto</option>
+                            <option value="Costo">Costo</option>
+                            <option value="Gasto Financiero">Gasto Financiero</option>
+                            <option value="Gasto Contable">Gasto Contable</option>
+                            <option value="Pago de Pasivo">Pago de Pasivo</option>
+                        </select>
+                    </div>
+                    <div class="col-span-1">
+                        <label
+                            class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Sucursal</label>
+                        <select id="editSucursalGasto" class="input-edit">
+                            <option value="Matriz">Matriz</option>
+                            <option value="Norte">Norte</option>
+                            <option value="Sur">Sur</option>
+                        </select>
+                    </div>
+                    <div class="col-span-1">
+                        <label
+                            class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Subcategoría
+                            / Concepto</label>
+                        <input type="text" id="editSubcategoria" class="input-edit">
+                    </div>
+                    <div class="col-span-1">
+                        <label
+                            class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Método
+                            de Pago</label>
+                        <select id="editMetodo" class="input-edit">
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
+                            <option value="Transferencia BBVA">Transferencia BBVA</option>
+                            <option value="Tarjeta de Credito BBVA">Tarjeta de Credito BBVA</option>
+                            <option value="Tarjeta de credito Hey Banco">Tarjeta de credito Hey Banco</option>
+                            <option value="cuenta Mercado Pago">cuenta Mercado Pago</option>
+                            <option value="Crédito">Crédito</option>
+                        </select>
+                    </div>
+                    <div id="containerDiasCredito" class="col-span-1 hidden">
+                        <label
+                            class="text-[9px] font-black uppercase text-blue-500 tracking-[0.2em] block mb-2 px-1">Días
+                            de Crédito</label>
+                        <input type="number" id="editDiasCredito" class="input-edit border-blue-100 bg-blue-50/50">
+                    </div>
+                    <div class="col-span-1">
+                        <label
+                            class="text-[9px] font-black uppercase text-red-500 tracking-[0.2em] block mb-2 px-1">Monto
+                            Total ($)</label>
+                        <input type="number" step="0.01" id="editMonto"
+                            class="input-edit font-black text-red-500 text-lg" required>
+                    </div>
+                    <div class="col-span-2">
+                        <label
+                            class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2 px-1">Notas
+                            / Descripción</label>
+                        <textarea id="editNotas" class="input-edit min-h-[80px] uppercase"></textarea>
+                    </div>
+                </form>
+
+                <div class="p-4 lg:p-8 bg-gray-50/50 border-t border-gray-100 flex gap-3">
+                    <button onclick="cerrarModalEdicion()"
+                        class="flex-1 py-4 text-[11px] font-black uppercase text-gray-400 hover:text-gray-600 transition-all">Cancelar</button>
+                    <button onclick="actualizarGasto()"
+                        class="flex-[2] bg-black text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-[0.15em] hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10">
+                        <span class="material-symbols-outlined text-sm">save</span> Guardar Cambios
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script src="api.js"></script>
+        <script src="auth.js"></script>
+        <script src="menu.js"></script>
+        <script src="export_helper.js"></script>
+        <script src="gastos.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (typeof inyectarMenu === 'function') inyectarMenu('gastos');
+                if (typeof cargarGastos === 'function') cargarGastos();
+
+                const selectMetodo = document.getElementById('editMetodo');
+                if (selectMetodo) {
+                    selectMetodo.addEventListener('change', (e) => {
+                        const container = document.getElementById('containerDiasCredito');
+                        if (e.target.value === 'Crédito') container.classList.remove('hidden');
+                        else container.classList.add('hidden');
+                    });
+                }
+            });
+        </script>
 </body>
 
 </html>

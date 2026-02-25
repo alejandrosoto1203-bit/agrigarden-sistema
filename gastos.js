@@ -186,7 +186,23 @@ function renderizarTablaGastos(datos) {
     // Renderizar ambas tablas
     renderizarEnTabla(datosSur, tablaSur);
     renderizarEnTabla(datosNorte, tablaNorte);
+
+    // --- BARRA DE TOTALES FILTRADOS ---
+    const totalSurVal = datosSur.reduce((s, i) => s + (i.monto_total || 0), 0);
+    const totalNorteVal = datosNorte.reduce((s, i) => s + (i.monto_total || 0), 0);
+    const totalGen = totalSurVal + totalNorteVal;
+    const totalTxn = datos.length;
+
+    const elS = document.getElementById('totalGastosSur');
+    const elN = document.getElementById('totalGastosNorte');
+    const elG = document.getElementById('totalGastosGeneral');
+    const elT = document.getElementById('totalGastosTxn');
+    if (elS) elS.textContent = formatMoney(totalSurVal);
+    if (elN) elN.textContent = formatMoney(totalNorteVal);
+    if (elG) elG.textContent = formatMoney(totalGen);
+    if (elT) elT.textContent = totalTxn.toLocaleString('es-MX') + ' reg.';
 }
+
 
 function toggleAcordeon(id) {
     const el = document.getElementById(id);
