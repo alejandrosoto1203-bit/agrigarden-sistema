@@ -174,6 +174,21 @@ function renderizarTablaIngresos(datos) {
     tablaNorte.innerHTML = datosNorte.length > 0
         ? datosNorte.map(generarFila).join('')
         : '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400 italic">Sin registros</td></tr>';
+
+    // --- BARRA DE TOTALES FILTRADOS ---
+    const totalSurAll = datosSur.reduce((s, i) => s + (i.monto || 0), 0);
+    const totalNorteAll = datosNorte.reduce((s, i) => s + (i.monto || 0), 0);
+    const totalGeneral = totalSurAll + totalNorteAll;
+    const txnTotal = datos.length;
+
+    const elSur = document.getElementById('totalBarSur');
+    const elNorte = document.getElementById('totalBarNorte');
+    const elGen = document.getElementById('totalBarGeneral');
+    const elTxn = document.getElementById('totalBarTxn');
+    if (elSur) elSur.textContent = formatMoney(totalSurAll);
+    if (elNorte) elNorte.textContent = formatMoney(totalNorteAll);
+    if (elGen) elGen.textContent = formatMoney(totalGeneral);
+    if (elTxn) elTxn.textContent = txnTotal.toLocaleString('es-MX') + ' reg.';
 }
 
 // 2. EDICIÓN Y ELIMINACIÓN (CORREGIDO)
