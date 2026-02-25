@@ -335,10 +335,10 @@
         // TABS - cambiar modo
         // =====================================================
         const MODO_CONFIG = {
-            ventas:      { label: 'Sincronizar Ventas',      step3: 'Extrayendo ventas de Pulpos',    step4: 'Preparando vista previa' },
-            inventario:  { label: 'Sincronizar Inventario',  step3: 'Procesando productos en Pulpos', step4: 'Guardando stock en CRM' },
+            ventas: { label: 'Sincronizar Ventas', step3: 'Extrayendo ventas de Pulpos', step4: 'Preparando vista previa' },
+            inventario: { label: 'Sincronizar Inventario', step3: 'Procesando productos en Pulpos', step4: 'Guardando stock en CRM' },
             movimientos: { label: 'Sincronizar Movimientos', step3: 'Leyendo historial de productos', step4: 'Guardando movimientos en CRM' },
-            clientes:    { label: 'Sincronizar Clientes',    step3: 'Leyendo clientes de Pulpos',     step4: 'Guardando clientes en CRM' },
+            clientes: { label: 'Sincronizar Clientes', step3: 'Leyendo clientes de Pulpos', step4: 'Guardando clientes en CRM' },
         };
 
         function seleccionarModo(modo) {
@@ -354,7 +354,7 @@
                 tab.classList.remove('border-gray-200', 'text-gray-400');
             }
             // Mostrar panel correcto
-            ['Ventas','Inventario','Movimientos','Clientes'].forEach(m => {
+            ['Ventas', 'Inventario', 'Movimientos', 'Clientes'].forEach(m => {
                 const el = document.getElementById('config' + m);
                 if (el) el.classList.add('hidden');
             });
@@ -563,7 +563,7 @@
                 intentos++;
 
                 // Simular pasos de progreso por tiempo
-                if (segundos > 30)  { completarStep(2); activarStep(3); }
+                if (segundos > 30) { completarStep(2); activarStep(3); }
                 if (segundos > 120) { completarStep(3); activarStep(4); }
 
                 // Para estos modos: leer el último log con estado completado/error
@@ -592,7 +592,7 @@
                     }
                 }
 
-                if (intentos >= 40) {
+                if (intentos >= 100) {
                     clearInterval(timerInterval);
                     mostrarError('Tiempo de espera agotado. El proceso puede seguir corriendo. Revisa GitHub Actions en unos minutos.');
                     return;
@@ -807,9 +807,9 @@
 
         function mostrarExitoDirecto(modo) {
             const destinos = {
-                inventario:  { label: '¡Inventario actualizado!', desc: 'El stock de todos los productos fue actualizado.', btn: 'Ver Productos', href: 'productos.html', icon: 'inventory_2' },
+                inventario: { label: '¡Inventario actualizado!', desc: 'El stock de todos los productos fue actualizado.', btn: 'Ver Productos', href: 'productos.html', icon: 'inventory_2' },
                 movimientos: { label: '¡Movimientos importados!', desc: 'Historial de entradas y salidas sincronizado.', btn: 'Ver Productos', href: 'productos.html', icon: 'history' },
-                clientes:    { label: '¡Clientes sincronizados!', desc: 'Todos los clientes de Pulpos fueron importados.', btn: 'Ver Clientes', href: 'clientes.html', icon: 'people' },
+                clientes: { label: '¡Clientes sincronizados!', desc: 'Todos los clientes de Pulpos fueron importados.', btn: 'Ver Clientes', href: 'clientes.html', icon: 'people' },
             };
             const d = destinos[modo] || { label: '¡Completado!', desc: 'Sincronización exitosa.', btn: 'Inicio', href: 'dashboard.html', icon: 'check_circle' };
             const p = document.getElementById('panelResultado');
