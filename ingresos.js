@@ -321,7 +321,8 @@ function agregarFila() {
                 <option value="Transferencia BBVA">Transferencia BBVA</option>
                 <option value="Tarjeta Hey Banco">Tarjeta Hey Banco</option>
                 <option value="Tarjeta BBVA">Tarjeta BBVA</option>
-                <option value="Tarjeta Mercado Pago">Tarjeta Mercado Pago</option>
+                <option value="Tarjeta Mercado Pago Fiscal Norte">Tarjeta Mercado Pago Fiscal Norte</option>
+                <option value="Tarjeta Mercado Pago No Fiscal Norte">Tarjeta Mercado Pago No Fiscal Norte</option>
                 <option value="Crédito">Crédito</option>
                 <option value="Cheque">Cheque</option>
                 <option value="Otros">Otros</option>

@@ -37,6 +37,8 @@ const DEFAULT_CONFIG = {
         "Transferencia Hey Banco": 0,
         "Transferencia BBVA": 0,
         "Tarjeta Mercado Pago": 0,
+        "Tarjeta Mercado Pago Fiscal Norte": 0,
+        "Tarjeta Mercado Pago No Fiscal Norte": 0,
         "Tarjeta Hey Banco": 0,
         "Tarjeta BBVA": 0,
         "Cheque": 0,

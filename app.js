@@ -1,15 +1,17 @@
 // --- CONFIGURACIÓN MAESTRA ---
 const SUPABASE_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_urdujDBeZyl8UjjTizpLkg_ffmYoO31'; 
+const SUPABASE_KEY = 'sb_publishable_urdujDBeZyl8UjjTizpLkg_ffmYoO31';
 
 const CONFIG_NEGOCIO = {
-    metaMensual: 300000, 
+    metaMensual: 300000,
     tasasComision: {
         "Efectivo": 0,
         "Transferencia": 0,
-        "Tarjeta Mercado Pago": 0.035, 
-        "Tarjeta Hey Banco": 0.021,    
-        "Tarjeta BBVA": 0.025,         
+        "Tarjeta Mercado Pago": 0.035,
+        "Tarjeta Mercado Pago Fiscal Norte": 0.035,
+        "Tarjeta Mercado Pago No Fiscal Norte": 0.035,
+        "Tarjeta Hey Banco": 0.021,
+        "Tarjeta BBVA": 0.025,
         "Cheque": 0,
         "Otro": 0,
         "Crédito": 0
@@ -23,7 +25,7 @@ document.getElementById('loginForm')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const email = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
-    if(email === "admin@agrigarden.com" && pass === "Maestro2024*") {
+    if (email === "admin@agrigarden.com" && pass === "Maestro2024*") {
         sessionStorage.setItem('isLoggedIn', 'true');
         window.location.href = "dashboard.html";
     } else {
@@ -72,7 +74,7 @@ async function cargarDashboard() {
         }).reduce((s, i) => s + (i.monto || 0), 0);
 
         const ingAnual = ingresos.filter(i => new Date(i.created_at).getFullYear() === añoActual)
-                                 .reduce((s, i) => s + (i.monto || 0), 0);
+            .reduce((s, i) => s + (i.monto || 0), 0);
 
         const gastMes = gastos.filter(g => {
             const d = new Date(g.created_at);
@@ -80,14 +82,14 @@ async function cargarDashboard() {
         }).reduce((s, g) => s + (g.monto_total || 0), 0);
 
         const gastAnual = gastos.filter(g => new Date(g.created_at).getFullYear() === añoActual)
-                                .reduce((s, g) => s + (g.monto_total || 0), 0);
+            .reduce((s, g) => s + (g.monto_total || 0), 0);
 
         const format = (n) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-        
-        if(document.getElementById('dashIngresosMes')) document.getElementById('dashIngresosMes').innerText = format(ingMes);
-        if(document.getElementById('dashGastosMes')) document.getElementById('dashGastosMes').innerText = format(gastMes);
-        if(document.getElementById('dashIngresosAnual')) document.getElementById('dashIngresosAnual').innerText = format(ingAnual);
-        if(document.getElementById('dashGastosAnual')) document.getElementById('dashGastosAnual').innerText = format(gastAnual);
+
+        if (document.getElementById('dashIngresosMes')) document.getElementById('dashIngresosMes').innerText = format(ingMes);
+        if (document.getElementById('dashGastosMes')) document.getElementById('dashGastosMes').innerText = format(gastMes);
+        if (document.getElementById('dashIngresosAnual')) document.getElementById('dashIngresosAnual').innerText = format(ingAnual);
+        if (document.getElementById('dashGastosAnual')) document.getElementById('dashGastosAnual').innerText = format(gastAnual);
 
     } catch (error) {
         console.error("Error dashboard:", error);
@@ -111,8 +113,8 @@ async function cargarIngresos() {
             const fecha = new Date(item.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
             const comision = item.comision_bancaria || 0;
             const neto = item.monto_neto || (item.monto - comision);
-            
-            const clienteInfo = item.nombre_cliente 
+
+            const clienteInfo = item.nombre_cliente
                 ? `<div class="flex flex-col"><span class="text-black font-black uppercase text-[11px]">${item.nombre_cliente}</span><span class="text-[10px] text-gray-400">${item.telefono_cliente || 'Sin tel'}</span></div>`
                 : '<span class="text-gray-300 italic">-</span>';
 
@@ -125,8 +127,8 @@ async function cargarIngresos() {
                 <td class="px-6 py-6 text-sm text-gray-500 text-center">${item.metodo_pago}</td>
                 <td class="px-6 py-6 text-center">${clienteInfo}</td>
                 <td class="px-6 py-6 text-right text-xs text-red-400">-$${comision.toFixed(2)}</td>
-                <td class="px-6 py-6 text-right text-gray-400">$${item.monto.toLocaleString('es-MX', {minimumFractionDigits: 2})}</td>
-                <td class="px-6 py-6 text-right text-lg text-primary font-black">$${neto.toLocaleString('es-MX', {minimumFractionDigits: 2})}</td>
+                <td class="px-6 py-6 text-right text-gray-400">$${item.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                <td class="px-6 py-6 text-right text-lg text-primary font-black">$${neto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                 <td class="px-6 py-6 text-center">
                     <div class="flex justify-center gap-2">
                         <button onclick="abrirModalEditarIngreso(${JSON.stringify(item).replace(/"/g, '&quot;')})" class="p-2 bg-gray-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm">
@@ -178,7 +180,7 @@ async function actualizarIngreso() {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(datos)
         });
-        if(res.ok) {
+        if (res.ok) {
             document.getElementById('modalEditarIngreso')?.classList.add('hidden');
             cargarIngresos();
             cargarDashboard();
@@ -188,13 +190,13 @@ async function actualizarIngreso() {
 }
 
 async function eliminarIngreso(id) {
-    if(!confirm("¿Estás seguro de eliminar este ingreso permanentemente?")) return;
+    if (!confirm("¿Estás seguro de eliminar este ingreso permanentemente?")) return;
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${id}`, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
-        if(res.ok) {
+        if (res.ok) {
             cargarIngresos();
             cargarDashboard();
             alert("Registro eliminado.");
@@ -206,11 +208,11 @@ function actualizarCalculosKPIsIngresos(datos) {
     const hoy = new Date().toISOString().split('T')[0];
     const ingresosHoyArr = datos.filter(i => i.created_at.includes(hoy));
     const totalHoy = ingresosHoyArr.reduce((s, i) => s + (i.monto || 0), 0);
-    
-    if(document.getElementById('kpiHoy')) document.getElementById('kpiHoy').innerText = `$${totalHoy.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
-    
+
+    if (document.getElementById('kpiHoy')) document.getElementById('kpiHoy').innerText = `$${totalHoy.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
     const ticketPromDiario = ingresosHoyArr.length > 0 ? totalHoy / ingresosHoyArr.length : 0;
-    if(document.getElementById('kpiTicketDiario')) document.getElementById('kpiTicketDiario').innerText = `$${ticketPromDiario.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+    if (document.getElementById('kpiTicketDiario')) document.getElementById('kpiTicketDiario').innerText = `$${ticketPromDiario.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
     const mesActual = new Date().getMonth();
     const añoActual = new Date().getFullYear();
@@ -219,33 +221,33 @@ function actualizarCalculosKPIsIngresos(datos) {
         return d.getMonth() === mesActual && d.getFullYear() === añoActual;
     });
     const totalMes = ingresosMesArr.reduce((s, i) => s + (i.monto || 0), 0);
-    if(document.getElementById('kpiMes')) document.getElementById('kpiMes').innerText = `$${totalMes.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+    if (document.getElementById('kpiMes')) document.getElementById('kpiMes').innerText = `$${totalMes.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
     const totalGeneral = datos.reduce((s, i) => s + (i.monto || 0), 0);
     const ticketGeneral = datos.length > 0 ? totalGeneral / datos.length : 0;
-    if(document.getElementById('kpiTicket')) document.getElementById('kpiTicket').innerText = `$${ticketGeneral.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+    if (document.getElementById('kpiTicket')) document.getElementById('kpiTicket').innerText = `$${ticketGeneral.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
     const meta = CONFIG_NEGOCIO.metaMensual;
     const porcentajeMeta = Math.min((totalMes / meta) * 100, 100);
     const barraMeta = document.getElementById('barraMeta');
     const textoMeta = document.getElementById('percentMeta');
-    
-    if(barraMeta) barraMeta.style.width = `${porcentajeMeta}%`;
-    if(textoMeta) textoMeta.innerText = `${porcentajeMeta.toFixed(1)}%`;
+
+    if (barraMeta) barraMeta.style.width = `${porcentajeMeta}%`;
+    if (textoMeta) textoMeta.innerText = `${porcentajeMeta.toFixed(1)}%`;
 }
 
 // ==========================================
 // 4. MÓDULO DE CUENTAS POR COBRAR
 // ==========================================
 let pestañaActualCobros = 'pendiente';
-let datosCacheCobros = []; 
+let datosCacheCobros = [];
 
 function cambiarPestaña(tipo) {
     pestañaActualCobros = tipo;
     const tabPendiente = document.getElementById('tabPendiente');
     const tabPagado = document.getElementById('tabPagado');
-    if(tabPendiente) tabPendiente.className = tipo === 'pendiente' ? 'pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all' : 'pb-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all';
-    if(tabPagado) tabPagado.className = tipo === 'pagado' ? 'pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all' : 'pb-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all';
+    if (tabPendiente) tabPendiente.className = tipo === 'pendiente' ? 'pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all' : 'pb-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all';
+    if (tabPagado) tabPagado.className = tipo === 'pagado' ? 'pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all' : 'pb-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all';
     aplicarFiltrosCobros();
 }
 
@@ -280,17 +282,17 @@ async function cargarCuentasPorCobrar() {
             const saldoPendiente = (item.saldo_pendiente !== null) ? item.saldo_pendiente : montoOriginal;
             const estadoActual = item.estado_cobro || 'Pendiente';
             const fechaVencimiento = new Date(item.created_at); fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
-            if(estadoActual === 'Pendiente') {
+            if (estadoActual === 'Pendiente') {
                 totalOutstanding += saldoPendiente;
-                if(hoy > fechaVencimiento) totalVencidoSuma += saldoPendiente;
+                if (hoy > fechaVencimiento) totalVencidoSuma += saldoPendiente;
             }
             totalRecuperado += (montoOriginal - saldoPendiente);
         });
-        if(document.getElementById('totalPorCobrar')) document.getElementById('totalPorCobrar').innerText = `$${totalOutstanding.toLocaleString()}`;
-        if(document.getElementById('totalVencido')) document.getElementById('totalVencido').innerText = `$${totalVencidoSuma.toLocaleString()}`;
-        if(document.getElementById('cuentasVencidas')) document.getElementById('cuentasVencidas').innerText = datosCacheCobros.filter(i => (hoy > new Date(new Date(i.created_at).setDate(new Date(i.created_at).getDate() + 30))) && (i.estado_cobro !== 'Pagado')).length;
-        if(document.getElementById('recuperadoMes')) document.getElementById('recuperadoMes').innerText = `$${totalRecuperado.toLocaleString()}`;
-        aplicarFiltrosCobros(); 
+        if (document.getElementById('totalPorCobrar')) document.getElementById('totalPorCobrar').innerText = `$${totalOutstanding.toLocaleString()}`;
+        if (document.getElementById('totalVencido')) document.getElementById('totalVencido').innerText = `$${totalVencidoSuma.toLocaleString()}`;
+        if (document.getElementById('cuentasVencidas')) document.getElementById('cuentasVencidas').innerText = datosCacheCobros.filter(i => (hoy > new Date(new Date(i.created_at).setDate(new Date(i.created_at).getDate() + 30))) && (i.estado_cobro !== 'Pagado')).length;
+        if (document.getElementById('recuperadoMes')) document.getElementById('recuperadoMes').innerText = `$${totalRecuperado.toLocaleString()}`;
+        aplicarFiltrosCobros();
     } catch (error) { console.error("Error cobranza:", error); }
 }
 
@@ -327,16 +329,16 @@ function prepararAbonoPago(id, nombre, saldo, modo) {
     const infoAbono = document.getElementById('abonoCliente');
     const inputMonto = document.getElementById('montoAbono');
     const titulo = document.getElementById('tituloModalAbono');
-    if(infoAbono) infoAbono.innerText = `CLIENTE: ${nombre} (Saldo: $${saldo.toLocaleString()})`;
-    if(inputMonto) { inputMonto.value = modo === 'liquidacion' ? saldo : ''; inputMonto.readOnly = modo === 'liquidacion'; }
-    if(titulo) titulo.innerText = modo === 'liquidacion' ? 'Liquidar Cuenta' : 'Registrar Abono';
+    if (infoAbono) infoAbono.innerText = `CLIENTE: ${nombre} (Saldo: $${saldo.toLocaleString()})`;
+    if (inputMonto) { inputMonto.value = modo === 'liquidacion' ? saldo : ''; inputMonto.readOnly = modo === 'liquidacion'; }
+    if (titulo) titulo.innerText = modo === 'liquidacion' ? 'Liquidar Cuenta' : 'Registrar Abono';
     document.getElementById('modalAbono')?.classList.remove('hidden');
 }
 
 async function guardarAbono() {
     const monto = parseFloat(document.getElementById('montoAbono')?.value || 0);
     const metodo = document.getElementById('metodoPagoCobro')?.value || 'Efectivo';
-    if(!monto || monto <= 0 || monto > saldoMaximoAbono) return alert("Monto no válido.");
+    if (!monto || monto <= 0 || monto > saldoMaximoAbono) return alert("Monto no válido.");
     try {
         const nuevoSaldo = saldoMaximoAbono - monto;
         const res = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${idTransaccionAbono}`, {
@@ -344,11 +346,11 @@ async function guardarAbono() {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ saldo_pendiente: nuevoSaldo, estado_cobro: nuevoSaldo <= 0 ? 'Pagado' : 'Pendiente' })
         });
-        if(res.ok) {
+        if (res.ok) {
             await fetch(`${SUPABASE_URL}/rest/v1/bitacora_cobranza`, {
                 method: 'POST',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ transaccion_id: idTransaccionAbono, nota: `PAGO: $${monto.toLocaleString('es-MX', {minimumFractionDigits: 2})} via ${metodo}` })
+                body: JSON.stringify({ transaccion_id: idTransaccionAbono, nota: `PAGO: $${monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })} via ${metodo}` })
             });
             document.getElementById('modalAbono')?.classList.add('hidden');
             cargarCuentasPorCobrar();
@@ -358,14 +360,14 @@ async function guardarAbono() {
 
 async function abrirBitacora(id, nombre) {
     currentTransaccionId = id;
-    if(document.getElementById('clienteBitacora')) document.getElementById('clienteBitacora').innerText = `CLIENTE: ${nombre}`;
+    if (document.getElementById('clienteBitacora')) document.getElementById('clienteBitacora').innerText = `CLIENTE: ${nombre}`;
     document.getElementById('modalBitacora')?.classList.remove('hidden');
     cargarHistorialNotas(id);
 }
 
 async function cargarHistorialNotas(id) {
     const contenedor = document.getElementById('historialNotas');
-    if(!contenedor) return;
+    if (!contenedor) return;
     contenedor.innerHTML = '<p class="text-[10px] font-bold text-gray-300 animate-pulse">Cargando...</p>';
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/bitacora_cobranza?transaccion_id=eq.${id}&order=created_at.desc`, {
@@ -373,7 +375,7 @@ async function cargarHistorialNotas(id) {
         });
         const notas = await res.json();
         contenedor.innerHTML = notas.length ? notas.map(n => `
-            <div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm mb-2 font-bold"><p class="text-xs text-gray-700">${n.nota}</p><div class="flex justify-between items-center mt-2"><span class="text-[9px] font-black text-primary uppercase">${n.fecha_promesa ? 'Promesa: '+n.fecha_promesa : 'Seguimiento'}</span><span class="text-[9px] text-gray-300 font-bold">${new Date(n.created_at).toLocaleDateString()}</span></div></div>
+            <div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm mb-2 font-bold"><p class="text-xs text-gray-700">${n.nota}</p><div class="flex justify-between items-center mt-2"><span class="text-[9px] font-black text-primary uppercase">${n.fecha_promesa ? 'Promesa: ' + n.fecha_promesa : 'Seguimiento'}</span><span class="text-[9px] text-gray-300 font-bold">${new Date(n.created_at).toLocaleDateString()}</span></div></div>
         `).join('') : '<p class="text-[10px] italic text-gray-400">Sin historial.</p>';
     } catch (e) { console.error("Error cargando notas:", e); }
 }
@@ -402,7 +404,7 @@ async function cargarGastos() {
                 <td class="px-6 py-6 text-center text-sm text-gray-500">${item.sucursal}</td>
                 <td class="px-6 py-6 text-center text-sm text-gray-600">${item.metodo_pago || 'Efectivo'}</td>
                 <td class="px-6 py-6 text-center text-sm font-black text-blue-600">${item.metodo_pago === 'Crédito' ? (item.dias_credito || 0) + ' días' : '-'}</td>
-                <td class="px-6 py-6 text-right font-black text-lg text-red-600">$${(item.monto_total || 0).toLocaleString('es-MX', {minimumFractionDigits: 2})}</td>
+                <td class="px-6 py-6 text-right font-black text-lg text-red-600">$${(item.monto_total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
                 <td class="px-6 py-6 text-center text-sm italic text-gray-400 max-w-[200px] truncate">${item.notas || ''}</td>
                 <td class="px-6 py-6 text-center">
                     <div class="flex justify-center gap-2">
@@ -423,40 +425,40 @@ async function cargarGastos() {
 
 function actualizarKPIsGastos(datos) {
     try {
-        const ahora = new Date(); 
-        const mesActual = ahora.getMonth(); 
-        const añoActual = ahora.getFullYear(); 
+        const ahora = new Date();
+        const mesActual = ahora.getMonth();
+        const añoActual = ahora.getFullYear();
         const hoyStr = ahora.toISOString().split('T')[0];
 
-        const gastosMes = datos.filter(i => { 
-            const d = new Date(i.created_at); 
-            return d.getMonth() === mesActual && d.getFullYear() === añoActual; 
+        const gastosMes = datos.filter(i => {
+            const d = new Date(i.created_at);
+            return d.getMonth() === mesActual && d.getFullYear() === añoActual;
         });
 
         const totalMes = gastosMes.reduce((s, i) => s + (i.monto_total || 0), 0);
         const totalHoy = datos.filter(i => i.created_at.includes(hoyStr)).reduce((s, i) => s + (i.monto_total || 0), 0);
 
-        if(document.getElementById('kpiGastoMes')) document.getElementById('kpiGastoMes').innerText = `$${totalMes.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
-        if(document.getElementById('kpiGastoHoy')) document.getElementById('kpiGastoHoy').innerText = `$${totalHoy.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+        if (document.getElementById('kpiGastoMes')) document.getElementById('kpiGastoMes').innerText = `$${totalMes.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+        if (document.getElementById('kpiGastoHoy')) document.getElementById('kpiGastoHoy').innerText = `$${totalHoy.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
         // Lógica de Categoría TOP
-        if(gastosMes.length > 0) {
+        if (gastosMes.length > 0) {
             const rankingCat = gastosMes.reduce((acc, curr) => { acc[curr.categoria] = (acc[curr.categoria] || 0) + (curr.monto_total || 0); return acc; }, {});
             const topCat = Object.keys(rankingCat).reduce((a, b) => rankingCat[a] > rankingCat[b] ? a : b);
             const elTopCat = document.getElementById('kpiTopCat');
-            if(elTopCat) elTopCat.innerText = topCat.toUpperCase();
+            if (elTopCat) elTopCat.innerText = topCat.toUpperCase();
         }
 
         // Lógica de Ranking (Top 3 Conceptos)
         const rankingCont = document.getElementById('historialConceptos');
-        if(rankingCont) {
-            const rankingSub = gastosMes.reduce((acc, curr) => { 
+        if (rankingCont) {
+            const rankingSub = gastosMes.reduce((acc, curr) => {
                 const sub = curr.subcategoria || "OTROS";
-                acc[sub] = (acc[sub] || 0) + (curr.monto_total || 0); 
-                return acc; 
+                acc[sub] = (acc[sub] || 0) + (curr.monto_total || 0);
+                return acc;
             }, {});
-            const sorted = Object.entries(rankingSub).sort(([,a], [,b]) => b - a).slice(0, 3);
-            rankingCont.innerHTML = sorted.length ? sorted.map(([name, val], i) => `<p class="flex justify-between text-[11px] font-bold py-1"><span>${i+1}. ${name.toUpperCase()}</span> <span class="text-red-500">$${val.toLocaleString('es-MX')}</span></p>`).join('') : '<p class="text-[10px] italic text-gray-400 font-bold">Sin registros.</p>';
+            const sorted = Object.entries(rankingSub).sort(([, a], [, b]) => b - a).slice(0, 3);
+            rankingCont.innerHTML = sorted.length ? sorted.map(([name, val], i) => `<p class="flex justify-between text-[11px] font-bold py-1"><span>${i + 1}. ${name.toUpperCase()}</span> <span class="text-red-500">$${val.toLocaleString('es-MX')}</span></p>`).join('') : '<p class="text-[10px] italic text-gray-400 font-bold">Sin registros.</p>';
         }
     } catch (e) { console.error("Error blindado KPIs Gastos:", e); }
 }
@@ -490,8 +492,8 @@ function actualizarTotalesGastos() {
     filas.forEach(fila => { suma += parseFloat(fila.querySelector('.row-monto').value) || 0; });
     const montoTotalDoc = document.getElementById('montoTotalGastos');
     const contadorDoc = document.getElementById('contadorGastos');
-    if(montoTotalDoc) montoTotalDoc.innerText = `$${suma.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
-    if(contadorDoc) contadorDoc.innerText = `${filas.length} Items`;
+    if (montoTotalDoc) montoTotalDoc.innerText = `$${suma.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    if (contadorDoc) contadorDoc.innerText = `${filas.length} Items`;
 }
 
 async function guardarLoteGastos() {
@@ -539,14 +541,14 @@ async function cargarCuentasPorPagar() {
             method: 'GET', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
         const datos = await res.json();
-        
+
         // Actualizar KPIs de Pagar
         const hoy = new Date();
         const totalPagar = datos.filter(i => i.estado_pago !== 'Pagado').reduce((s, i) => s + (i.saldo_pendiente || 0), 0);
         const vencido = datos.filter(i => i.estado_pago !== 'Pagado' && new Date(i.created_at) < hoy).reduce((s, i) => s + (i.saldo_pendiente || 0), 0);
-        
-        if(document.getElementById('kpiTotalPagar')) document.getElementById('kpiTotalPagar').innerText = `$${totalPagar.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
-        if(document.getElementById('kpiMontoVencido')) document.getElementById('kpiMontoVencido').innerText = `$${vencido.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+
+        if (document.getElementById('kpiTotalPagar')) document.getElementById('kpiTotalPagar').innerText = `$${totalPagar.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+        if (document.getElementById('kpiMontoVencido')) document.getElementById('kpiMontoVencido').innerText = `$${vencido.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
         tabla.innerHTML = "";
         datos.forEach(item => {
@@ -622,8 +624,8 @@ function actualizarCalculosTotales() {
     const filas = document.querySelectorAll('#filasCaptura .capture-row');
     let suma = 0;
     filas.forEach(fila => { suma += parseFloat(fila.querySelector('.row-monto').value) || 0; });
-    if(document.getElementById('montoTotalVisual')) document.getElementById('montoTotalVisual').innerText = `$${suma.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
-    if(document.getElementById('contadorIngresos')) document.getElementById('contadorIngresos').innerText = `${filas.length} Ingresos`;
+    if (document.getElementById('montoTotalVisual')) document.getElementById('montoTotalVisual').innerText = `$${suma.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    if (document.getElementById('contadorIngresos')) document.getElementById('contadorIngresos').innerText = `${filas.length} Ingresos`;
 }
 
 // ==========================================
@@ -633,16 +635,16 @@ document.addEventListener('DOMContentLoaded', () => {
     cargarDashboard();
     cargarIngresos();
     cargarGastos();
-    cargarCuentasPorCobrar(); 
+    cargarCuentasPorCobrar();
     cargarCuentasPorPagar();
-    if(document.getElementById('filasCaptura')) {
-        if(document.querySelectorAll('#filasCaptura .capture-row').length === 0) agregarFila();
+    if (document.getElementById('filasCaptura')) {
+        if (document.querySelectorAll('#filasCaptura .capture-row').length === 0) agregarFila();
     }
-    if(document.getElementById('filasCapturaGastos')) {
+    if (document.getElementById('filasCapturaGastos')) {
         agregarFilaGasto();
     }
     const selectEstado = document.querySelector('select[class*="focus:ring-primary"]');
-    if(selectEstado) selectEstado.addEventListener('change', aplicarFiltrosCobros);
+    if (selectEstado) selectEstado.addEventListener('change', aplicarFiltrosCobros);
     const inputBusqueda = document.querySelector('input[placeholder*="Buscar"]');
-    if(inputBusqueda) inputBusqueda.addEventListener('input', aplicarFiltrosCobros);
+    if (inputBusqueda) inputBusqueda.addEventListener('input', aplicarFiltrosCobros);
 });

@@ -75,7 +75,7 @@ function mapearMetodoPago(metodoPulpos, comentarios = '') {
         if (notas.includes('bbva') || metodo.includes('bbva')) return { metodo: 'Tarjeta BBVA', claro: true };
         if (notas.includes('hey') || metodo.includes('hey')) return { metodo: 'Tarjeta Hey Banco', claro: true };
         if (notas.includes('mp') || notas.includes('mercado pago') || notas.includes('mercadopago'))
-            return { metodo: 'Tarjeta Mercado Pago', claro: true };
+            return { metodo: 'Tarjeta Mercado Pago Fiscal Norte', claro: false }; // Requiere elegir Fiscal o No Fiscal Norte
         return { metodo: 'Tarjeta', claro: false }; // Requiere revisión (falta banco)
     }
 
