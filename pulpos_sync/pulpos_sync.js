@@ -493,6 +493,8 @@ async function sincronizarClientes(page) {
                 }
 
                 const payload = {
+                    fecha_sync: FECHA_SYNC,
+                    sync_log_id: logId,
                     pulpos_id: pulposId,
                     nombre: datos.nombre,
                     telefono: datos.telefono,
@@ -504,12 +506,12 @@ async function sincronizarClientes(page) {
                     saldo: datos.saldo,
                     total_ventas: datos.total_ventas,
                     total_vendido: datos.total_vendido,
-                    ultima_sync: new Date().toISOString()
+                    confirmado: false
                 };
 
                 const { error } = await supabase
-                    .from('clientes')
-                    .upsert(payload, { onConflict: 'pulpos_id' });
+                    .from('clientes_staging')
+                    .insert(payload);
 
                 if (error) {
                     console.error(`   ERROR ${datos.nombre}: ${error.message}`);
@@ -517,6 +519,14 @@ async function sincronizarClientes(page) {
                 } else {
                     actualizados++;
                     console.log(`   OK [${actualizados}/${clientIds.size}] ${datos.nombre}`);
+
+                    // Live progres update every 10 clients
+                    if (logId && actualizados % 10 === 0) {
+                        await supabase.from('pulpos_sync_log').update({
+                            ventas_importadas: actualizados,
+                            mensaje: `Extrayendo... ${actualizados} de ${clientIds.size} encontrados`
+                        }).eq('id', logId);
+                    }
                 }
 
             } catch (e) {
@@ -525,13 +535,13 @@ async function sincronizarClientes(page) {
             }
         }
 
-        // Registrar resultado en historial (igual que ventas)
+        // Registrar resultado en historial a Listo para Revisión
         if (logId) {
             await supabase.from('pulpos_sync_log').update({
-                estado: 'completado',
+                estado: 'listo_para_revision_clientes',
                 ventas_importadas: actualizados,
                 ventas_pendientes: errores,
-                mensaje: `${actualizados} clientes sincronizados de ${clientIds.size} encontrados`
+                mensaje: `${actualizados} clientes listos para revisión (${errores} errores)`
             }).eq('id', logId);
         }
 

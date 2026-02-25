@@ -205,6 +205,7 @@
                         <div>
                             <h2 id="tituloProgreso" class="text-base font-black text-gray-800">Sincronizando...</h2>
                             <p id="subtituloProgreso" class="text-xs text-gray-500">Iniciando en GitHub</p>
+                            <p id="liveProgreso" class="text-xs font-bold text-blue-600 mt-1 hidden"></p>
                         </div>
                     </div>
                     <div class="space-y-3">
@@ -298,6 +299,36 @@
             <!-- Tabla de ventas -->
             <div class="flex-1 overflow-y-auto p-6">
                 <div id="tablaRevision"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== MODAL DE REVISIÓN CLIENTES ===================== -->
+    <div id="modalRevisionClientes"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center modal-bg bg-black/50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <!-- Header modal -->
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-black text-gray-900">Vista Previa de Clientes Extraídos</h2>
+                    <p id="modalSubtituloClientes" class="text-sm text-gray-500 mt-0.5"></p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="cancelarSyncClientes()"
+                        class="px-4 py-2 text-sm font-bold text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50">
+                        Descartar
+                    </button>
+                    <button onclick="confirmarSyncClientes()" id="btnConfirmarClientes"
+                        class="px-5 py-2 bg-black text-white text-sm font-black rounded-xl hover:bg-gray-800 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">group_add</span>
+                        Confirmar Guardado de Clientes
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabla de clientes -->
+            <div class="flex-1 overflow-y-auto p-6 bg-gray-50">
+                <div id="tablaRevisionClientes" class="space-y-3"></div>
             </div>
         </div>
     </div>
@@ -551,55 +582,72 @@
             setTimeout(poll, 20000);
         }
 
-        // =====================================================
-        // POLLING para modos sin staging (inventario/movimientos/clientes)
-        // Espera a que el workflow de GitHub Actions termine (completado/error)
-        // =====================================================
         async function monitorearSyncDirecto(modo) {
-            const iconModo = { inventario: 'inventory_2', movimientos: 'history', clientes: 'people' };
             let intentos = 0;
+            const liveProgreso = document.getElementById('liveProgreso');
+            liveProgreso.classList.remove('hidden');
+            liveProgreso.textContent = 'Tratando de conectar...';
 
             const poll = async () => {
                 intentos++;
 
-                // Simular pasos de progreso por tiempo
                 if (segundos > 30) { completarStep(2); activarStep(3); }
                 if (segundos > 120) { completarStep(3); activarStep(4); }
 
-                // Para estos modos: leer el último log con estado completado/error
-                // El script pone estado 'completado' al terminar para modos no-ventas
-                // Usamos GitHub Actions API para saber si terminó
-                const ghResponse = await fetch(
-                    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${WORKFLOW_FILE}/runs?per_page=1`,
-                    { headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' } }
-                ).catch(() => null);
+                // Leer activamente el log más reciente para extraer la telemetría en vivo
+                const { data: log } = await sbPulpos
+                    .from('pulpos_sync_log')
+                    .select('*')
+                    .eq('fecha_sync', currentFecha)
+                    .in('estado', ['iniciado', 'completado', 'listo_para_revision_clientes', 'error'])
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
 
-                if (ghResponse?.ok) {
-                    const ghData = await ghResponse.json();
-                    const lastRun = ghData?.workflow_runs?.[0];
-                    if (lastRun?.status === 'completed') {
+                if (log) {
+                    if (log.mensaje) {
+                        liveProgreso.textContent = log.mensaje;
+                    }
+
+                    if (log.estado === 'error') {
                         clearInterval(timerInterval);
-                        completarStep(3);
+                        liveProgreso.classList.add('hidden');
+                        mostrarError(log.mensaje || 'Error en el proceso');
+                        return;
+                    }
+
+                    if (log.estado === 'listo_para_revision_clientes' && modo === 'clientes') {
+                        clearInterval(timerInterval);
+                        completarStep(4);
+                        currentLogId = log.id;
+                        document.getElementById('panelProgreso').classList.add('hidden');
+                        liveProgreso.classList.add('hidden');
+                        await abrirModalRevisionClientes(currentFecha);
+                        await cargarHistorial();
+                        return;
+                    }
+
+                    if (log.estado === 'completado') {
+                        clearInterval(timerInterval);
                         completarStep(4);
                         document.getElementById('panelProgreso').classList.add('hidden');
-                        if (lastRun.conclusion === 'success') {
-                            mostrarExitoDirecto(modo);
-                        } else {
-                            mostrarError(`El proceso terminó con estado: ${lastRun.conclusion}. Revisa GitHub Actions para más detalles.`);
-                        }
+                        liveProgreso.classList.add('hidden');
+                        mostrarExitoDirecto(modo);
                         await cargarHistorial();
                         return;
                     }
                 }
 
-                if (intentos >= 100) {
+                // Timeout = 3 horas (720 intentos de 15 seg = 10800 segs)
+                if (intentos >= 720) {
                     clearInterval(timerInterval);
-                    mostrarError('Tiempo de espera agotado. El proceso puede seguir corriendo. Revisa GitHub Actions en unos minutos.');
+                    liveProgreso.classList.add('hidden');
+                    mostrarError('Tiempo de espera agotado (3 hrs). El proceso puede seguir corriendo. Revisa GitHub Actions.');
                     return;
                 }
                 setTimeout(poll, 15000);
             };
-            setTimeout(poll, 30000);
+            setTimeout(poll, 15000);
         }
 
         // =====================================================
@@ -783,6 +831,119 @@
         }
 
         // =====================================================
+        // REVISIÓN CLIENTES
+        // =====================================================
+        let stagingClientes = [];
+
+        async function abrirModalRevisionClientes(fecha) {
+            const { data: clientes } = await sbPulpos
+                .from('clientes_staging')
+                .select('*')
+                .eq('fecha_sync', fecha)
+                .eq('confirmado', false)
+                .order('nombre');
+
+            stagingClientes = clientes || [];
+
+            document.getElementById('modalSubtituloClientes').textContent =
+                `${stagingClientes.length} clientes encontrados el ${fecha}`;
+
+            renderTablaRevisionClientes();
+            document.getElementById('modalRevisionClientes').classList.remove('hidden');
+        }
+
+        function renderTablaRevisionClientes() {
+            const container = document.getElementById('tablaRevisionClientes');
+            if (stagingClientes.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-400 py-8">No hay clientes en espera de revisión</p>';
+                return;
+            }
+
+            const formatMonto = (m) => '$' + parseFloat(m || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+
+            container.innerHTML = stagingClientes.map(c => `
+                <div class="rounded-xl border border-gray-100 bg-white p-4">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-black text-gray-800">${c.nombre || 'Sin Nombre'}</p>
+                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+                                ${c.telefono ? `<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">phone</span>${c.telefono}</span>` : ''}
+                                ${c.email ? `<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">mail</span>${c.email}</span>` : ''}
+                                ${c.rfc ? `<span class="flex items-center gap-1 font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">RFC: ${c.rfc}</span>` : `<span class="text-gray-300 italic">Sin RFC</span>`}
+                                ${c.razon_social ? `<span class="flex items-center gap-1 font-bold">R.S: ${c.razon_social}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <p class="text-base font-black ${c.saldo > 0 ? 'text-red-500' : 'text-gray-900'}">${formatMonto(c.saldo)}</p>
+                            <p class="text-[10px] uppercase font-bold text-gray-400">Saldo pendiente</p>
+                        </div>
+                    </div>
+                </div>`).join('');
+        }
+
+        async function confirmarSyncClientes() {
+            const btn = document.getElementById('btnConfirmarClientes');
+            btn.disabled = true;
+            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Guardando...`;
+
+            let exitosas = 0;
+            let errores = 0;
+
+            for (const c of stagingClientes) {
+                const payload = {
+                    pulpos_id: c.pulpos_id,
+                    nombre: c.nombre,
+                    telefono: c.telefono,
+                    email: c.email,
+                    rfc: c.rfc,
+                    razon_social: c.razon_social,
+                    lista_precios: c.lista_precios,
+                    limite_credito: c.limite_credito,
+                    saldo: c.saldo,
+                    total_ventas: c.total_ventas,
+                    total_vendido: c.total_vendido,
+                    ultima_sync: currentFecha
+                };
+
+                const { error } = await sbPulpos.from('clientes').upsert(payload, { onConflict: 'pulpos_id' });
+                if (error) {
+                    console.error('Error insertando cliente:', error);
+                    errores++;
+                } else {
+                    await sbPulpos.from('clientes_staging').update({ confirmado: true }).eq('id', c.id);
+                    exitosas++;
+                }
+            }
+
+            if (currentLogId) {
+                await sbPulpos.from('pulpos_sync_log').update({
+                    estado: 'completado',
+                    ventas_importadas: exitosas,
+                    ventas_pendientes: errores,
+                    mensaje: `${exitosas} clientes guardados exitosamente`
+                }).eq('id', currentLogId);
+            }
+
+            document.getElementById('modalRevisionClientes').classList.add('hidden');
+            mostrarExitoDirecto('clientes');
+            await cargarHistorial();
+            resetPanel();
+        }
+
+        async function cancelarSyncClientes() {
+            if (!confirm('¿Descartar? Los clientes extraídos no se guardarán.')) return;
+            if (currentFecha) {
+                await sbPulpos.from('clientes_staging').delete().eq('fecha_sync', currentFecha).eq('confirmado', false);
+                if (currentLogId) {
+                    await sbPulpos.from('pulpos_sync_log').update({ estado: 'cancelado', mensaje: 'Descartado por el usuario' }).eq('id', currentLogId);
+                }
+            }
+            document.getElementById('modalRevisionClientes').classList.add('hidden');
+            resetPanel();
+            await cargarHistorial();
+        }
+
+        // =====================================================
         // UI HELPERS
         // =====================================================
         function mostrarExito(n, errores) {
@@ -906,6 +1067,7 @@
             const badge = (e) => ({
                 'completado': '<span class="bg-green-50 text-green-700 text-[10px] font-black px-2 py-0.5 rounded-full">✅ Completado</span>',
                 'listo_para_revision': '<span class="bg-amber-50 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full">⏳ En revisión</span>',
+                'listo_para_revision_clientes': '<span class="bg-indigo-50 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full">👥 Revisar Clientes</span>',
                 'error': '<span class="bg-red-50 text-red-700 text-[10px] font-black px-2 py-0.5 rounded-full">❌ Error</span>',
                 'cancelado': '<span class="bg-gray-50 text-gray-500 text-[10px] font-black px-2 py-0.5 rounded-full">🚫 Cancelado</span>',
             }[e] || '<span class="bg-gray-50 text-gray-500 text-[10px] font-black px-2 py-0.5 rounded-full">⏳ Iniciado</span>');
@@ -926,6 +1088,9 @@
                         ${log.estado === 'listo_para_revision' ? `
                         <button onclick="abrirModalRevision('${log.fecha_sync}')" 
                             class="text-[10px] font-black text-amber-600 hover:underline">Ver revisión →</button>` : ''}
+                        ${log.estado === 'listo_para_revision_clientes' ? `
+                        <button onclick="abrirModalRevisionClientes('${log.fecha_sync}')" 
+                            class="text-[10px] font-black text-indigo-600 hover:underline">Ver revisión →</button>` : ''}
                     </div>
                 </div>`).join('')}
         </div>`;
