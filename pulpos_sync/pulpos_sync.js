@@ -371,49 +371,65 @@ async function sincronizarClientes(page) {
         await page.waitForTimeout(3000);
 
         // -----------------------------------------------------------
-        // SCROLL ROBUSTO: usa JS scrollBy() dentro del navegador.
-        // Sale solo cuando 20 ciclos consecutivos no cargan nuevos
-        // clientes. El metodo anterior usaba keyboard End y salia
-        // prematuramente con solo 5 intentos sin cambio.
+        // PAGINACIÓN EXPLÍCITA (El usuario confirmó que la página
+        // usa números de página del 1 al N, no infinite scroll).
+        // Extraemos la página actual, y hacemos clic en la siguiente.
         // -----------------------------------------------------------
         const clientIds = new Set();
-        let sinCambioConsecutivos = 0;
-        const MAX_SIN_CAMBIO = 20;
-        let scrollAttempts = 0;
-        const MAX_SCROLLS = 400;
+        let pageNum = 1;
+        let hasNextPage = true;
 
-        while (scrollAttempts < MAX_SCROLLS && sinCambioConsecutivos < MAX_SIN_CAMBIO) {
+        while (hasNextPage && pageNum <= 400) {
+            console.log(`   📄 Leyendo página ${pageNum}...`);
+            await page.waitForTimeout(2000); // Esperar que cargue la lista
+
             const links = await page.$$eval(
                 'a[href*="/clients/detail"]',
                 els => els.map(a => new URL(a.href).searchParams.get('id')).filter(Boolean)
             );
+
             const prevSize = clientIds.size;
             links.forEach(id => clientIds.add(id));
 
-            if (clientIds.size > prevSize) {
-                sinCambioConsecutivos = 0;
-                if (clientIds.size % 25 === 0) {
-                    console.log(`   Scroll: ${clientIds.size} clientes encontrados...`);
+            if (links.length === 0) {
+                console.log("   [!] No se cargaron clientes en esta pantalla.");
+                break;
+            }
+
+            // Intentar clickear "Página N+1" o "Siguiente" (>)
+            const nextPageClicked = await page.evaluate((nextNum) => {
+                const elements = Array.from(document.querySelectorAll('button, a, div[role="button"]'));
+
+                // 1) Buscar botón con el número exacto
+                const nextNumBtn = elements.find(el => el.innerText.trim() === String(nextNum) && !el.disabled && !el.classList.contains('disabled'));
+                if (nextNumBtn) {
+                    nextNumBtn.click();
+                    return true;
                 }
+
+                // 2) Buscar botón de "Siguiente" o ">" si no vimos el número explícito
+                const nextArrowBtn = elements.find(el => {
+                    if (el.disabled || el.classList.contains('disabled')) return false;
+                    const txt = el.innerText.trim().toLowerCase();
+                    const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+                    return txt === '>' || txt === '❯' || txt === '»' || txt === 'next' || txt === 'siguiente' || aria.includes('next') || aria.includes('siguiente');
+                });
+
+                if (nextArrowBtn) {
+                    nextArrowBtn.click();
+                    return true;
+                }
+                return false;
+            }, pageNum + 1);
+
+            if (nextPageClicked) {
+                pageNum++;
+                // Esperamos un momento extra para que desaparezca la tabla anterior
+                await page.waitForTimeout(2000);
             } else {
-                sinCambioConsecutivos++;
+                console.log("   🔚 Fin de la paginación (no hay botón siguiente).");
+                hasNextPage = false;
             }
-
-            // Scroll con JS (mas fiable que presionar tecla End)
-            // UPDATE: ahora forzamos a que el ÚLTIMO cliente visible entre en pantalla
-            // Esto hace que cualquier contenedor interno con scroll (ej. simplebar) baje hasta el final
-            const linksLocator = page.locator('a[href*="/clients/detail"]');
-            const count = await linksLocator.count();
-            if (count > 0) {
-                try {
-                    await linksLocator.nth(count - 1).scrollIntoViewIfNeeded();
-                    // Extra push para forzar el evento en algunos frameworks
-                    await page.mouse.wheel(0, 1000);
-                } catch (e) { }
-            }
-
-            await page.waitForTimeout(1200);
-            scrollAttempts++;
         }
 
         console.log(`   Total clientes encontrados: ${clientIds.size}`);
