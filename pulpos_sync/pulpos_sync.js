@@ -448,16 +448,33 @@ async function sincronizarClientes(page) {
                 const datos = await page.evaluate(() => {
                     const txt = document.body.innerText;
                     const nombre = (document.querySelector('h1, h2')?.innerText || '').trim();
-                    const telMatch = txt.match(/(?:Tel[eé]fono|Tel|Phone)[:\s]+([+\d\s\-\(\)]{7,20})/i);
-                    const telefono = telMatch ? telMatch[1].trim().substring(0, 20) : null;
+
+                    // TELÉFONO: Permite saltos de línea después de la etiqueta
+                    const telMatch = txt.match(/(?:Tel[eé]fono|Tel|Phone)[:\s\n]+([+\d\s\-\(\)]{7,20})/i);
+                    let telefono = telMatch ? telMatch[1].trim().substring(0, 20) : null;
+                    if (telefono && telefono.replace(/\D/g, '').length < 7) telefono = null;
+
+                    // EMAIL: Cualquier formato de email en la página
                     const emailMatch = txt.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/);
                     const email = emailMatch ? emailMatch[1] : null;
-                    const rfcMatch = txt.match(/RFC[:\s]+([A-Z&]{3,4}\d{6}[A-Z0-9]{3})/i);
-                    const rfc = rfcMatch ? rfcMatch[1].trim() : null;
-                    const rsMatch = txt.match(/Raz[oó]n Social[:\s]+([^\n]+)/i);
-                    const razon_social = rsMatch ? rsMatch[1].trim() : null;
-                    const lpMatch = txt.match(/(?:Lista de Precios|Price List)[:\s]+([^\n]+)/i);
-                    const lista_precios = lpMatch ? lpMatch[1].trim() : null;
+
+                    // RFC: Patrón estricto en toda la página o después de la etiqueta RFC
+                    const rfcPattern = /[A-Z&Ññ]{3,4}\d{6}[A-Z0-9]{3}/i;
+                    const rfcMatchContext = txt.match(/RFC[:\s\n]+([A-Z&Ññ]{3,4}\d{6}[A-Z0-9]{3})/i);
+                    const rfcMatchAny = txt.match(rfcPattern);
+                    const rfc = rfcMatchContext ? rfcMatchContext[1].trim().toUpperCase() : (rfcMatchAny ? rfcMatchAny[0].trim().toUpperCase() : null);
+
+                    // RAZÓN SOCIAL: Maneja saltos de línea. Si agarra la siguiente etiqueta por estar vacío, la limpiamos.
+                    const rsMatch = txt.match(/Raz[oó]n Social[:\s\n]+([^\n]+)/i);
+                    let razon_social = rsMatch ? rsMatch[1].trim() : null;
+                    if (razon_social && (razon_social.toLowerCase().includes('lista de precios') || razon_social.toLowerCase().includes('límite'))) {
+                        razon_social = null;
+                    }
+
+                    // LISTA DE PRECIOS
+                    const lpMatch = txt.match(/(?:Lista de Precios|Price List)[:\s\n]+([^\n]+)/i);
+                    let lista_precios = lpMatch ? lpMatch[1].trim() : null;
+                    if (lista_precios && lista_precios.toLowerCase().includes('límite')) lista_precios = null;
                     const lcMatch = txt.match(/L[ií]mite de Cr[eé]dito[:\s]+\$([0-9,]+\.?\d*)/i);
                     const limite_credito = lcMatch ? parseFloat(lcMatch[1].replace(/,/g, '')) : 0;
                     const saldoMatch = txt.match(/(?:Deuda|Saldo Pendiente|Balance)[:\s]+\$([0-9,]+\.?\d*)/i);
