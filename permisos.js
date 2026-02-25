@@ -6,8 +6,11 @@ const Permisos = {
         'dashboard', 'ventas', 'ingresos', 'cobrar', 'gastos',
         'compras', 'pagar', 'inversiones', 'prestamos', 'rrhh',
         'inventario', 'conteo_inventario', 'productos', 'flotilla', 'efectivo',
-        'estado_resultados', 'reportes', 'configuracion'
+        'estado_resultados', 'reportes', 'configuracion',
+        'solicitudes_personal'
     ],
+
+    MODULOS_EMPLEADO: ['solicitudes_rrhh'],
 
     // Obtener datos del usuario actual
     getUsuario() {
@@ -27,6 +30,9 @@ const Permisos = {
         // El rol admin tiene acceso total por defecto
         if (user.rol === 'admin') return true;
 
+        // El rol empleado solo puede ver su módulo de solicitudes
+        if (user.rol === 'empleado') return this.MODULOS_EMPLEADO.includes(moduloId);
+
         // Verificar en el objeto de permisos del usuario
         if (user.permisos && user.permisos[moduloId]) {
             return !!user.permisos[moduloId].ver;
@@ -41,12 +47,25 @@ const Permisos = {
         if (!user) return false;
 
         if (user.rol === 'admin') return true;
+        if (user.rol === 'empleado') return false; // empleados no editan módulos del CRM
 
         if (user.permisos && user.permisos[moduloId]) {
             return !!user.permisos[moduloId].editar;
         }
 
         return false;
+    },
+
+    // Verifica si el usuario actual es empleado
+    isEmpleado() {
+        const user = this.getUsuario();
+        return user?.rol === 'empleado';
+    },
+
+    // Verifica si el usuario actual es admin
+    isAdmin() {
+        const user = this.getUsuario();
+        return user?.rol === 'admin';
     },
 
     // Obtener la sucursal asignada (Norte, Sur, Ambas)

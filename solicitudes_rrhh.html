@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Solicitudes - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="api.js"></script>
+    <script src="auth.js"></script>
+    <script src="menu.js"></script>
+    <script src="permisos.js"></script>
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .tab-active {
+            border-bottom: 3px solid #19e66b;
+            color: #111;
+            font-weight: 900;
+        }
+
+        .badge-estado-pendiente {
+            background: #fef9c3;
+            color: #ca8a04;
+        }
+
+        .badge-estado-aprobada {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .badge-estado-negada {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+    <div class="flex h-screen overflow-hidden">
+        <div id="sidebar-container"></div>
+        <main class="flex-1 overflow-y-auto">
+            <div class="p-6 lg:p-8 max-w-3xl mx-auto">
+
+                <!-- Header con info del empleado -->
+                <div class="mb-8 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="size-12 bg-black rounded-xl flex items-center justify-center">
+                            <span class="material-symbols-outlined text-white text-xl">badge</span>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-black text-gray-900">Mis Solicitudes</h1>
+                            <p id="nombreEmpleado" class="text-sm text-gray-500">Recursos Humanos</p>
+                        </div>
+                    </div>
+                    <button onclick="abrirFormulario()"
+                        class="flex items-center gap-2 bg-black text-white text-sm font-black px-4 py-2.5 rounded-xl hover:bg-gray-800">
+                        <span class="material-symbols-outlined text-base">add</span>
+                        Nueva Solicitud
+                    </button>
+                </div>
+
+                <!-- Buzón de Respuestas (solo si hay no leídas) -->
+                <div id="buzon" class="hidden bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="material-symbols-outlined text-amber-500">inbox</span>
+                        <h2 class="font-black text-amber-900">Buzón de respuestas</h2>
+                        <span id="buzonCount"
+                            class="bg-amber-500 text-white text-xs font-black px-2 py-0.5 rounded-full"></span>
+                    </div>
+                    <div id="buzonLista" class="space-y-2"></div>
+                </div>
+
+                <!-- Historial de Solicitudes -->
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+                    <!-- Tabs -->
+                    <div class="flex border-b border-gray-100 px-6 gap-6">
+                        <button onclick="filtrarEstado('todas')" id="tab-todas"
+                            class="py-4 text-sm font-bold text-gray-400 tab-active" data-tab>Todas</button>
+                        <button onclick="filtrarEstado('pendiente')" id="tab-pendiente"
+                            class="py-4 text-sm font-bold text-gray-400" data-tab>Pendientes</button>
+                        <button onclick="filtrarEstado('aprobada')" id="tab-aprobada"
+                            class="py-4 text-sm font-bold text-gray-400" data-tab>Aprobadas</button>
+                        <button onclick="filtrarEstado('negada')" id="tab-negada"
+                            class="py-4 text-sm font-bold text-gray-400" data-tab>Negadas</button>
+                    </div>
+                    <div id="listaSolicitudes" class="p-6">
+                        <p class="text-sm text-gray-400 text-center py-8">Cargando solicitudes...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Nueva Solicitud -->
+    <div id="modalSolicitud"
+        class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4"
+        style="backdrop-filter:blur(4px)">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h2 class="text-lg font-black text-gray-900">Nueva Solicitud</h2>
+                <button onclick="cerrarFormulario()" class="text-gray-400 hover:text-gray-600">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form id="formSolicitud" onsubmit="enviarSolicitud(event)" class="p-6 space-y-5">
+                <!-- Tipo de solicitud -->
+                <div>
+                    <label class="block text-xs font-black text-gray-500 uppercase mb-2">Tipo de solicitud</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="seleccionarTipo('vacaciones')" data-tipo="vacaciones"
+                            class="tipo-btn border-2 border-gray-200 rounded-xl p-3 text-left hover:border-black transition-all">
+                            <span class="material-symbols-outlined text-amber-500 block mb-1">beach_access</span>
+                            <span class="text-xs font-black block">Vacaciones</span>
+                            <span id="diasDisponibles" class="text-[10px] text-gray-400"></span>
+                        </button>
+                        <button type="button" onclick="seleccionarTipo('permiso_sin_goce')" data-tipo="permiso_sin_goce"
+                            class="tipo-btn border-2 border-gray-200 rounded-xl p-3 text-left hover:border-black transition-all">
+                            <span class="material-symbols-outlined text-gray-500 block mb-1">event_busy</span>
+                            <span class="text-xs font-black block">Permiso sin goce</span>
+                            <span class="text-[10px] text-gray-400">Sin descuento de vacaciones</span>
+                        </button>
+                        <button type="button" onclick="seleccionarTipo('pase_salida')" data-tipo="pase_salida"
+                            class="tipo-btn border-2 border-gray-200 rounded-xl p-3 text-left hover:border-black transition-all">
+                            <span class="material-symbols-outlined text-blue-500 block mb-1">exit_to_app</span>
+                            <span class="text-xs font-black block">Pase de salida</span>
+                            <span class="text-[10px] text-gray-400">Salida temprana</span>
+                        </button>
+                        <button type="button" onclick="seleccionarTipo('permiso_horas')" data-tipo="permiso_horas"
+                            class="tipo-btn border-2 border-gray-200 rounded-xl p-3 text-left hover:border-black transition-all">
+                            <span class="material-symbols-outlined text-purple-500 block mb-1">schedule</span>
+                            <span class="text-xs font-black block">Permiso por horas</span>
+                            <span class="text-[10px] text-gray-400">Salida y regreso</span>
+                        </button>
+                    </div>
+                    <input type="hidden" id="tipoSolicitud" required>
+                </div>
+
+                <!-- Campos según tipo -->
+                <div id="camposFechas" class="hidden space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-black text-gray-500 uppercase mb-1">Fecha inicio</label>
+                            <input type="date" id="fechaInicio"
+                                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-black"
+                                onchange="calcularDias()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black text-gray-500 uppercase mb-1">Fecha fin</label>
+                            <input type="date" id="fechaFin"
+                                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-black"
+                                onchange="calcularDias()">
+                        </div>
+                    </div>
+                    <div id="resumenDias" class="hidden bg-gray-50 rounded-xl p-3">
+                        <p class="text-sm font-black text-gray-700">Días solicitados: <span id="numeroDias"
+                                class="text-[#19e66b]"></span></p>
+                    </div>
+                </div>
+
+                <div id="camposFecha" class="hidden">
+                    <label class="block text-xs font-black text-gray-500 uppercase mb-1">Fecha</label>
+                    <input type="date" id="fechaSola"
+                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-black">
+                </div>
+
+                <div id="camposHoras" class="hidden space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-black text-gray-500 uppercase mb-1">Hora de salida</label>
+                            <input type="time" id="horaSalida"
+                                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-black">
+                        </div>
+                        <div id="campoHoraRegreso" class="hidden">
+                            <label class="block text-xs font-black text-gray-500 uppercase mb-1">Hora de regreso</label>
+                            <input type="time" id="horaRegreso"
+                                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-black">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-black text-gray-500 uppercase mb-1">Motivo / Descripción</label>
+                    <textarea id="descripcion" rows="3" placeholder="Describe el motivo de tu solicitud..."
+                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-black resize-none"></textarea>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="cerrarFormulario()"
+                        class="flex-1 py-3 border border-gray-200 text-sm font-bold text-gray-500 rounded-xl hover:bg-gray-50">Cancelar</button>
+                    <button type="submit" id="btnEnviar"
+                        class="flex-1 py-3 bg-black text-white text-sm font-black rounded-xl hover:bg-gray-800">Enviar
+                        Solicitud</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const _SB_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+        const _SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+        let sb;
+        if (window.supabase?.createClient) sb = window.supabase.createClient(_SB_URL, _SB_KEY);
+
+        const usuario = JSON.parse(sessionStorage.getItem('usuario') || '{}');
+        let empleadoData = null;
+        let todasLasSolicitudes = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            inyectarMenu('solicitudes_rrhh');
+            document.getElementById('nombreEmpleado').textContent = usuario.nombre || 'Empleado';
+            await cargarEmpleado();
+            await cargarSolicitudes();
+            await cargarBuzon();
+        });
+
+        async function cargarEmpleado() {
+            if (!usuario.empleado_id) return;
+            const { data } = await sb.from('empleados').select('*').eq('id', usuario.empleado_id).maybeSingle();
+            empleadoData = data;
+            if (data) {
+                document.getElementById('diasDisponibles').textContent =
+                    `${data.dias_disponibles_vacaciones || 0} días disponibles`;
+            }
+        }
+
+        async function cargarSolicitudes() {
+            const { data } = await sb
+                .from('solicitudes_empleado')
+                .select('*')
+                .eq('usuario_id', usuario.id)
+                .order('created_at', { ascending: false });
+            todasLasSolicitudes = data || [];
+            renderSolicitudes(todasLasSolicitudes);
+        }
+
+        async function cargarBuzon() {
+            const noLeidas = todasLasSolicitudes.filter(s =>
+                s.estado !== 'pendiente' && !s.leido_por_empleado
+            );
+            if (noLeidas.length === 0) return;
+
+            document.getElementById('buzon').classList.remove('hidden');
+            document.getElementById('buzonCount').textContent = noLeidas.length;
+
+            const iconos = { aprobada: '✅', negada: '❌' };
+            document.getElementById('buzonLista').innerHTML = noLeidas.map(s => `
+            <div onclick="marcarLeido('${s.id}')" class="bg-white rounded-xl p-4 border border-amber-100 cursor-pointer hover:border-amber-300 transition-all">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-sm font-black text-gray-800">
+                            ${iconos[s.estado] || '📋'} Solicitud ${etiquetaTipo(s.tipo)} — <span class="${s.estado === 'aprobada' ? 'text-green-600' : 'text-red-600'}">${s.estado.toUpperCase()}</span>
+                        </p>
+                        ${s.comentario_admin ? `<p class="text-xs text-gray-500 mt-1">"${s.comentario_admin}"</p>` : ''}
+                        <p class="text-[10px] text-gray-400 mt-1">${new Date(s.respondido_at).toLocaleString('es-MX')}</p>
+                    </div>
+                </div>
+            </div>`).join('');
+        }
+
+        async function marcarLeido(id) {
+            await sb.from('solicitudes_empleado').update({ leido_por_empleado: true }).eq('id', id);
+            await cargarSolicitudes();
+            await cargarBuzon();
+        }
+
+        function renderSolicitudes(lista) {
+            const container = document.getElementById('listaSolicitudes');
+            if (!lista.length) {
+                container.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No hay solicitudes en esta categoría</p>';
+                return;
+            }
+            container.innerHTML = lista.map(s => `
+            <div class="py-4 border-b border-gray-50 last:border-0">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="badge-estado-${s.estado} text-[10px] font-black px-2 py-0.5 rounded-full">${s.estado.toUpperCase()}</span>
+                            <span class="text-sm font-black text-gray-800">${etiquetaTipo(s.tipo)}</span>
+                        </div>
+                        ${s.fecha_inicio ? `<p class="text-xs text-gray-500">${s.fecha_inicio}${s.fecha_fin && s.fecha_fin !== s.fecha_inicio ? ' → ' + s.fecha_fin : ''} · ${s.dias_solicitados || 1} día(s)</p>` : ''}
+                        ${s.hora_salida ? `<p class="text-xs text-gray-500">Salida: ${s.hora_salida}${s.hora_regreso ? ' — Regreso: ' + s.hora_regreso : ''}</p>` : ''}
+                        ${s.descripcion ? `<p class="text-xs text-gray-400 mt-1 italic">"${s.descripcion}"</p>` : ''}
+                        ${s.comentario_admin ? `<div class="mt-2 bg-gray-50 rounded-lg px-3 py-2"><p class="text-xs font-bold text-gray-500">Admin: "${s.comentario_admin}"</p></div>` : ''}
+                    </div>
+                    <p class="text-[10px] text-gray-400 whitespace-nowrap">${new Date(s.created_at).toLocaleDateString('es-MX')}</p>
+                </div>
+            </div>`).join('');
+        }
+
+        function filtrarEstado(estado) {
+            document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('tab-active'));
+            document.getElementById(`tab-${estado === 'todas' ? 'todas' : estado}`).classList.add('tab-active');
+            const filtradas = estado === 'todas' ? todasLasSolicitudes : todasLasSolicitudes.filter(s => s.estado === estado);
+            renderSolicitudes(filtradas);
+        }
+
+        function etiquetaTipo(tipo) {
+            const map = { vacaciones: 'Vacaciones', permiso_sin_goce: 'Permiso sin Goce', pase_salida: 'Pase de Salida', permiso_horas: 'Permiso por Horas' };
+            return map[tipo] || tipo;
+        }
+
+        // ---- FORMULARIO ----
+        function abrirFormulario() { document.getElementById('modalSolicitud').classList.remove('hidden'); }
+        function cerrarFormulario() {
+            document.getElementById('modalSolicitud').classList.add('hidden');
+            document.getElementById('formSolicitud').reset();
+            document.getElementById('tipoSolicitud').value = '';
+            document.querySelectorAll('.tipo-btn').forEach(b => b.classList.remove('border-black', 'bg-gray-50'));
+            ['camposFechas', 'camposFecha', 'camposHoras', 'resumenDias', 'campoHoraRegreso'].forEach(id =>
+                document.getElementById(id).classList.add('hidden'));
+        }
+
+        function seleccionarTipo(tipo) {
+            document.getElementById('tipoSolicitud').value = tipo;
+            document.querySelectorAll('.tipo-btn').forEach(b => b.classList.remove('border-black', 'bg-gray-50'));
+            document.querySelector(`[data-tipo="${tipo}"]`).classList.add('border-black', 'bg-gray-50');
+
+            ['camposFechas', 'camposFecha', 'camposHoras', 'campoHoraRegreso'].forEach(id =>
+                document.getElementById(id).classList.add('hidden'));
+
+            if (tipo === 'vacaciones' || tipo === 'permiso_sin_goce') {
+                document.getElementById('camposFechas').classList.remove('hidden');
+            } else if (tipo === 'pase_salida') {
+                document.getElementById('camposFecha').classList.remove('hidden');
+                document.getElementById('camposHoras').classList.remove('hidden');
+            } else if (tipo === 'permiso_horas') {
+                document.getElementById('camposFecha').classList.remove('hidden');
+                document.getElementById('camposHoras').classList.remove('hidden');
+                document.getElementById('campoHoraRegreso').classList.remove('hidden');
+            }
+        }
+
+        function calcularDias() {
+            const ini = document.getElementById('fechaInicio').value;
+            const fin = document.getElementById('fechaFin').value;
+            if (ini && fin) {
+                const dias = Math.ceil((new Date(fin) - new Date(ini)) / 86400000) + 1;
+                if (dias > 0) {
+                    document.getElementById('numeroDias').textContent = dias;
+                    document.getElementById('resumenDias').classList.remove('hidden');
+                }
+            }
+        }
+
+        async function enviarSolicitud(e) {
+            e.preventDefault();
+            const tipo = document.getElementById('tipoSolicitud').value;
+            if (!tipo) { alert('Selecciona el tipo de solicitud'); return; }
+            if (!usuario.empleado_id) { alert('Tu usuario no está vinculado a un empleado en RRHH. Contacta al administrador.'); return; }
+
+            const btn = document.getElementById('btnEnviar');
+            btn.disabled = true; btn.textContent = 'Enviando...';
+
+            const ini = document.getElementById('fechaInicio').value;
+            const fin = document.getElementById('fechaFin').value;
+            const fechaSola = document.getElementById('fechaSola').value;
+
+            let dias = 1;
+            if (ini && fin) dias = Math.ceil((new Date(fin) - new Date(ini)) / 86400000) + 1;
+
+            const payload = {
+                empleado_id: usuario.empleado_id,
+                usuario_id: usuario.id,
+                tipo,
+                fecha_inicio: ini || fechaSola || null,
+                fecha_fin: fin || fechaSola || null,
+                hora_salida: document.getElementById('horaSalida').value || null,
+                hora_regreso: document.getElementById('horaRegreso').value || null,
+                dias_solicitados: dias,
+                descripcion: document.getElementById('descripcion').value || null,
+                estado: 'pendiente',
+                leido_por_empleado: false
+            };
+
+            const { error } = await sb.from('solicitudes_empleado').insert(payload);
+            if (error) {
+                alert('Error al enviar: ' + error.message);
+            } else {
+                cerrarFormulario();
+                await cargarSolicitudes();
+                alert('✅ Solicitud enviada correctamente.');
+            }
+            btn.disabled = false; btn.textContent = 'Enviar Solicitud';
+        }
+    </script>
+</body>
+
+</html>

@@ -31,7 +31,14 @@ function inyectarMenu(paginaActiva) {
         { id: 'estado_resultados', nombre: 'Estado de Resultados', icon: 'trending_up', link: 'estado_resultados.html' },
         { id: 'reportes', nombre: 'Reportes', icon: 'bar_chart', link: 'reportes.html' },
         { id: 'configuracion', nombre: 'Configuración', icon: 'settings', link: 'configuracion.html' },
-        { id: 'pulpos_sync', nombre: 'Sync Pulpos', icon: 'sync', link: 'pulpos_sync.html' }
+        { id: 'pulpos_sync', nombre: 'Sync Pulpos', icon: 'sync', link: 'pulpos_sync.html' },
+        // Solo admins
+        { id: 'solicitudes_personal', nombre: 'Solicitudes del Personal', icon: 'assignment', link: 'solicitudes_personal.html', soloAdmin: true }
+    ];
+
+    // Menú minimalista para empleados
+    const itemsEmpleado = [
+        { id: 'solicitudes_rrhh', nombre: 'Mis Solicitudes', icon: 'request_page', link: 'solicitudes_rrhh.html' }
     ];
 
     const renderItem = (item) => {
@@ -90,6 +97,14 @@ function inyectarMenu(paginaActiva) {
         });
     };
 
+    // Determinar qué items mostrar según rol
+    const usuario = (() => { try { return JSON.parse(sessionStorage.getItem('usuario') || '{}'); } catch (e) { return {}; } })();
+    const esEmpleado = usuario.rol === 'empleado';
+    const esAdmin = usuario.rol === 'admin';
+    const itemsAMostrar = esEmpleado
+        ? itemsEmpleado
+        : items.filter(i => !i.soloAdmin || esAdmin);
+
     // Ajuste para el banner de staging (si existe)
     const headerTop = window.IS_TEST_ENV ? 'top-[37px]' : 'top-0';
 
@@ -129,12 +144,7 @@ function inyectarMenu(paginaActiva) {
             </div>
             
             <nav class="flex-1 p-4 lg:p-6 overflow-y-auto">
-                ${items.filter(item => {
-        // El admin ve todo por defecto
-        if (sessionStorage.getItem('userRole') === 'admin') return true;
-        // Los demás dependen de sus permisos configurados
-        return typeof Permisos !== 'undefined' ? Permisos.puedeVer(item.id) : true;
-    }).map(renderItem).join('')}
+                ${itemsAMostrar.map(renderItem).join('')}
             </nav>
 
             <div class="p-4 lg:p-6 border-t border-gray-100">

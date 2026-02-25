@@ -271,8 +271,64 @@ async function renderizarModuloEmpleo(emp, container) {
                 <button onclick="reactivarEmpleado('${emp.id}')" class="mt-4 text-primary font-black uppercase text-xs hover:underline">Reactivar</button>
              </div>
              `}
+
+            <!-- Bitácora de Permisos -->
+            <div class="pt-8 border-t border-slate-100">
+                <h4 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-5">Bitácora de Permisos y Solicitudes</h4>
+                <div id="bitacoraPermisos" class="space-y-3">
+                    <p class="text-center text-slate-300 py-4 text-xs font-bold animate-pulse">Cargando bitácora...</p>
+                </div>
+            </div>
         </div>
     `;
+
+    // Cargar bitácora después de renderizar
+    cargarBitacoraPermisos(emp.id);
+}
+
+async function cargarBitacoraPermisos(empleadoId) {
+    const container = document.getElementById('bitacoraPermisos');
+    if (!container) return;
+
+    const sbUrl = window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+    const sbKey = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+
+    try {
+        const res = await fetch(
+            `${sbUrl}/rest/v1/solicitudes_empleado?empleado_id=eq.${empleadoId}&order=created_at.desc&limit=20`,
+            { headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` } }
+        );
+        if (!res.ok) throw new Error('Error al cargar bitácora');
+        const data = await res.json();
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '<p class="text-center text-slate-300 py-4 text-xs font-bold italic">Sin solicitudes registradas</p>';
+            return;
+        }
+
+        const tipoLabel = { vacaciones: '🏖️ Vacaciones', permiso_sin_goce: '📅 Permiso sin Goce', pase_salida: '🚪 Pase de Salida', permiso_horas: '⏰ Permiso por Horas' };
+        const badgeColor = { pendiente: 'bg-yellow-100 text-yellow-700', aprobada: 'bg-green-100 text-green-700', negada: 'bg-red-100 text-red-600' };
+
+        container.innerHTML = data.map(s => `
+            <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                <div class="flex justify-between items-start gap-3">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="${badgeColor[s.estado] || 'bg-gray-100 text-gray-500'} text-[9px] font-black px-2 py-0.5 rounded-full uppercase">${s.estado}</span>
+                            <span class="text-xs font-black text-slate-800">${tipoLabel[s.tipo] || s.tipo}</span>
+                        </div>
+                        ${s.fecha_inicio ? `<p class="text-[10px] text-slate-500">📅 ${s.fecha_inicio}${s.fecha_fin && s.fecha_fin !== s.fecha_inicio ? ' → ' + s.fecha_fin : ''} · ${s.dias_solicitados || 1} día(s)</p>` : ''}
+                        ${s.hora_salida ? `<p class="text-[10px] text-slate-500">🕐 ${s.hora_salida}${s.hora_regreso ? ' → ' + s.hora_regreso : ''}</p>` : ''}
+                        ${s.descripcion ? `<p class="text-[10px] text-slate-400 italic mt-1">"${s.descripcion}"</p>` : ''}
+                        ${s.comentario_admin ? `<p class="text-[10px] font-bold text-slate-500 mt-1">💬 Admin: "${s.comentario_admin}"</p>` : ''}
+                    </div>
+                    <p class="text-[9px] text-slate-400 whitespace-nowrap">${new Date(s.created_at).toLocaleDateString('es-MX')}</p>
+                </div>
+            </div>`).join('');
+    } catch (e) {
+        container.innerHTML = `<p class="text-center text-red-300 py-4 text-xs font-bold">Error: ${e.message}</p>`;
+    }
+
 }
 
 async function renderizarModuloNominaExpediente(emp) {

@@ -278,7 +278,9 @@ function renderUsuarios(list) {
                     </div>
                     ${u.rol === 'admin'
             ? '<span class="px-2 py-1 btn btn-xs rounded-md bg-black text-white text-[10px] font-bold uppercase">ADMIN</span>'
-            : '<span class="px-2 py-1 btn btn-xs rounded-md bg-gray-100 text-gray-500 text-[10px] font-bold uppercase">READER</span>'
+            : u.rol === 'empleado'
+                ? '<span class="px-2 py-1 btn btn-xs rounded-md bg-blue-600 text-white text-[10px] font-bold uppercase">EMPLEADO</span>'
+                : '<span class="px-2 py-1 btn btn-xs rounded-md bg-gray-100 text-gray-500 text-[10px] font-bold uppercase">READER</span>'
         }
                 </div>
                 <h4 class="font-bold text-lg leading-tight mb-1">${u.nombre}</h4>
