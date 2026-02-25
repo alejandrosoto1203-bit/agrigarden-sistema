@@ -85,37 +85,115 @@
                     </div>
                     <div>
                         <h1 class="text-2xl font-black text-gray-900">Sincronizar con Pulpos</h1>
-                        <p class="text-sm text-gray-500">Importa ventas desde tu cuenta de Pulpos automáticamente</p>
+                        <p class="text-sm text-gray-500">Importa ventas, inventario, movimientos y clientes desde Pulpos
+                        </p>
                     </div>
+                </div>
+
+                <!-- TABS: elegir qué sincronizar -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                    <button onclick="seleccionarModo('ventas')" id="tab-ventas"
+                        class="sync-tab active-tab flex flex-col items-center gap-2 p-4 bg-white border-2 border-black rounded-2xl text-sm font-black transition-all">
+                        <span class="material-symbols-outlined text-xl">payments</span>
+                        <span>Ventas</span>
+                    </button>
+                    <button onclick="seleccionarModo('inventario')" id="tab-inventario"
+                        class="sync-tab flex flex-col items-center gap-2 p-4 bg-white border-2 border-gray-200 rounded-2xl text-sm font-black text-gray-400 transition-all hover:border-gray-400">
+                        <span class="material-symbols-outlined text-xl">inventory_2</span>
+                        <span>Inventario</span>
+                    </button>
+                    <button onclick="seleccionarModo('movimientos')" id="tab-movimientos"
+                        class="sync-tab flex flex-col items-center gap-2 p-4 bg-white border-2 border-gray-200 rounded-2xl text-sm font-black text-gray-400 transition-all hover:border-gray-400">
+                        <span class="material-symbols-outlined text-xl">history</span>
+                        <span>Movimientos</span>
+                    </button>
+                    <button onclick="seleccionarModo('clientes')" id="tab-clientes"
+                        class="sync-tab flex flex-col items-center gap-2 p-4 bg-white border-2 border-gray-200 rounded-2xl text-sm font-black text-gray-400 transition-all hover:border-gray-400">
+                        <span class="material-symbols-outlined text-xl">people</span>
+                        <span>Clientes</span>
+                    </button>
                 </div>
 
                 <!-- Configurar Sync -->
                 <div id="panelConfig" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6">
-                    <h2 class="text-base font-black text-gray-800 mb-5">¿Qué día quieres sincronizar?</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <label
-                                class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Fecha</label>
-                            <input type="date" id="inputFecha"
-                                class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:border-[#19e66b]"
-                                max="" />
-                            <p class="text-xs text-gray-400 mt-1.5">Los días ya confirmados no se duplican.</p>
-                        </div>
-                        <div class="bg-gray-50 rounded-xl p-4 flex gap-3">
-                            <span class="material-symbols-outlined text-gray-400 text-sm mt-0.5">info</span>
-                            <div class="text-xs text-gray-500 space-y-1">
-                                <p>✅ <strong>Efectivo, Cheque y Crédito</strong> se clasifican automáticamente</p>
-                                <p>⚠️ <strong>Tarjeta y Transferencia</strong> sin banco identificado las revisas antes
-                                    de confirmar</p>
-                                <p>🔒 El proceso corre en la nube (GitHub) — funciona desde cualquier computadora</p>
+
+                    <!-- Panel Ventas -->
+                    <div id="configVentas">
+                        <h2 class="text-base font-black text-gray-800 mb-4">Sync de Ventas</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label
+                                    class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Fecha</label>
+                                <input type="date" id="inputFecha"
+                                    class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:border-[#19e66b]"
+                                    max="" />
+                                <p class="text-xs text-gray-400 mt-1.5">Los días ya confirmados no se duplican.</p>
+                            </div>
+                            <div class="bg-gray-50 rounded-xl p-4 flex gap-3">
+                                <span class="material-symbols-outlined text-gray-400 text-sm mt-0.5">info</span>
+                                <div class="text-xs text-gray-500 space-y-1">
+                                    <p>✅ <strong>Efectivo, Cheque y Crédito</strong> se clasifican automáticamente</p>
+                                    <p>⚠️ <strong>Tarjeta y Transferencia</strong> sin banco identificado las revisas
+                                        antes de confirmar</p>
+                                    <p>🔒 El proceso corre en GitHub Actions — funciona desde cualquier lugar</p>
+                                </div>
                             </div>
                         </div>
-                        <button id="btnSincronizar" onclick="iniciarSync()"
-                            class="w-full bg-black text-white font-black py-3.5 rounded-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 text-sm">
-                            <span class="material-symbols-outlined text-base">sync</span>
-                            Sincronizar con Pulpos
-                        </button>
                     </div>
+
+                    <!-- Panel Inventario -->
+                    <div id="configInventario" class="hidden">
+                        <h2 class="text-base font-black text-gray-800 mb-2">Sync de Inventario</h2>
+                        <p class="text-sm text-gray-500 mb-4">Actualiza el stock de cada producto en Norte y Sur
+                            directamente desde Pulpos.</p>
+                        <div class="bg-blue-50 rounded-xl p-4 flex gap-3">
+                            <span class="material-symbols-outlined text-blue-400 text-sm mt-0.5">info</span>
+                            <div class="text-xs text-blue-800 space-y-1">
+                                <p>📦 <strong>Actualiza existencias</strong> de todos los productos en ambas sucursales
+                                </p>
+                                <p>🔑 Usa el <strong>SKU como clave</strong> — productos existentes se actualizan,
+                                    nuevos se insertan</p>
+                                <p>⏱️ Duración estimada: <strong>10-20 minutos</strong></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel Movimientos -->
+                    <div id="configMovimientos" class="hidden">
+                        <h2 class="text-base font-black text-gray-800 mb-2">Sync de Movimientos</h2>
+                        <p class="text-sm text-gray-500 mb-4">Importa el historial completo de entradas, salidas y
+                            transferencias de los últimos 90 días.</p>
+                        <div class="bg-purple-50 rounded-xl p-4 flex gap-3">
+                            <span class="material-symbols-outlined text-purple-400 text-sm mt-0.5">warning</span>
+                            <div class="text-xs text-purple-800 space-y-1">
+                                <p>📊 Requiere que primero hayas ejecutado el sync de <strong>Inventario</strong></p>
+                                <p>🕐 Entra al detalle de cada producto — puede tardar <strong>30-60 minutos</strong>
+                                </p>
+                                <p>🔄 Los movimientos duplicados se ignoran automáticamente</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel Clientes -->
+                    <div id="configClientes" class="hidden">
+                        <h2 class="text-base font-black text-gray-800 mb-2">Sync de Clientes</h2>
+                        <p class="text-sm text-gray-500 mb-4">Importa todos los clientes de Pulpos con sus datos de
+                            contacto, RFC, crédito y saldo.</p>
+                        <div class="bg-green-50 rounded-xl p-4 flex gap-3">
+                            <span class="material-symbols-outlined text-green-400 text-sm mt-0.5">info</span>
+                            <div class="text-xs text-green-800 space-y-1">
+                                <p>👥 Sincroniza <strong>nombre, teléfono, RFC, razón social</strong></p>
+                                <p>💳 Incluye <strong>límite de crédito, saldo y total de ventas</strong></p>
+                                <p>⏱️ Duración estimada: <strong>5-15 minutos</strong></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="btnSincronizar" onclick="iniciarSync()"
+                        class="w-full mt-5 bg-black text-white font-black py-3.5 rounded-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 text-sm">
+                        <span class="material-symbols-outlined text-base">sync</span>
+                        <span id="btnSincronizarLabel">Sincronizar Ventas</span>
+                    </button>
                 </div>
 
                 <!-- Progreso -->
@@ -251,6 +329,46 @@
         let currentFecha = '';
         let currentLogId = null;
         let stagingVentas = [];
+        let modoActual = 'ventas'; // ventas | inventario | movimientos | clientes
+
+        // =====================================================
+        // TABS - cambiar modo
+        // =====================================================
+        const MODO_CONFIG = {
+            ventas:      { label: 'Sincronizar Ventas',      step3: 'Extrayendo ventas de Pulpos',    step4: 'Preparando vista previa' },
+            inventario:  { label: 'Sincronizar Inventario',  step3: 'Procesando productos en Pulpos', step4: 'Guardando stock en CRM' },
+            movimientos: { label: 'Sincronizar Movimientos', step3: 'Leyendo historial de productos', step4: 'Guardando movimientos en CRM' },
+            clientes:    { label: 'Sincronizar Clientes',    step3: 'Leyendo clientes de Pulpos',     step4: 'Guardando clientes en CRM' },
+        };
+
+        function seleccionarModo(modo) {
+            modoActual = modo;
+            // Actualizar tabs
+            document.querySelectorAll('.sync-tab').forEach(t => {
+                t.classList.remove('active-tab', 'border-black');
+                t.classList.add('border-gray-200', 'text-gray-400');
+            });
+            const tab = document.getElementById('tab-' + modo);
+            if (tab) {
+                tab.classList.add('active-tab', 'border-black');
+                tab.classList.remove('border-gray-200', 'text-gray-400');
+            }
+            // Mostrar panel correcto
+            ['Ventas','Inventario','Movimientos','Clientes'].forEach(m => {
+                const el = document.getElementById('config' + m);
+                if (el) el.classList.add('hidden');
+            });
+            const panelId = 'config' + modo.charAt(0).toUpperCase() + modo.slice(1);
+            document.getElementById(panelId)?.classList.remove('hidden');
+            // Actualizar etiqueta del botón
+            document.getElementById('btnSincronizarLabel').textContent = MODO_CONFIG[modo]?.label || 'Sincronizar';
+            // Actualizar textos de los steps
+            const cfg = MODO_CONFIG[modo];
+            if (cfg) {
+                document.querySelector('#step3 p.text-sm')?.setText?.(cfg.step3);
+                document.querySelector('#step4 p.text-sm')?.setText?.(cfg.step4);
+            }
+        }
 
         // =====================================================
         // INIT
@@ -303,9 +421,11 @@
         let timerInterval = null, segundos = 0;
 
         async function iniciarSync() {
+            const modo = modoActual;
             const fecha = document.getElementById('inputFecha').value;
             const btn = document.getElementById('btnSincronizar');
-            if (!fecha) { alert('Selecciona una fecha'); return; }
+
+            if (modo === 'ventas' && !fecha) { alert('Selecciona una fecha para sincronizar ventas'); return; }
 
             btn.disabled = true;
             btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-base">sync</span> Verificando...`;
@@ -313,18 +433,29 @@
             if (!GITHUB_TOKEN) await cargarConfigGithub();
             if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
                 btn.disabled = false;
-                btn.innerHTML = `<span class="material-symbols-outlined text-base">sync</span> Sincronizar con Pulpos`;
+                btn.innerHTML = `<span class="material-symbols-outlined text-base">sync</span> ${MODO_CONFIG[modo]?.label || 'Sincronizar'}`;
                 mostrarErrorConfig();
                 document.getElementById('panelResultado').scrollIntoView({ behavior: 'smooth' });
                 return;
             }
 
-            // Limpiar staging previo del mismo día
-            await sbPulpos.from('pulpos_sync_staging').delete().eq('fecha_sync', fecha).eq('confirmado', false);
+            // Para ventas: limpiar staging previo del mismo día
+            if (modo === 'ventas' && fecha) {
+                await sbPulpos.from('pulpos_sync_staging').delete().eq('fecha_sync', fecha).eq('confirmado', false);
+            }
 
-            currentFecha = fecha;
+            currentFecha = fecha || new Date().toISOString().split('T')[0];
             document.getElementById('panelConfig').classList.add('hidden');
             document.getElementById('panelProgreso').classList.remove('hidden');
+
+            // Actualizar textos de steps para el modo actual
+            const cfg = MODO_CONFIG[modo];
+            if (cfg) {
+                const s3p = document.querySelector('#step3 p.text-sm.font-bold');
+                const s4p = document.querySelector('#step4 p.text-sm.font-bold');
+                if (s3p) s3p.textContent = cfg.step3;
+                if (s4p) s4p.textContent = cfg.step4;
+            }
 
             segundos = 0;
             timerInterval = setInterval(() => {
@@ -335,6 +466,9 @@
 
             try {
                 activarStep(1);
+                const inputs = { modo };
+                if (modo === 'ventas' && fecha) inputs.fecha = fecha;
+
                 const response = await fetch(
                     `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`,
                     {
@@ -344,13 +478,18 @@
                             'Accept': 'application/vnd.github.v3+json',
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ ref: 'main', inputs: { fecha } })
+                        body: JSON.stringify({ ref: 'main', inputs })
                     }
                 );
                 if (!response.ok) throw new Error(`GitHub ${response.status}: ${await response.text()}`);
                 completarStep(1);
                 activarStep(2);
-                await monitorearSync(fecha);
+
+                if (modo === 'ventas') {
+                    await monitorearSync(currentFecha);
+                } else {
+                    await monitorearSyncDirecto(modo);
+                }
             } catch (error) {
                 clearInterval(timerInterval);
                 mostrarError(error.message);
@@ -410,6 +549,57 @@
                 setTimeout(poll, 10000);
             };
             setTimeout(poll, 20000);
+        }
+
+        // =====================================================
+        // POLLING para modos sin staging (inventario/movimientos/clientes)
+        // Espera a que el workflow de GitHub Actions termine (completado/error)
+        // =====================================================
+        async function monitorearSyncDirecto(modo) {
+            const iconModo = { inventario: 'inventory_2', movimientos: 'history', clientes: 'people' };
+            let intentos = 0;
+
+            const poll = async () => {
+                intentos++;
+
+                // Simular pasos de progreso por tiempo
+                if (segundos > 30)  { completarStep(2); activarStep(3); }
+                if (segundos > 120) { completarStep(3); activarStep(4); }
+
+                // Para estos modos: leer el último log con estado completado/error
+                // El script pone estado 'completado' al terminar para modos no-ventas
+                // Usamos GitHub Actions API para saber si terminó
+                const ghResponse = await fetch(
+                    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${WORKFLOW_FILE}/runs?per_page=1`,
+                    { headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' } }
+                ).catch(() => null);
+
+                if (ghResponse?.ok) {
+                    const ghData = await ghResponse.json();
+                    const lastRun = ghData?.workflow_runs?.[0];
+                    if (lastRun?.status === 'completed') {
+                        clearInterval(timerInterval);
+                        completarStep(3);
+                        completarStep(4);
+                        document.getElementById('panelProgreso').classList.add('hidden');
+                        if (lastRun.conclusion === 'success') {
+                            mostrarExitoDirecto(modo);
+                        } else {
+                            mostrarError(`El proceso terminó con estado: ${lastRun.conclusion}. Revisa GitHub Actions para más detalles.`);
+                        }
+                        await cargarHistorial();
+                        return;
+                    }
+                }
+
+                if (intentos >= 40) {
+                    clearInterval(timerInterval);
+                    mostrarError('Tiempo de espera agotado. El proceso puede seguir corriendo. Revisa GitHub Actions en unos minutos.');
+                    return;
+                }
+                setTimeout(poll, 15000);
+            };
+            setTimeout(poll, 30000);
         }
 
         // =====================================================
@@ -615,6 +805,33 @@
         </div>`;
         }
 
+        function mostrarExitoDirecto(modo) {
+            const destinos = {
+                inventario:  { label: '¡Inventario actualizado!', desc: 'El stock de todos los productos fue actualizado.', btn: 'Ver Productos', href: 'productos.html', icon: 'inventory_2' },
+                movimientos: { label: '¡Movimientos importados!', desc: 'Historial de entradas y salidas sincronizado.', btn: 'Ver Productos', href: 'productos.html', icon: 'history' },
+                clientes:    { label: '¡Clientes sincronizados!', desc: 'Todos los clientes de Pulpos fueron importados.', btn: 'Ver Clientes', href: 'clientes.html', icon: 'people' },
+            };
+            const d = destinos[modo] || { label: '¡Completado!', desc: 'Sincronización exitosa.', btn: 'Inicio', href: 'dashboard.html', icon: 'check_circle' };
+            const p = document.getElementById('panelResultado');
+            p.classList.remove('hidden');
+            p.innerHTML = `
+        <div class="text-center mb-5">
+            <div class="size-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <span class="material-symbols-outlined text-green-500 text-3xl">${d.icon}</span>
+            </div>
+            <h3 class="text-xl font-black text-gray-900">${d.label}</h3>
+            <p class="text-sm text-gray-500 mt-1">${d.desc}</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="location.href='${d.href}'" class="flex-1 bg-black text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-sm">${d.icon}</span> ${d.btn}
+            </button>
+            <button onclick="resetPanel()" class="flex-1 border border-gray-200 text-gray-700 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-sm">sync</span> Otro sync
+            </button>
+        </div>`;
+        }
+
         function mostrarError(msg) {
             document.getElementById('panelProgreso').classList.add('hidden');
             const p = document.getElementById('panelResultado');
@@ -647,8 +864,11 @@
             document.getElementById('panelConfig').classList.remove('hidden');
             document.getElementById('panelProgreso').classList.add('hidden');
             document.getElementById('panelResultado').classList.add('hidden');
-            document.getElementById('btnSincronizar').disabled = false;
-            document.getElementById('btnSincronizar').innerHTML = `<span class="material-symbols-outlined text-base">sync</span> Sincronizar con Pulpos`;
+            const btn = document.getElementById('btnSincronizar');
+            btn.disabled = false;
+            const label = MODO_CONFIG[modoActual]?.label || 'Sincronizar';
+            btn.innerHTML = `<span class="material-symbols-outlined text-base">sync</span> ${label}`;
+            document.getElementById('btnSincronizarLabel').textContent = label;
             for (let i = 1; i <= 4; i++) {
                 const c = document.getElementById(`step${i}`), ic = document.getElementById(`step${i}-icon`);
                 if (c) c.className = 'step-card border border-gray-100 rounded-xl p-4 flex items-center gap-3';

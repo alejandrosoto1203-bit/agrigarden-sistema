@@ -4,15 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       fecha:
-        description: 'Fecha a sincronizar (YYYY-MM-DD)'
-        required: true
+        description: 'Fecha a sincronizar (YYYY-MM-DD) — solo para modo ventas'
+        required: false
         default: ''
+        type: string
+      modo:
+        description: 'Modo de sincronización: ventas | inventario | movimientos | clientes'
+        required: false
+        default: 'ventas'
         type: string
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repositorio
@@ -34,12 +39,20 @@ jobs:
       - name: Ejecutar sincronización
         working-directory: ./pulpos_sync
         env:
-          PULPOS_EMAIL:        ${{ secrets.PULPOS_EMAIL }}
-          PULPOS_PASSWORD:     ${{ secrets.PULPOS_PASSWORD }}
-          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          PULPOS_EMAIL:         ${{ secrets.PULPOS_EMAIL }}
+          PULPOS_PASSWORD:      ${{ secrets.PULPOS_PASSWORD }}
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: node pulpos_sync.js --fecha=${{ inputs.fecha }}
+        run: |
+          MODO="${{ inputs.modo }}"
+          FECHA="${{ inputs.fecha }}"
+          if [ -z "$MODO" ]; then MODO="ventas"; fi
+          if [ "$MODO" = "ventas" ] && [ -n "$FECHA" ]; then
+            node pulpos_sync.js --modo=ventas --fecha=$FECHA
+          else
+            node pulpos_sync.js --modo=$MODO
+          fi
 
       - name: Resultado
         if: always()
-        run: echo "✅ Sincronización terminada para fecha ${{ inputs.fecha }}"
+        run: echo "✅ Sincronización terminada — modo=${{ inputs.modo }} fecha=${{ inputs.fecha }}"
