@@ -921,14 +921,15 @@
                             <p class="text-xs text-gray-400">${new Date(log.created_at).toLocaleString('es-MX')}</p>
                         </div>
                     </div>
-                    <div class="text-right">
-                        <p class="text-sm font-black text-gray-700">${log.ventas_importadas || 0} ventas</p>
+                    <div class="text-right max-w-[180px]">
+                        <p class="text-xs font-black text-gray-700 truncate" title="${log.mensaje || ''}">${log.mensaje || (log.ventas_importadas + ' registros') || '—'}</p>
                         ${log.estado === 'listo_para_revision' ? `
                         <button onclick="abrirModalRevision('${log.fecha_sync}')" 
                             class="text-[10px] font-black text-amber-600 hover:underline">Ver revisión →</button>` : ''}
                     </div>
                 </div>`).join('')}
         </div>`;
+
         }
     </script>
 </body>

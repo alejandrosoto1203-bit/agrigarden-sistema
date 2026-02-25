@@ -15,37 +15,29 @@ const { createClient } = require('@supabase/supabase-js');
 const PULPOS_EMAIL = process.env.PULPOS_EMAIL;
 const PULPOS_PASSWORD = process.env.PULPOS_PASSWORD;
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY; // Service key (más permisos que anon)
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-// Obtener argumentos de línea de comandos
 const fechaArg = process.argv.find(a => a.startsWith('--fecha='));
 const modoArg = process.argv.find(a => a.startsWith('--modo='));
 const FECHA_SYNC = fechaArg ? fechaArg.split('=')[1] : new Date().toISOString().split('T')[0];
-const MODO = modoArg ? modoArg.split('=')[1] : 'ventas'; // ventas | inventario | movimientos | clientes | all
+const MODO = modoArg ? modoArg.split('=')[1] : 'ventas';
 
-console.log(`🚀 Iniciando sincronización Pulpos → Agrigarden`);
-console.log(`📅 Fecha: ${FECHA_SYNC}  |  Modo: ${MODO}`);
+console.log(`Iniciando sincronizacion Pulpos -> Agrigarden`);
+console.log(`Fecha: ${FECHA_SYNC}  |  Modo: ${MODO}`);
 
-// =====================================================
-// VALIDACIONES INICIALES
-// =====================================================
 if (!PULPOS_EMAIL || !PULPOS_PASSWORD) {
-    console.error('❌ PULPOS_EMAIL y PULPOS_PASSWORD son requeridos');
+    console.error('ERROR: PULPOS_EMAIL y PULPOS_PASSWORD son requeridos');
     process.exit(1);
 }
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.error('❌ SUPABASE_URL y SUPABASE_SERVICE_KEY son requeridos');
+    console.error('ERROR: SUPABASE_URL y SUPABASE_SERVICE_KEY son requeridos');
     process.exit(1);
 }
 
-// =====================================================
-// CLIENTE SUPABASE
-// =====================================================
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // =====================================================
 // MAPEO DE MÉTODOS DE PAGO
-// Pulpos → Agrigarden
 // =====================================================
 function mapearMetodoPago(metodoPulpos, comentarios = '') {
     const metodo = (metodoPulpos || '').toLowerCase().trim();
@@ -76,9 +68,6 @@ function mapearMetodoPago(metodoPulpos, comentarios = '') {
     return { metodo: metodoPulpos || 'Otro', claro: false };
 }
 
-// =====================================================
-// MAPEO DE SUCURSALES
-// =====================================================
 function mapearSucursal(sucursalPulpos) {
     const s = (sucursalPulpos || '').toLowerCase();
     if (s.includes('norte')) return 'Norte';
@@ -86,16 +75,13 @@ function mapearSucursal(sucursalPulpos) {
     return 'Norte';
 }
 
-// =====================================================
-// UTILS
-// =====================================================
 function parseMoney(str) {
     if (!str) return 0;
     return parseFloat(String(str).replace(/[$,\s]/g, '')) || 0;
 }
 
 async function loginPulpos(page) {
-    console.log('🔑 Iniciando sesión en Pulpos...');
+    console.log('Iniciando sesion en Pulpos...');
     await page.goto('https://app.pulpos.com/login', { waitUntil: 'domcontentloaded' });
     await page.fill('input[name="email"]', PULPOS_EMAIL);
     await page.fill('input[name="password"]', PULPOS_PASSWORD);
@@ -103,398 +89,430 @@ async function loginPulpos(page) {
     await page.waitForURL('**/dashboard**', { timeout: 25000 }).catch(() => { });
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
-    console.log('✅ Login exitoso');
+    console.log('Login exitoso');
 }
 
 // =====================================================
-// MODO: INVENTARIO — Sync stock de todos los productos
-// Usa SKU como clave de deduplicación
+// MODO: INVENTARIO
 // =====================================================
 async function sincronizarInventario(page) {
-    console.log('\n📦 Iniciando sync de INVENTARIO (stock por sucursal)...');
-    await page.goto('https://app.pulpos.com/products', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3000);
+    console.log('\nIniciando sync de INVENTARIO (stock por sucursal)...');
 
-    // Recopilar todos los IDs de productos haciendo scroll
-    const productIds = new Set();
-    let prevCount = 0;
-    let scrollAttempts = 0;
+    const { data: logInicio } = await supabase
+        .from('pulpos_sync_log')
+        .insert({ fecha_sync: FECHA_SYNC, estado: 'iniciado', mensaje: 'Sync de inventario iniciado' })
+        .select()
+        .single();
+    const logId = logInicio?.id;
 
-    while (scrollAttempts < 50) {
-        const links = await page.$$eval('a[href*="/products/detail"]', els =>
-            els.map(a => {
-                const url = new URL(a.href);
-                return url.searchParams.get('id');
-            }).filter(Boolean)
-        );
-        links.forEach(id => productIds.add(id));
+    try {
+        await page.goto('https://app.pulpos.com/products', { waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(3000);
 
-        if (productIds.size === prevCount && scrollAttempts > 5) break;
-        prevCount = productIds.size;
+        const productIds = new Set();
+        let sinCambio = 0;
+        let scrollAttempts = 0;
 
-        // Scroll hacia abajo para cargar más
-        await page.keyboard.press('End');
-        await page.waitForTimeout(1500);
-        scrollAttempts++;
-    }
-
-    console.log(`   📋 Total productos encontrados: ${productIds.size}`);
-
-    let actualizados = 0;
-    let insertados = 0;
-    let errores = 0;
-
-    for (const pulposId of productIds) {
-        try {
-            await page.goto(`https://app.pulpos.com/products/detail?id=${pulposId}`, { waitUntil: 'domcontentloaded' });
-            await page.waitForTimeout(2000);
-
-            const datos = await page.evaluate(() => {
-                const txt = document.body.innerText;
-
-                // SKU — buscar en el texto de la página
-                const skuMatch = txt.match(/SKU[:\s]+([A-Z0-9\-]+)/i);
-                const sku = skuMatch ? skuMatch[1].trim() : null;
-
-                // Nombre — h1 o h2
-                const nombre = (document.querySelector('h1, h2')?.innerText || '').trim();
-
-                // Categoría y Marca — buscar etiquetas en el DOM (Pulpos las muestra como spans/labels)
-                const allText = txt;
-                const catMatch = allText.match(/Categoría[:\s]+([^\n]+)/i);
-                const marcaMatch = allText.match(/Marca[:\s]+([^\n]+)/i);
-                const categoria = catMatch ? catMatch[1].trim() : null;
-                const marca = marcaMatch ? marcaMatch[1].trim() : null;
-
-                // Precio de venta
-                const precioMatch = allText.match(/Precio de Venta[:\s]+\$([0-9,]+\.?\d*)/i);
-                const precio = precioMatch ? parseFloat(precioMatch[1].replace(/,/g, '')) : 0;
-
-                // Costo
-                const costoMatch = allText.match(/Costo[:\s]+\$([0-9,]+\.?\d*)/i);
-                const costo = costoMatch ? parseFloat(costoMatch[1].replace(/,/g, '')) : 0;
-
-                // Stock por sucursal — Pulpos muestra "Agrigarden Norte" y "Agrigarden Sur"
-                // con el valor de existencias cerca
-                const stockNorteMatch = allText.match(/Agrigarden\s+Norte[\s\S]{0,100}?(\d+(?:\.\d+)?)\s*(?:pzas?|piezas?|unidades?)/i);
-                const stockSurMatch = allText.match(/Agrigarden\s+Sur[\s\S]{0,100}?(\d+(?:\.\d+)?)\s*(?:pzas?|piezas?|unidades?)/i);
-
-                // Backup: buscar tabla de ubicaciones con números
-                const allNums = [...allText.matchAll(/(\d+(?:\.\d+)?)\s*(?:pzas?|piezas?)/gi)];
-
-                const stockNorte = stockNorteMatch ? parseFloat(stockNorteMatch[1]) : (allNums[0] ? parseFloat(allNums[0][1]) : 0);
-                const stockSur = stockSurMatch ? parseFloat(stockSurMatch[1]) : (allNums[1] ? parseFloat(allNums[1][1]) : 0);
-
-                return { sku, nombre, categoria, marca, precio, costo, stockNorte, stockSur };
-            });
-
-            if (!datos.sku && !datos.nombre) {
-                console.log(`   ⚠️ Sin datos para pulpos_id=${pulposId}, saltando`);
-                errores++;
-                continue;
-            }
-
-            // Construir payload — campos a sincronizar
-            const payload = {
-                pulpos_id: pulposId,
-                stock_norte: datos.stockNorte,
-                stock_sur: datos.stockSur,
-                ultima_sync: new Date().toISOString(),
-                ...(datos.nombre && { nombre: datos.nombre.toUpperCase() }),
-                ...(datos.categoria && { categoria: datos.categoria.toUpperCase() }),
-                ...(datos.marca && { marca: datos.marca.toUpperCase() }),
-                ...(datos.precio && { precio_publico: datos.precio }),
-                ...(datos.costo && { costo: datos.costo })
-            };
-
-            // Intentar update por SKU primero (evita duplicados con productos existentes)
-            if (datos.sku) {
-                const { data: existing } = await supabase
-                    .from('productos')
-                    .select('id')
-                    .eq('sku', datos.sku.toUpperCase())
-                    .maybeSingle();
-
-                if (existing) {
-                    // Actualizar producto existente por SKU
-                    const { error } = await supabase
-                        .from('productos')
-                        .update(payload)
-                        .eq('sku', datos.sku.toUpperCase());
-                    if (error) { console.error(`   ❌ Error actualizando ${datos.sku}: ${error.message}`); errores++; }
-                    else { actualizados++; }
-                } else {
-                    // Insertar nuevo producto
-                    const { error } = await supabase
-                        .from('productos')
-                        .insert({ ...payload, sku: datos.sku.toUpperCase(), activo: true });
-                    if (error) { console.error(`   ❌ Error insertando ${datos.sku}: ${error.message}`); errores++; }
-                    else { insertados++; }
-                }
+        while (scrollAttempts < 400 && sinCambio < 20) {
+            const links = await page.$$eval('a[href*="/products/detail"]', els =>
+                els.map(a => new URL(a.href).searchParams.get('id')).filter(Boolean)
+            );
+            const prev = productIds.size;
+            links.forEach(id => productIds.add(id));
+            if (productIds.size > prev) {
+                sinCambio = 0;
             } else {
-                // Sin SKU — upsert por pulpos_id
-                const { error } = await supabase
-                    .from('productos')
-                    .upsert(payload, { onConflict: 'pulpos_id' });
-                if (error) { console.error(`   ❌ Error upsert ${pulposId}: ${error.message}`); errores++; }
-                else { actualizados++; }
+                sinCambio++;
             }
-
-            console.log(`   ✅ ${datos.sku || pulposId} | N:${datos.stockNorte} S:${datos.stockSur} | ${datos.nombre?.substring(0, 30)}`);
-
-        } catch (e) {
-            console.error(`   ❌ Error en ${pulposId}: ${e.message}`);
-            errores++;
+            await page.evaluate(() => {
+                window.scrollBy(0, 1400);
+                document.documentElement.scrollBy(0, 1400);
+                document.body.scrollBy(0, 1400);
+            });
+            await page.waitForTimeout(1000);
+            scrollAttempts++;
         }
-    }
 
-    console.log(`\n📦 Inventario completado: ${actualizados} actualizados | ${insertados} insertados | ${errores} errores`);
-    return { actualizados, insertados, errores };
+        console.log(`   Total productos encontrados: ${productIds.size}`);
+
+        let actualizados = 0;
+        let insertados = 0;
+        let errores = 0;
+
+        for (const pulposId of productIds) {
+            try {
+                await page.goto(`https://app.pulpos.com/products/detail?id=${pulposId}`, { waitUntil: 'domcontentloaded' });
+                await page.waitForTimeout(2000);
+
+                const datos = await page.evaluate(() => {
+                    const txt = document.body.innerText;
+                    const skuMatch = txt.match(/SKU[:\s]+([A-Z0-9\-]+)/i);
+                    const sku = skuMatch ? skuMatch[1].trim() : null;
+                    const nombre = (document.querySelector('h1, h2')?.innerText || '').trim();
+                    const catMatch = txt.match(/Categor[íi]a[:\s]+([^\n]+)/i);
+                    const marcaMatch = txt.match(/Marca[:\s]+([^\n]+)/i);
+                    const categoria = catMatch ? catMatch[1].trim() : null;
+                    const marca = marcaMatch ? marcaMatch[1].trim() : null;
+                    const precioMatch = txt.match(/Precio de Venta[:\s]+\$([0-9,]+\.?\d*)/i);
+                    const precio = precioMatch ? parseFloat(precioMatch[1].replace(/,/g, '')) : 0;
+                    const costoMatch = txt.match(/Costo[:\s]+\$([0-9,]+\.?\d*)/i);
+                    const costo = costoMatch ? parseFloat(costoMatch[1].replace(/,/g, '')) : 0;
+                    const stockNorteMatch = txt.match(/Agrigarden\s+Norte[\s\S]{0,200}?(\d+(?:\.\d+)?)\s*(?:pzas?|piezas?|unidades?)/i);
+                    const stockSurMatch = txt.match(/Agrigarden\s+Sur[\s\S]{0,200}?(\d+(?:\.\d+)?)\s*(?:pzas?|piezas?|unidades?)/i);
+                    const allNums = [...txt.matchAll(/(\d+(?:\.\d+)?)\s*(?:pzas?|piezas?)/gi)];
+                    const stockNorte = stockNorteMatch ? parseFloat(stockNorteMatch[1]) : (allNums[0] ? parseFloat(allNums[0][1]) : 0);
+                    const stockSur = stockSurMatch ? parseFloat(stockSurMatch[1]) : (allNums[1] ? parseFloat(allNums[1][1]) : 0);
+                    return { sku, nombre, categoria, marca, precio, costo, stockNorte, stockSur };
+                });
+
+                if (!datos.sku && !datos.nombre) { errores++; continue; }
+
+                const payload = {
+                    pulpos_id: pulposId,
+                    stock_norte: datos.stockNorte,
+                    stock_sur: datos.stockSur,
+                    ultima_sync: new Date().toISOString(),
+                    ...(datos.nombre && { nombre: datos.nombre.toUpperCase() }),
+                    ...(datos.categoria && { categoria: datos.categoria.toUpperCase() }),
+                    ...(datos.marca && { marca: datos.marca.toUpperCase() }),
+                    ...(datos.precio && { precio_publico: datos.precio }),
+                    ...(datos.costo && { costo: datos.costo })
+                };
+
+                if (datos.sku) {
+                    const { data: existing } = await supabase
+                        .from('productos').select('id').eq('sku', datos.sku.toUpperCase()).maybeSingle();
+                    if (existing) {
+                        const { error } = await supabase.from('productos').update(payload).eq('sku', datos.sku.toUpperCase());
+                        if (error) { errores++; } else { actualizados++; }
+                    } else {
+                        const { error } = await supabase.from('productos').insert({ ...payload, sku: datos.sku.toUpperCase(), activo: true });
+                        if (error) { errores++; } else { insertados++; }
+                    }
+                } else {
+                    const { error } = await supabase.from('productos').upsert(payload, { onConflict: 'pulpos_id' });
+                    if (error) { errores++; } else { actualizados++; }
+                }
+
+                console.log(`   OK ${datos.sku || pulposId} | N:${datos.stockNorte} S:${datos.stockSur}`);
+
+            } catch (e) {
+                console.error(`   ERROR en ${pulposId}: ${e.message}`);
+                errores++;
+            }
+        }
+
+        if (logId) {
+            await supabase.from('pulpos_sync_log').update({
+                estado: 'completado',
+                ventas_importadas: actualizados + insertados,
+                ventas_pendientes: errores,
+                mensaje: `${actualizados} actualizados, ${insertados} insertados, ${errores} errores`
+            }).eq('id', logId);
+        }
+
+        console.log(`\nInventario: ${actualizados} actualizados | ${insertados} insertados | ${errores} errores`);
+
+    } catch (err) {
+        if (logId) {
+            await supabase.from('pulpos_sync_log').update({ estado: 'error', mensaje: err.message }).eq('id', logId);
+        }
+        throw err;
+    }
 }
 
 // =====================================================
-// MODO: MOVIMIENTOS — Sync historial completo de movimientos
-// Itera por cada producto y usa /reports/stock-movements
+// MODO: MOVIMIENTOS
 // =====================================================
 async function sincronizarMovimientos(page) {
-    console.log('\n📊 Iniciando sync de MOVIMIENTOS DE STOCK (últimos 90 días)...');
+    console.log('\nIniciando sync de MOVIMIENTOS DE STOCK (ultimos 90 dias)...');
 
-    // Obtener lista de productos con pulpos_id desde Supabase
-    const { data: productos, error } = await supabase
-        .from('productos')
-        .select('id, sku, nombre, pulpos_id')
-        .not('pulpos_id', 'is', null);
+    const { data: logInicio } = await supabase
+        .from('pulpos_sync_log')
+        .insert({ fecha_sync: FECHA_SYNC, estado: 'iniciado', mensaje: 'Sync de movimientos iniciado' })
+        .select()
+        .single();
+    const logId = logInicio?.id;
 
-    if (error || !productos?.length) {
-        console.log('⚠️ Sin productos con pulpos_id. Ejecuta --modo=inventario primero.');
-        return;
-    }
+    try {
+        const { data: productos, error } = await supabase
+            .from('productos')
+            .select('id, sku, nombre, pulpos_id')
+            .not('pulpos_id', 'is', null);
 
-    console.log(`   📋 Productos con pulpos_id: ${productos.length}`);
-
-    let totalMovimientos = 0;
-    let errores = 0;
-
-    for (const prod of productos) {
-        try {
-            const encodedName = encodeURIComponent(prod.nombre || prod.sku || '');
-            await page.goto(
-                `https://app.pulpos.com/reports/stock-movements?productName=${encodedName}&periodGrouping=byDay&period=last90Days`,
-                { waitUntil: 'domcontentloaded' }
-            );
-            await page.waitForTimeout(2500);
-
-            // Extraer filas de la tabla de movimientos
-            const movimientos = await page.evaluate(() => {
-                const rows = Array.from(document.querySelectorAll('tbody tr'));
-                return rows.map(row => {
-                    const cells = Array.from(row.querySelectorAll('td'));
-                    const textos = cells.map(c => c.innerText?.trim() || '');
-                    // Columnas: Fecha | Movimiento | Stock Anterior | Tipo | Cantidad | Nuevo Stock | Ubicación | Usuario
-                    return {
-                        fecha: textos[0] || '',
-                        referencia: textos[1] || '',
-                        stock_anterior: parseFloat((textos[2] || '0').replace(/[^0-9.]/g, '')) || 0,
-                        tipo_raw: textos[3] || '',
-                        cantidad: parseFloat((textos[4] || '0').replace(/[^0-9.]/g, '')) || 0,
-                        stock_nuevo: parseFloat((textos[5] || '0').replace(/[^0-9.]/g, '')) || 0,
-                        sucursal_raw: textos[6] || '',
-                        usuario: textos[7] || ''
-                    };
-                }).filter(m => m.fecha && m.cantidad > 0);
-            });
-
-            if (!movimientos.length) {
-                console.log(`   ⚪ ${prod.sku || prod.nombre}: Sin movimientos`);
-                continue;
+        if (error || !productos?.length) {
+            const msg = 'Sin productos con pulpos_id. Ejecuta --modo=inventario primero.';
+            console.log(msg);
+            if (logId) {
+                await supabase.from('pulpos_sync_log').update({ estado: 'error', mensaje: msg }).eq('id', logId);
             }
-
-            // Mapear tipo y sucursal
-            const registros = movimientos.map(m => {
-                let tipo = 'AJUSTE';
-                const tipoLower = m.tipo_raw.toLowerCase();
-                if (tipoLower.includes('entrada')) tipo = 'ENTRADA';
-                else if (tipoLower.includes('salida') || tipoLower.includes('venta')) tipo = 'SALIDA';
-                else if (tipoLower.includes('transferencia') && tipoLower.includes('origen')) tipo = 'TRANSFERENCIA_OUT';
-                else if (tipoLower.includes('transferencia') && tipoLower.includes('destino')) tipo = 'TRANSFERENCIA_IN';
-
-                const sucLower = m.sucursal_raw.toLowerCase();
-                const sucursal = sucLower.includes('sur') ? 'Sur' : 'Norte';
-
-                // Parsear fecha (ej: "24 feb 2026" → ISO)
-                let fechaISO = new Date().toISOString();
-                try {
-                    const meses = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
-                    const partes = m.fecha.toLowerCase().split(/\s+/);
-                    if (partes.length >= 3) {
-                        const d = parseInt(partes[0]);
-                        const mo = meses[partes[1]] ?? 0;
-                        const y = parseInt(partes[2]);
-                        fechaISO = new Date(y, mo, d, 12, 0, 0).toISOString();
-                    }
-                } catch (_) { }
-
-                return {
-                    producto_id: prod.id,
-                    sucursal: sucursal,
-                    tipo: tipo,
-                    cantidad: m.cantidad,
-                    stock_anterior: m.stock_anterior,
-                    stock_nuevo: m.stock_nuevo,
-                    referencia: m.referencia,
-                    notas: `${m.usuario ? 'Usuario: ' + m.usuario : ''} | Sync Pulpos`,
-                    created_at: fechaISO
-                };
-            });
-
-            // Upsert por producto_id + referencia + fecha (evitar duplicados en re-sync)
-            for (const reg of registros) {
-                const { error: mvErr } = await supabase
-                    .from('movimientos_stock')
-                    .upsert(reg, { onConflict: 'producto_id,referencia,created_at', ignoreDuplicates: true });
-                if (!mvErr) totalMovimientos++;
-            }
-
-            console.log(`   ✅ ${prod.sku || prod.nombre}: ${registros.length} movimientos`);
-
-        } catch (e) {
-            console.error(`   ❌ Error en ${prod.sku}: ${e.message}`);
-            errores++;
+            return;
         }
-    }
 
-    console.log(`\n📊 Movimientos completado: ${totalMovimientos} registros | ${errores} errores`);
+        console.log(`   Productos con pulpos_id: ${productos.length}`);
+
+        let totalMovimientos = 0;
+        let errores = 0;
+
+        for (const prod of productos) {
+            try {
+                const encodedName = encodeURIComponent(prod.nombre || prod.sku || '');
+                await page.goto(
+                    `https://app.pulpos.com/reports/stock-movements?productName=${encodedName}&periodGrouping=byDay&period=last90Days`,
+                    { waitUntil: 'domcontentloaded' }
+                );
+                await page.waitForTimeout(2500);
+
+                const movimientos = await page.evaluate(() => {
+                    const rows = Array.from(document.querySelectorAll('tbody tr'));
+                    return rows.map(row => {
+                        const cells = Array.from(row.querySelectorAll('td'));
+                        const textos = cells.map(c => c.innerText?.trim() || '');
+                        return {
+                            fecha: textos[0] || '',
+                            referencia: textos[1] || '',
+                            stock_anterior: parseFloat((textos[2] || '0').replace(/[^0-9.]/g, '')) || 0,
+                            tipo_raw: textos[3] || '',
+                            cantidad: parseFloat((textos[4] || '0').replace(/[^0-9.]/g, '')) || 0,
+                            stock_nuevo: parseFloat((textos[5] || '0').replace(/[^0-9.]/g, '')) || 0,
+                            sucursal_raw: textos[6] || '',
+                            usuario: textos[7] || ''
+                        };
+                    }).filter(m => m.fecha && m.cantidad > 0);
+                });
+
+                if (!movimientos.length) { continue; }
+
+                const registros = movimientos.map(m => {
+                    let tipo = 'AJUSTE';
+                    const tipoLower = m.tipo_raw.toLowerCase();
+                    if (tipoLower.includes('entrada')) tipo = 'ENTRADA';
+                    else if (tipoLower.includes('salida') || tipoLower.includes('venta')) tipo = 'SALIDA';
+                    else if (tipoLower.includes('transferencia') && tipoLower.includes('origen')) tipo = 'TRANSFERENCIA_OUT';
+                    else if (tipoLower.includes('transferencia') && tipoLower.includes('destino')) tipo = 'TRANSFERENCIA_IN';
+
+                    const sucursal = m.sucursal_raw.toLowerCase().includes('sur') ? 'Sur' : 'Norte';
+
+                    let fechaISO = new Date().toISOString();
+                    try {
+                        const meses = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
+                        const partes = m.fecha.toLowerCase().split(/\s+/);
+                        if (partes.length >= 3) {
+                            fechaISO = new Date(parseInt(partes[2]), meses[partes[1]] ?? 0, parseInt(partes[0]), 12).toISOString();
+                        }
+                    } catch (_) { }
+
+                    return {
+                        producto_id: prod.id,
+                        sucursal,
+                        tipo,
+                        cantidad: m.cantidad,
+                        stock_anterior: m.stock_anterior,
+                        stock_nuevo: m.stock_nuevo,
+                        referencia: m.referencia,
+                        notas: `${m.usuario ? 'Usuario: ' + m.usuario : ''} | Sync Pulpos`,
+                        created_at: fechaISO
+                    };
+                });
+
+                for (const reg of registros) {
+                    const { error: mvErr } = await supabase
+                        .from('movimientos_stock')
+                        .upsert(reg, { onConflict: 'producto_id,referencia,created_at', ignoreDuplicates: true });
+                    if (!mvErr) totalMovimientos++;
+                }
+
+                console.log(`   OK ${prod.sku || prod.nombre}: ${registros.length} movimientos`);
+
+            } catch (e) {
+                console.error(`   ERROR en ${prod.sku}: ${e.message}`);
+                errores++;
+            }
+        }
+
+        if (logId) {
+            await supabase.from('pulpos_sync_log').update({
+                estado: 'completado',
+                ventas_importadas: totalMovimientos,
+                ventas_pendientes: errores,
+                mensaje: `${totalMovimientos} movimientos sincronizados | ${errores} errores`
+            }).eq('id', logId);
+        }
+
+        console.log(`\nMovimientos: ${totalMovimientos} registros | ${errores} errores`);
+
+    } catch (err) {
+        if (logId) {
+            await supabase.from('pulpos_sync_log').update({ estado: 'error', mensaje: err.message }).eq('id', logId);
+        }
+        throw err;
+    }
 }
 
 // =====================================================
 // MODO: CLIENTES — Sync todos los clientes de Pulpos
+// FIXES: scroll robusto con JS scrollBy (no keyboard End)
+//        termina solo cuando 20 ciclos consecutivos sin cambio
+//        registra en pulpos_sync_log al inicio y al final
 // =====================================================
 async function sincronizarClientes(page) {
-    console.log('\n👥 Iniciando sync de CLIENTES desde Pulpos...');
-    await page.goto('https://app.pulpos.com/clients', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3000);
+    console.log('\nIniciando sync de CLIENTES desde Pulpos...');
 
-    // Recopilar todos los IDs de clientes con scroll
-    const clientIds = new Set();
-    let prevCount = 0;
-    let scrollAttempts = 0;
+    // Registrar inicio en log (igual que modo ventas)
+    const { data: logInicio } = await supabase
+        .from('pulpos_sync_log')
+        .insert({ fecha_sync: FECHA_SYNC, estado: 'iniciado', mensaje: 'Sync de clientes iniciado' })
+        .select()
+        .single();
+    const logId = logInicio?.id;
 
-    while (scrollAttempts < 100) {
-        const links = await page.$$eval('a[href*="/clients/detail"]', els =>
-            els.map(a => {
-                const url = new URL(a.href);
-                return url.searchParams.get('id');
-            }).filter(Boolean)
-        );
-        links.forEach(id => clientIds.add(id));
+    try {
+        await page.goto('https://app.pulpos.com/clients', { waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(3000);
 
-        if (clientIds.size === prevCount && scrollAttempts > 5) break;
-        prevCount = clientIds.size;
+        // -----------------------------------------------------------
+        // SCROLL ROBUSTO: usa JS scrollBy() dentro del navegador.
+        // Sale solo cuando 20 ciclos consecutivos no cargan nuevos
+        // clientes. El metodo anterior usaba keyboard End y salia
+        // prematuramente con solo 5 intentos sin cambio.
+        // -----------------------------------------------------------
+        const clientIds = new Set();
+        let sinCambioConsecutivos = 0;
+        const MAX_SIN_CAMBIO = 20;
+        let scrollAttempts = 0;
+        const MAX_SCROLLS = 400;
 
-        await page.keyboard.press('End');
-        await page.waitForTimeout(1500);
-        scrollAttempts++;
-    }
+        while (scrollAttempts < MAX_SCROLLS && sinCambioConsecutivos < MAX_SIN_CAMBIO) {
+            const links = await page.$$eval(
+                'a[href*="/clients/detail"]',
+                els => els.map(a => new URL(a.href).searchParams.get('id')).filter(Boolean)
+            );
+            const prevSize = clientIds.size;
+            links.forEach(id => clientIds.add(id));
 
-    console.log(`   📋 Clientes encontrados: ${clientIds.size}`);
+            if (clientIds.size > prevSize) {
+                sinCambioConsecutivos = 0;
+                if (clientIds.size % 25 === 0) {
+                    console.log(`   Scroll: ${clientIds.size} clientes encontrados...`);
+                }
+            } else {
+                sinCambioConsecutivos++;
+            }
 
-    let actualizados = 0;
-    let insertados = 0;
-    let errores = 0;
-
-    for (const pulposId of clientIds) {
-        try {
-            await page.goto(`https://app.pulpos.com/clients/detail?id=${pulposId}`, { waitUntil: 'domcontentloaded' });
-            await page.waitForTimeout(2000);
-
-            const datos = await page.evaluate(() => {
-                const txt = document.body.innerText;
-
-                // Nombre — h1 o h2
-                const nombre = (document.querySelector('h1, h2')?.innerText || '').trim();
-
-                // Teléfono
-                const telMatch = txt.match(/(?:Teléfono|Tel)[:\s]+([+\d\s\-\(\)]+)/i);
-                const telefono = telMatch ? telMatch[1].trim().substring(0, 20) : null;
-
-                // Email
-                const emailMatch = txt.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/);
-                const email = emailMatch ? emailMatch[1] : null;
-
-                // RFC
-                const rfcMatch = txt.match(/RFC[:\s]+([A-Z&]{3,4}\d{6}[A-Z0-9]{3})/i);
-                const rfc = rfcMatch ? rfcMatch[1].trim() : null;
-
-                // Razón Social
-                const rsMatch = txt.match(/Razón Social[:\s]+([^\n]+)/i);
-                const razon_social = rsMatch ? rsMatch[1].trim() : null;
-
-                // Lista de Precios
-                const lpMatch = txt.match(/(?:Lista de Precios|Price List)[:\s]+([^\n]+)/i);
-                const lista_precios = lpMatch ? lpMatch[1].trim() : null;
-
-                // Límite de crédito
-                const lcMatch = txt.match(/Límite de Crédito[:\s]+\$([0-9,]+\.?\d*)/i);
-                const limite_credito = lcMatch ? parseFloat(lcMatch[1].replace(/,/g, '')) : 0;
-
-                // Saldo / Deuda
-                const saldoMatch = txt.match(/(?:Deuda|Saldo Pendiente|Balance)[:\s]+\$([0-9,]+\.?\d*)/i);
-                const saldo = saldoMatch ? parseFloat(saldoMatch[1].replace(/,/g, '')) : 0;
-
-                // Ventas
-                const ventasMatch = txt.match(/(?:Cantidad de Ventas|Ventas)[:\s]+(\d+)/i);
-                const total_ventas = ventasMatch ? parseInt(ventasMatch[1]) : 0;
-
-                const totalVendidoMatch = txt.match(/(?:Total Vendido)[:\s]+\$([0-9,]+\.?\d*)/i);
-                const total_vendido = totalVendidoMatch ? parseFloat(totalVendidoMatch[1].replace(/,/g, '')) : 0;
-
-                return { nombre, telefono, email, rfc, razon_social, lista_precios, limite_credito, saldo, total_ventas, total_vendido };
+            // Scroll con JS (mas fiable que presionar tecla End)
+            await page.evaluate(() => {
+                const scrollable =
+                    document.querySelector('ul') ||
+                    document.querySelector('[class*="list-content"]') ||
+                    document.querySelector('main') ||
+                    document.body;
+                scrollable.scrollBy(0, 1400);
+                window.scrollBy(0, 1400);
+                document.documentElement.scrollBy(0, 1400);
             });
 
-            if (!datos.nombre) {
-                console.log(`   ⚠️ Sin nombre para pulpos_id=${pulposId}, saltando`);
-                errores++;
-                continue;
-            }
-
-            const payload = {
-                pulpos_id: pulposId,
-                nombre: datos.nombre,
-                telefono: datos.telefono,
-                email: datos.email,
-                rfc: datos.rfc,
-                razon_social: datos.razon_social,
-                lista_precios: datos.lista_precios,
-                limite_credito: datos.limite_credito,
-                saldo: datos.saldo,
-                total_ventas: datos.total_ventas,
-                total_vendido: datos.total_vendido,
-                ultima_sync: new Date().toISOString()
-            };
-
-            const { error } = await supabase
-                .from('clientes')
-                .upsert(payload, { onConflict: 'pulpos_id' });
-
-            if (error) {
-                console.error(`   ❌ Error ${datos.nombre}: ${error.message}`);
-                errores++;
-            } else {
-                actualizados++;
-                console.log(`   ✅ ${datos.nombre} | Saldo: $${datos.saldo} | Ventas: ${datos.total_ventas}`);
-            }
-
-        } catch (e) {
-            console.error(`   ❌ Error en cliente ${pulposId}: ${e.message}`);
-            errores++;
+            await page.waitForTimeout(1000);
+            scrollAttempts++;
         }
-    }
 
-    console.log(`\n👥 Clientes completado: ${actualizados} sincronizados | ${errores} errores`);
+        console.log(`   Total clientes encontrados: ${clientIds.size}`);
+
+        let actualizados = 0;
+        let errores = 0;
+
+        for (const pulposId of clientIds) {
+            try {
+                await page.goto(
+                    `https://app.pulpos.com/clients/detail?id=${pulposId}`,
+                    { waitUntil: 'domcontentloaded' }
+                );
+                await page.waitForTimeout(1500);
+
+                const datos = await page.evaluate(() => {
+                    const txt = document.body.innerText;
+                    const nombre = (document.querySelector('h1, h2')?.innerText || '').trim();
+                    const telMatch = txt.match(/(?:Tel[eé]fono|Tel|Phone)[:\s]+([+\d\s\-\(\)]{7,20})/i);
+                    const telefono = telMatch ? telMatch[1].trim().substring(0, 20) : null;
+                    const emailMatch = txt.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/);
+                    const email = emailMatch ? emailMatch[1] : null;
+                    const rfcMatch = txt.match(/RFC[:\s]+([A-Z&]{3,4}\d{6}[A-Z0-9]{3})/i);
+                    const rfc = rfcMatch ? rfcMatch[1].trim() : null;
+                    const rsMatch = txt.match(/Raz[oó]n Social[:\s]+([^\n]+)/i);
+                    const razon_social = rsMatch ? rsMatch[1].trim() : null;
+                    const lpMatch = txt.match(/(?:Lista de Precios|Price List)[:\s]+([^\n]+)/i);
+                    const lista_precios = lpMatch ? lpMatch[1].trim() : null;
+                    const lcMatch = txt.match(/L[ií]mite de Cr[eé]dito[:\s]+\$([0-9,]+\.?\d*)/i);
+                    const limite_credito = lcMatch ? parseFloat(lcMatch[1].replace(/,/g, '')) : 0;
+                    const saldoMatch = txt.match(/(?:Deuda|Saldo Pendiente|Balance)[:\s]+\$([0-9,]+\.?\d*)/i);
+                    const saldo = saldoMatch ? parseFloat(saldoMatch[1].replace(/,/g, '')) : 0;
+                    const ventasMatch = txt.match(/(?:Cantidad de Ventas|# Ventas|Ventas)[:\s]+(\d+)/i);
+                    const total_ventas = ventasMatch ? parseInt(ventasMatch[1]) : 0;
+                    const totalVendidoMatch = txt.match(/(?:Total Vendido|Monto Total)[:\s]+\$([0-9,]+\.?\d*)/i);
+                    const total_vendido = totalVendidoMatch ? parseFloat(totalVendidoMatch[1].replace(/,/g, '')) : 0;
+                    return { nombre, telefono, email, rfc, razon_social, lista_precios, limite_credito, saldo, total_ventas, total_vendido };
+                });
+
+                if (!datos.nombre) {
+                    console.log(`   SIN NOMBRE para pulpos_id=${pulposId}, saltando`);
+                    errores++;
+                    continue;
+                }
+
+                const payload = {
+                    pulpos_id: pulposId,
+                    nombre: datos.nombre,
+                    telefono: datos.telefono,
+                    email: datos.email,
+                    rfc: datos.rfc,
+                    razon_social: datos.razon_social,
+                    lista_precios: datos.lista_precios,
+                    limite_credito: datos.limite_credito,
+                    saldo: datos.saldo,
+                    total_ventas: datos.total_ventas,
+                    total_vendido: datos.total_vendido,
+                    ultima_sync: new Date().toISOString()
+                };
+
+                const { error } = await supabase
+                    .from('clientes')
+                    .upsert(payload, { onConflict: 'pulpos_id' });
+
+                if (error) {
+                    console.error(`   ERROR ${datos.nombre}: ${error.message}`);
+                    errores++;
+                } else {
+                    actualizados++;
+                    console.log(`   OK [${actualizados}/${clientIds.size}] ${datos.nombre}`);
+                }
+
+            } catch (e) {
+                console.error(`   ERROR cliente ${pulposId}: ${e.message}`);
+                errores++;
+            }
+        }
+
+        // Registrar resultado en historial (igual que ventas)
+        if (logId) {
+            await supabase.from('pulpos_sync_log').update({
+                estado: 'completado',
+                ventas_importadas: actualizados,
+                ventas_pendientes: errores,
+                mensaje: `${actualizados} clientes sincronizados de ${clientIds.size} encontrados`
+            }).eq('id', logId);
+        }
+
+        console.log(`\nClientes: ${actualizados} sincronizados | ${errores} errores`);
+
+    } catch (err) {
+        if (logId) {
+            await supabase.from('pulpos_sync_log').update({ estado: 'error', mensaje: err.message }).eq('id', logId);
+        }
+        throw err;
+    }
 }
 
 // =====================================================
-// MODO: VENTAS (original) — Sync de ventas diarias
+// MODO: VENTAS (original)
 // =====================================================
 async function sincronizarVentas(page) {
     let logId = null;
@@ -514,18 +532,17 @@ async function sincronizarVentas(page) {
                 const json = await response.json();
                 if (json && (json.data || json.sales || json.items)) {
                     ventasCapturadas.push(json);
-                    console.log(`   📡 Respuesta API capturada: ${url.split('/api/')[1]}`);
+                    console.log(`   API capturada: ${url.split('/api/')[1]}`);
                 }
             } catch (e) { }
         }
     });
 
-    console.log(`📋 Navegando a Ventas del ${FECHA_SYNC}...`);
+    console.log(`Navegando a Ventas del ${FECHA_SYNC}...`);
     await page.goto('https://app.pulpos.com/sales', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(3000);
 
-    console.log('🔍 Extrayendo ventas del día...');
     const hoy = new Date().toISOString().split('T')[0];
     const ayer = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     let textoBuscado;
@@ -536,7 +553,7 @@ async function sincronizarVentas(page) {
         const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
         textoBuscado = `${parseInt(dia)} ${meses[parseInt(mes) - 1]}`;
     }
-    console.log(`   📅 Filtrando por texto: "${textoBuscado}"`);
+    console.log(`   Filtrando por texto: "${textoBuscado}"`);
 
     const linksVentas = await page.evaluate((texto) => {
         const links = Array.from(document.querySelectorAll('a[href*="/sales/detail"]'));
@@ -549,7 +566,7 @@ async function sincronizarVentas(page) {
             .map(a => ({ href: a.href, texto: (a.closest('tr')?.innerText || a.innerText || '').substring(0, 200) }));
     }, textoBuscado);
 
-    console.log(`   🔗 Ventas encontradas: ${linksVentas.length}`);
+    console.log(`   Ventas encontradas: ${linksVentas.length}`);
 
     const ventasProcesadas = [];
     const ventasPendientes = [];
@@ -628,10 +645,10 @@ async function sincronizarVentas(page) {
             if (!claro) ventasPendientes.push({ ...registro, _metodoPulpos: datosVenta.metodoPago });
             else ventasProcesadas.push(registro);
 
-            console.log(`   ✅ ${datosVenta.numeroVenta} | ${sucursal} | ${metodo} | $${datosVenta.totalVenta} ${claro ? '' : '⚠️'}`);
+            console.log(`   OK ${datosVenta.numeroVenta} | ${sucursal} | ${metodo} | $${datosVenta.totalVenta}`);
 
         } catch (e) {
-            console.error(`   ❌ Error procesando ${link.href}: ${e.message}`);
+            console.error(`   ERROR procesando ${link.href}: ${e.message}`);
         }
     }
 
@@ -664,10 +681,10 @@ async function sincronizarVentas(page) {
         estado: 'listo_para_revision',
         ventas_importadas: stagingInsertadas,
         ventas_pendientes: ventasPendientes.length,
-        mensaje: `${stagingInsertadas} ventas listas para revisión (${ventasPendientes.length} requieren ajuste)`
+        mensaje: `${stagingInsertadas} ventas listas para revision (${ventasPendientes.length} requieren ajuste)`
     }).eq('id', logId);
 
-    console.log(`\n🎉 Ventas: ${stagingInsertadas} en staging | ${ventasPendientes.length} requieren revisión`);
+    console.log(`\nVentas: ${stagingInsertadas} en staging | ${ventasPendientes.length} requieren revision`);
 }
 
 // =====================================================
@@ -697,10 +714,10 @@ async function main() {
             await sincronizarVentas(page);
         }
 
-        console.log('\n✅ Sincronización completada exitosamente.');
+        console.log('\nSincronizacion completada exitosamente.');
 
     } catch (error) {
-        console.error(`\n❌ Error en sincronización: ${error.message}`);
+        console.error(`\nError en sincronizacion: ${error.message}`);
         process.exit(1);
     } finally {
         if (browser) await browser.close();
