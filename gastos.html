@@ -251,6 +251,28 @@
                     <option value="Sur">Sur</option>
                 </select>
             </div>
+            <div class="flex flex-col gap-2 min-w-[150px]">
+                <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-2">Subcategoría</label>
+                <select id="filtroSubcategoriaGasto" onchange="aplicarFiltrosGastos()" class="input-filter">
+                    <option value="Todos">Todas</option>
+                    <option value="Mantenimiento">Mantenimiento</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Administrativos">Administrativos</option>
+                    <option value="Mercancia">Mercancía</option>
+                    <option value="Nomina">Nómina</option>
+                    <option value="Combustible">Combustible</option>
+                    <option value="Servicios">Servicios</option>
+                    <option value="Taller">Taller</option>
+                    <option value="Limpieza">Limpieza</option>
+                    <option value="Papeleria">Papelería</option>
+                    <option value="Sistemas">Sistemas</option>
+                    <option value="Renta">Renta</option>
+                    <option value="Intereses">Intereses Financieros</option>
+                    <option value="Abono Capital">Abono a Capital</option>
+                    <option value="Comisión Tarjeta">Comisión Tarjeta</option>
+                    <option value="Depreciación">Depreciación</option>
+                </select>
+            </div>
             <button onclick="window.location.reload()"
                 class="p-3 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all text-gray-400">
                 <span class="material-symbols-outlined text-sm">refresh</span>
