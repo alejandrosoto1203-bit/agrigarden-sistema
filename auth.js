@@ -85,10 +85,10 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     }
 });
 
-const protectedPages = ['dashboard.html', 'ingresos.html', 'gastos.html', 'registro_multiple.html', 'registro_gastos.html', 'cuentas_por_cobrar.html', 'cuentas_por_pagar.html'];
+const paginasPublicas = ['index.html', ''];
 const currentPage = window.location.pathname.split("/").pop();
 
-if (protectedPages.includes(currentPage)) {
+if (!paginasPublicas.includes(currentPage)) {
     if (sessionStorage.getItem('isLoggedIn') !== 'true') {
         window.location.href = "index.html";
     }

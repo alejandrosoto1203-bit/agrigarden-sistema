@@ -11,9 +11,7 @@ window.formatMoney = (n) => {
 };
 console.log("✅ API Utilities: formatMoney ready");
 
-console.log(`🔌 api.js inicializando con URL: ${SUPABASE_URL}`);
 
-console.log(`🔌 api.js inicializando con URL: ${SUPABASE_URL}`);
 
 
 // Inicializar cliente si la librería está cargada

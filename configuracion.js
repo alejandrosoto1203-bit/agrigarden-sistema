@@ -295,7 +295,6 @@ function renderUsuarios(list) {
                 <div class="bg-gray-50 rounded-lg p-2 flex items-center gap-2">
                     <span class="material-symbols-outlined text-gray-300 text-sm">key</span>
                     <span class="text-xs font-mono text-gray-500 tracking-widest">••••••</span>
-                    <button onclick="navigator.clipboard.writeText('${u.password}')" class="text-[10px] text-blue-500 font-bold hover:underline ml-auto">COPIAR</button>
                 </div>
             </div>
 
@@ -381,7 +380,8 @@ window.abrirModalUsuario = function (user = null) {
     if (user) {
         document.getElementById('userNombre').value = user.nombre;
         document.getElementById('userEmail').value = user.email;
-        document.getElementById('userPass').value = user.password;
+        document.getElementById('userPass').value = '';
+        document.getElementById('userPass').placeholder = '(sin cambios)';
         document.getElementById('userRol').value = user.rol;
         document.getElementById('userSucursal').value = user.sucursal || 'Ambas';
         document.getElementById('userEmpleadoId').value = user.empleado_id || '';
@@ -431,7 +431,8 @@ window.guardarUsuario = async function (e) {
         };
     });
 
-    const payload = { nombre, email, password, rol, sucursal, permisos, empleado_id };
+    const payload = { nombre, email, rol, sucursal, permisos, empleado_id };
+    if (password) payload.password = password;
 
     try {
         let error;

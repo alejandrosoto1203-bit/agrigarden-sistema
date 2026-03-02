@@ -56,11 +56,7 @@ window.ENV_NAME = CURRENT_ENV.THEME_NAME;
 // Aplicar color de tema dinámicamente
 document.documentElement.style.setProperty('--theme-color', CURRENT_ENV.THEME_COLOR);
 
-// Log para debug
-// Log para debug
-console.log(`🌐 Ambiente: ${CURRENT_ENV.THEME_NAME}`);
-console.log(`🏠 Hostname detectado: ${window.location.hostname}`);
-console.log(`🔗 Supabase: ${CURRENT_ENV.SUPABASE_URL}`);
+// Debug info removed for security
 
 // =====================================================
 // BANNER VISUAL PARA AMBIENTE DE PRUEBAS
