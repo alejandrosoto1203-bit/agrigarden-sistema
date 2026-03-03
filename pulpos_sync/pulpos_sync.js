@@ -237,6 +237,8 @@ async function sincronizarMovimientos(page) {
         .single();
     const logId = logInicio?.id;
 
+    const debugLogs = [];
+
     try {
         const { data: productos, error } = await supabase
             .from('productos')
@@ -276,6 +278,7 @@ async function sincronizarMovimientos(page) {
                 try {
                     await locExportar.waitFor({ state: 'visible', timeout: 15000 });
                 } catch (e) {
+                    debugLogs.push(`[${prod.sku}] Sin boton Exportar.`);
                     console.log(`   [EXPORT FAIL] No se encontró botón Exportar para ${prod.sku}. Sin movimientos en 90 días.`);
                     continue;
                 }
@@ -292,6 +295,7 @@ async function sincronizarMovimientos(page) {
 
                 const download = await downloadPromise;
                 if (!download) {
+                    debugLogs.push(`[${prod.sku}] Timeout descarga Excel 45s.`);
                     console.log(`   Sin movs exportables para ${prod.sku}. Timeout descargando Excel.`);
                     continue;
                 }
@@ -307,14 +311,21 @@ async function sincronizarMovimientos(page) {
                         movimientosRaw = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
                     }
                 } catch (err) {
+                    debugLogs.push(`[${prod.sku}] Error parseo Excel XLSX.`);
                     console.log(`   Error leyendo Excel para ${prod.sku}:`, err.message);
                 } finally {
                     if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
                 }
 
                 if (!movimientosRaw.length) {
+                    debugLogs.push(`[${prod.sku}] Excel devuelto vacio o length 0.`);
                     console.log(`   Sin movs para ${prod.sku} (Excel vacío).`);
                     continue;
+                }
+
+                // Muestreo de columnas encontradas solo para el primer producto con datos
+                if (debugLogs.length < 50) {
+                    debugLogs.push(`[${prod.sku}] JSON Cols: ${Object.keys(movimientosRaw[0]).join(', ')}`);
                 }
 
                 const registros = movimientosRaw.map(m => {
@@ -380,17 +391,19 @@ async function sincronizarMovimientos(page) {
                 console.log(`   OK ${prod.sku || prod.nombre}: ${registros.length} movimientos`);
 
             } catch (e) {
+                debugLogs.push(`[${prod.sku}] ERROR LOOP: ${e.message}`);
                 console.error(`   ERROR en ${prod.sku}: ${e.message}`);
                 errores++;
             }
         }
 
         if (logId) {
+            const debugStr = debugLogs.join(' | ').substring(0, 1000); // Evitar textos kilometricos
             await supabase.from('pulpos_sync_log').update({
                 estado: 'completado',
                 ventas_importadas: totalMovimientos,
                 ventas_pendientes: errores,
-                mensaje: `${totalMovimientos} movimientos sincronizados | ${errores} errores`
+                mensaje: `Exito. TotalMovs: ${totalMovimientos}. Errores: ${errores} -> MSG: ${debugStr}`
             }).eq('id', logId);
         }
 
