@@ -411,9 +411,7 @@
             document.getElementById('inputFecha').value = hoy;
             await cargarConfigGithub();
             await cargarHistorial();
-
-            // Si hay ventas en staging esperando revisión, mostrar modal
-            await verificarStagingPendiente();
+            // Ya no abre modal automáticamente — el usuario decide cuándo sincronizar
         });
 
         async function verificarStagingPendiente() {
