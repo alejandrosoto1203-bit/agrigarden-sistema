@@ -556,26 +556,25 @@ async function sincronizarClientes(page) {
 }
 
 // =====================================================
-// MODO: VENTAS (original)
+// MODO: VENTAS (v2 — robusto con scroll, paginación y dedup)
 // =====================================================
 async function sincronizarVentas(page) {
     let logId = null;
 
     const { data: logInicio } = await supabase
         .from('pulpos_sync_log')
-        .insert({ fecha_sync: FECHA_SYNC, estado: 'iniciado', mensaje: 'Sincronización iniciada' })
+        .insert({ fecha_sync: FECHA_SYNC, estado: 'iniciado', mensaje: 'Sincronización de ventas iniciada' })
         .select()
         .single();
     logId = logInicio?.id;
 
-    const ventasCapturadas = [];
+    // --- Interceptar respuestas API para debug ---
     page.on('response', async (response) => {
         const url = response.url();
         if (url.includes('/api/') && url.includes('sale') && response.status() === 200) {
             try {
                 const json = await response.json();
                 if (json && (json.data || json.sales || json.items)) {
-                    ventasCapturadas.push(json);
                     console.log(`   API capturada: ${url.split('/api/')[1]}`);
                 }
             } catch (e) { }
@@ -587,41 +586,113 @@ async function sincronizarVentas(page) {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(3000);
 
+    // --- Construir múltiples variantes de fecha para matching robusto ---
+    const [anio, mes, dia] = FECHA_SYNC.split('-');
+    const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     const hoy = new Date().toISOString().split('T')[0];
     const ayer = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-    let textoBuscado;
-    if (FECHA_SYNC === hoy) textoBuscado = 'hoy';
-    else if (FECHA_SYNC === ayer) textoBuscado = 'ayer';
-    else {
-        const [anio, mes, dia] = FECHA_SYNC.split('-');
-        const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-        textoBuscado = `${parseInt(dia)} ${meses[parseInt(mes) - 1]}`;
+
+    const textosBuscados = [];
+    if (FECHA_SYNC === hoy) textosBuscados.push('hoy');
+    if (FECHA_SYNC === ayer) textosBuscados.push('ayer');
+    // "24 feb" 
+    textosBuscados.push(`${parseInt(dia)} ${meses[parseInt(mes) - 1]}`);
+    // "24 de feb"
+    textosBuscados.push(`${parseInt(dia)} de ${meses[parseInt(mes) - 1]}`);
+    // "24/02" y "24/2"
+    textosBuscados.push(`${parseInt(dia)}/${mes}`);
+    textosBuscados.push(`${parseInt(dia)}/${parseInt(mes)}`);
+    // ISO parcial "2026-02-24"
+    textosBuscados.push(FECHA_SYNC);
+
+    console.log(`   Buscando con ${textosBuscados.length} variantes de fecha: ${textosBuscados.join(', ')}`);
+
+    // --- FASE 1: Recolectar TODOS los links de venta con scroll + paginación ---
+    const linksSet = new Set();
+    let sinCambio = 0;
+    let scrollAttempts = 0;
+
+    // Scroll dentro de la lista para cargar ventas lazy-loaded
+    while (scrollAttempts < 100 && sinCambio < 10) {
+        const links = await page.$$eval('a[href*="/sales/detail"]', els =>
+            els.map(a => a.href).filter(Boolean)
+        );
+        const prev = linksSet.size;
+        links.forEach(href => linksSet.add(href));
+        if (linksSet.size > prev) {
+            sinCambio = 0;
+        } else {
+            sinCambio++;
+        }
+        await page.evaluate(() => {
+            window.scrollBy(0, 800);
+            document.documentElement.scrollBy(0, 800);
+            const mainContainer = document.querySelector('main, [class*="content"], [class*="scroll"]');
+            if (mainContainer) mainContainer.scrollBy(0, 800);
+        });
+        await page.waitForTimeout(500);
+        scrollAttempts++;
     }
-    console.log(`   Filtrando por texto: "${textoBuscado}"`);
 
-    const linksVentas = await page.evaluate((texto) => {
-        const links = Array.from(document.querySelectorAll('a[href*="/sales/detail"]'));
-        return links
-            .filter(a => {
-                const fila = a.closest('tr') || a.parentElement;
-                const textoFila = (fila?.innerText || a.innerText || '').toLowerCase();
-                return textoFila.includes(texto);
-            })
-            .map(a => ({ href: a.href, texto: (a.closest('tr')?.innerText || a.innerText || '').substring(0, 200) }));
-    }, textoBuscado);
+    // Intentar paginación (si existe)
+    let pageNum = 1;
+    let hasNextPage = true;
+    while (hasNextPage && pageNum <= 50) {
+        const nextPageClicked = await page.evaluate((nextNum) => {
+            const elements = Array.from(document.querySelectorAll('button, a, div[role="button"]'));
+            const nextNumBtn = elements.find(el =>
+                el.innerText.trim() === String(nextNum) && !el.disabled
+            );
+            if (nextNumBtn) { nextNumBtn.click(); return true; }
+            const nextArrowBtn = elements.find(el => {
+                if (el.disabled) return false;
+                const txt = el.innerText.trim().toLowerCase();
+                const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+                return txt === '>' || txt === '❯' || txt === '»' || txt === 'next' ||
+                    txt === 'siguiente' || aria.includes('next');
+            });
+            if (nextArrowBtn) { nextArrowBtn.click(); return true; }
+            return false;
+        }, pageNum + 1);
 
-    console.log(`   Ventas encontradas: ${linksVentas.length}`);
+        if (nextPageClicked) {
+            pageNum++;
+            await page.waitForTimeout(2000);
+            // Recolectar links de la nueva página
+            const newLinks = await page.$$eval('a[href*="/sales/detail"]', els =>
+                els.map(a => a.href).filter(Boolean)
+            );
+            newLinks.forEach(href => linksSet.add(href));
+            console.log(`   📄 Página ${pageNum}: ${newLinks.length} links (total acumulado: ${linksSet.size})`);
+        } else {
+            hasNextPage = false;
+        }
+    }
 
+    console.log(`   Total links encontrados: ${linksSet.size}`);
+
+    // --- FASE 2: Verificar duplicados ya existentes en staging ---
+    const { data: existentes } = await supabase
+        .from('pulpos_sync_staging')
+        .select('numero_venta')
+        .eq('fecha_sync', FECHA_SYNC);
+    const numerosExistentes = new Set((existentes || []).map(e => e.numero_venta));
+    if (numerosExistentes.size > 0) {
+        console.log(`   ⚠️ ${numerosExistentes.size} ventas ya existen en staging para esta fecha (se omitirán)`);
+    }
+
+    // --- FASE 3: Visitar cada venta y extraer datos ---
     const ventasProcesadas = [];
     const ventasPendientes = [];
+    let omitidas = 0;
 
-    for (const link of linksVentas) {
+    for (const href of linksSet) {
         try {
-            await page.goto(link.href, { waitUntil: 'domcontentloaded' });
+            await page.goto(href, { waitUntil: 'domcontentloaded' });
             await page.waitForLoadState('domcontentloaded');
             await page.waitForTimeout(2000);
 
-            const datosVenta = await page.evaluate(() => {
+            const datosVenta = await page.evaluate((variantes) => {
                 const titulo = document.querySelector('h1, h2')?.innerText || '';
                 const matchNum = titulo.match(/#(\d+)/);
                 const numeroVenta = matchNum ? '#' + matchNum[1] : null;
@@ -629,6 +700,12 @@ async function sincronizarVentas(page) {
 
                 const pageText = document.body.innerText;
 
+                // Verificar si la venta pertenece a la fecha buscada
+                const textoLower = pageText.toLowerCase();
+                const coincideFecha = variantes.some(v => textoLower.includes(v.toLowerCase()));
+                if (!coincideFecha) return { _skipFecha: true, numeroVenta };
+
+                // Extraer total
                 let totalVenta = 0;
                 const allElements = Array.from(document.querySelectorAll('*'));
                 for (const el of allElements) {
@@ -652,7 +729,7 @@ async function sincronizarVentas(page) {
 
                 const sucursalMatch = pageText.match(/Agrigarden\s+(Norte|Sur)/i);
                 const sucursal = sucursalMatch ? 'Agrigarden ' + sucursalMatch[1] : '';
-                const pagada = pageText.toLowerCase().includes('pagada');
+                const pagada = textoLower.includes('pagada');
                 const clienteLinks = document.querySelectorAll('a[href*="/client"], a[href*="/customer"]');
                 const cliente = clienteLinks.length > 0 ? clienteLinks[0].innerText.trim() : '';
                 const historial = pageText.match(/Cobro de \$[\d,.]+  en (.+?)(?:\n|$)/i);
@@ -663,9 +740,20 @@ async function sincronizarVentas(page) {
                 const vendedor = vendedorMatch ? vendedorMatch[1].trim() : '';
 
                 return { numeroVenta, sucursal, pagada, totalVenta, cliente, metodoPago, comentarios, vendedor };
-            });
+            }, textosBuscados);
 
             if (!datosVenta || !datosVenta.numeroVenta) continue;
+
+            // Saltar si no coincide con la fecha
+            if (datosVenta._skipFecha) {
+                continue;
+            }
+
+            // Saltar si ya existe en staging
+            if (numerosExistentes.has(datosVenta.numeroVenta)) {
+                omitidas++;
+                continue;
+            }
 
             const { metodo, claro } = mapearMetodoPago(datosVenta.metodoPago, datosVenta.comentarios);
             const sucursal = mapearSucursal(datosVenta.sucursal);
@@ -692,10 +780,11 @@ async function sincronizarVentas(page) {
             console.log(`   OK ${datosVenta.numeroVenta} | ${sucursal} | ${metodo} | $${datosVenta.totalVenta}`);
 
         } catch (e) {
-            console.error(`   ERROR procesando ${link.href}: ${e.message}`);
+            console.error(`   ERROR procesando ${href}: ${e.message}`);
         }
     }
 
+    // --- FASE 4: Insertar en staging ---
     const todasLasVentas = [
         ...ventasProcesadas.map(v => ({ ...v, requiere_revision: false })),
         ...ventasPendientes.map(v => ({ ...v, requiere_revision: true }))
@@ -725,10 +814,10 @@ async function sincronizarVentas(page) {
         estado: 'listo_para_revision',
         ventas_importadas: stagingInsertadas,
         ventas_pendientes: ventasPendientes.length,
-        mensaje: `${stagingInsertadas} ventas listas para revision (${ventasPendientes.length} requieren ajuste)`
+        mensaje: `${stagingInsertadas} ventas nuevas (${omitidas} duplicadas omitidas, ${ventasPendientes.length} requieren ajuste)`
     }).eq('id', logId);
 
-    console.log(`\nVentas: ${stagingInsertadas} en staging | ${ventasPendientes.length} requieren revision`);
+    console.log(`\nVentas: ${stagingInsertadas} en staging | ${omitidas} duplicadas omitidas | ${ventasPendientes.length} requieren revision`);
 }
 
 // =====================================================
