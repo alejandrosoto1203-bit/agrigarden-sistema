@@ -595,14 +595,11 @@ async function sincronizarVentas(page) {
     const textosBuscados = [];
     if (FECHA_SYNC === hoy) textosBuscados.push('hoy');
     if (FECHA_SYNC === ayer) textosBuscados.push('ayer');
-    textosBuscados.push(`${parseInt(dia)} ${meses[parseInt(mes) - 1]}`);
-    textosBuscados.push(`${parseInt(dia)} de ${meses[parseInt(mes) - 1]}`);
-    textosBuscados.push(`${dia}/${mes}`);
-    textosBuscados.push(`${parseInt(dia)}/${parseInt(mes)}`);
-    textosBuscados.push(`${dia}-${mes}`);
-    textosBuscados.push(FECHA_SYNC);
+    // Variante estricta con año basada en la UI de Pulpos (ej. "27/02/2026 17:03:38")
+    textosBuscados.push(`${dia}/${mes}/${anio}`);
+    textosBuscados.push(FECHA_SYNC); // Por si usan ISO
 
-    console.log(`   Variantes de fecha: ${textosBuscados.join(', ')}`);
+    console.log(`   Filtro estricto de fecha: ${textosBuscados.join(', ')}`);
 
     // --- FASE 1: Recolectar links filtrados por fecha con scroll + paginación ---
     // IMPORTANTE: Filtramos en la LISTA (rápido), NO visitando cada link individual
