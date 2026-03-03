@@ -272,31 +272,54 @@ async function sincronizarMovimientos(page) {
                 }
 
                 // Localizar el botón "Descargar Reporte" (nombre real en Pulpos) usando locators de Playwright
-                const locExportar = page.locator('button:has-text("Descargar Reporte"), button:has-text("Descargar"), button:has-text("Exportar"), button:has-text("EXPORTAR")').first();
+                const locExportar = page.locator('button:has-text("Descargar Reporte")').first();
 
                 // Esperar a que el botón esté visible y habilitado
                 try {
                     await locExportar.waitFor({ state: 'visible', timeout: 15000 });
-                    debugLogs.push(`[${prod.sku}] Boton encontrado OK.`);
                 } catch (e) {
-                    debugLogs.push(`[${prod.sku}] Sin boton Descargar/Exportar.`);
-                    console.log(`   [EXPORT FAIL] No se encontró botón Descargar Reporte para ${prod.sku}. Sin movimientos en 90 días.`);
+                    debugLogs.push(`[${prod.sku}] Sin boton Descargar Reporte.`);
+                    console.log(`   [EXPORT FAIL] No se encontró botón Descargar Reporte para ${prod.sku}.`);
                     continue;
                 }
 
-                // Interceptar descarga con un timeout mayor de 45s, porque Pulpos a veces demora en generar el Excel
-                const downloadPromise = page.waitForEvent('download', { timeout: 45000 }).catch(() => null);
+                // PASO 1: Clic en "Descargar Reporte" → abre un modal con opciones
+                await locExportar.click({ force: true });
+                await page.waitForTimeout(1500); // Esperar a que abra el modal
 
-                // Hacer clic usando el motor de Playwright que simula eventos de puntero y confía en React
+                // PASO 2: Dentro del modal seleccionar la opción "Movimientos en tu búsqueda actual"
                 try {
-                    await locExportar.click({ force: true });
+                    const radioSearchOption = page.locator('text=Movimientos en tu búsqueda actual').first();
+                    await radioSearchOption.waitFor({ state: 'visible', timeout: 5000 });
+                    await radioSearchOption.click();
+                } catch (e) {
+                    // Si no encuentra la opción, intentar con "Todos los movimientos"
+                    try {
+                        const radioAll = page.locator('text=Todos los movimientos').first();
+                        await radioAll.click();
+                    } catch (e2) {
+                        debugLogs.push(`[${prod.sku}] Modal sin opciones de radio.`);
+                    }
+                }
+
+                // PASO 3: Interceptar descarga ANTES del segundo clic
+                const downloadPromise = page.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+
+                // PASO 4: Clic en el botón azul "Descargar Movimientos" dentro del modal
+                try {
+                    const btnDescargarModal = page.locator('button:has-text("Descargar Movimientos")').first();
+                    await btnDescargarModal.waitFor({ state: 'visible', timeout: 5000 });
+                    await btnDescargarModal.click({ force: true });
+                    debugLogs.push(`[${prod.sku}] Boton modal OK.`);
                 } catch (err) {
-                    console.log(`   [CLICK FAIL] No se pudo hacer clic en Exportar para ${prod.sku}. error:`, err.message);
+                    debugLogs.push(`[${prod.sku}] Sin boton modal Descargar Movimientos.`);
+                    console.log(`   [MODAL FAIL] No se encontró botón Descargar Movimientos en modal para ${prod.sku}.`);
+                    continue;
                 }
 
                 const download = await downloadPromise;
                 if (!download) {
-                    debugLogs.push(`[${prod.sku}] Timeout descarga Excel 45s.`);
+                    debugLogs.push(`[${prod.sku}] Timeout descarga Excel 60s.`);
                     console.log(`   Sin movs exportables para ${prod.sku}. Timeout descargando Excel.`);
                     continue;
                 }
