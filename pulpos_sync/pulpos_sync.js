@@ -8,6 +8,9 @@
 
 const { chromium } = require('@playwright/test');
 const { createClient } = require('@supabase/supabase-js');
+const xlsx = require('xlsx');
+const fs = require('fs');
+const path = require('path');
 
 // =====================================================
 // CONFIGURACIÓN (desde variables de entorno)
@@ -261,133 +264,109 @@ async function sincronizarMovimientos(page) {
 
                 await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-                // Esperar a que aparezcan filas de tabla o grid, o que pasen 6 segundos máximo
-                try {
-                    await page.waitForFunction(() => {
-                        const trs = document.querySelectorAll('tbody tr');
-                        if (trs.length > 0) return true;
-
-                        const gridRows = document.querySelectorAll('div[role="row"]');
-                        if (gridRows.length > 0) return true;
-
-                        // Si usan div genéricos en react (muy comun) buscar contenedor con celdas
-                        const divs = Array.from(document.querySelectorAll('div'));
-                        const possibleRows = divs.filter(d =>
-                            d.children.length >= 5 &&
-                            !d.innerText.includes('Nueva Venta')
-                        );
-                        return possibleRows.length > 0;
-                    }, { timeout: 6000 });
-                } catch (e) {
-                    // Si falla el timeout, no tirar la excepcion, simplemente seguir para imprimir nuestro REPORTE HTML y diagnosticar
-                }
-
                 const finalUrl = page.url();
                 if (!finalUrl.includes('stock-movements')) {
                     console.log(`   [REDIRECT DETECTADO] La URL solicitada era ${targetUrl} pero Pulpos redirigió a: ${finalUrl}`);
                 }
 
-                const diagnosticInfo = await page.evaluate(() => {
-                    const rows = Array.from(document.querySelectorAll('tbody tr'));
-                    const pageText = document.body.innerText.substring(0, 1000);
-                    const htmlSample = document.body.innerHTML.substring(0, 1500); // Diagnóstico HTML
-                    return { rowCount: rows.length, firstLines: pageText.split('\n').filter(l => l.trim()).slice(0, 3), html: htmlSample };
-                });
-
-                const movimientos = await page.evaluate(() => {
-                    // Pulpos usa DataGrids de React (MUI, o custom) que a veces no usan table/tr/td.
-                    // Buscamos cualquier contenedor que parezca una fila con múltiples celdas.
-                    let rows = Array.from(document.querySelectorAll('table tbody tr'));
-
-                    if (rows.length === 0) {
-                        rows = Array.from(document.querySelectorAll('div[role="row"]'));
-                    }
-                    if (rows.length === 0) {
-                        // Buscar Divs que contengan al menos 5 hijos que parezcan datos de movimiento
-                        const allDivs = Array.from(document.querySelectorAll('div'));
-                        rows = allDivs.filter(d =>
-                            d.children.length >= 6 &&
-                            // Omitir el Navbar (que tiene Nueva Venta, etc)
-                            !d.innerText.includes('Nueva Venta') &&
-                            !d.innerText.includes('Inicio | Productos')
-                        );
-                    }
-
-                    return rows.map(row => {
-                        let cells = Array.from(row.querySelectorAll('td'));
-                        if (cells.length === 0) {
-                            cells = Array.from(row.querySelectorAll('div[role="gridcell"], div[role="cell"], > div'));
-                        }
-
-                        const textos = cells.map(c => c.innerText?.trim() || '');
-
-                        // Si no hay textos estructurados, intentar hacer parse del innerText completo de la fila
-                        if (textos.filter(t => t).length < 3) {
-                            const rawParts = row.innerText.split('\n').map(p => p.trim()).filter(p => p);
-                            if (rawParts.length >= 5 && rawParts[0].match(/^\d{2}\/\d{2}\/\d{4}$/)) { // Parece fecha
-                                return {
-                                    fecha: rawParts[0],
-                                    referencia: rawParts[1] || '',
-                                    stock_anterior: parseFloat((rawParts[2] || '0').replace(/[^0-9.]/g, '')) || 0,
-                                    tipo_raw: rawParts[3] || '',
-                                    cantidad: parseFloat((rawParts[4] || '0').replace(/[^0-9.]/g, '')) || 0,
-                                    stock_nuevo: parseFloat((rawParts[5] || '0').replace(/[^0-9.]/g, '')) || 0,
-                                    sucursal_raw: rawParts[6] || '',
-                                    usuario: rawParts[7] || ''
-                                };
-                            }
-                        }
-
-                        return {
-                            fecha: textos[0] || '',
-                            referencia: textos[1] || '',
-                            stock_anterior: parseFloat((textos[2] || '0').replace(/[^0-9.]/g, '')) || 0,
-                            tipo_raw: textos[3] || '',
-                            cantidad: parseFloat((textos[4] || '0').replace(/[^0-9.]/g, '')) || 0,
-                            stock_nuevo: parseFloat((textos[5] || '0').replace(/[^0-9.]/g, '')) || 0,
-                            sucursal_raw: textos[6] || '',
-                            usuario: textos[7] || ''
-                        };
-                    }).filter(m => m.fecha && m.cantidad > 0);
-                });
-
-                if (!movimientos.length) {
-                    console.log(`   Sin movs para ${prod.sku}. Rows TR encontradas: ${diagnosticInfo.rowCount}. Muestras texto: ${diagnosticInfo.firstLines.join(' | ')}`);
-                    console.log(`   [REPORTE HTML]:\n${diagnosticInfo.html}\n`);
+                // Esperar a que el botón Exportar esté disponible
+                try {
+                    await page.waitForFunction(() => {
+                        const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Exportar'));
+                        return !!btn;
+                    }, { timeout: 15000 });
+                } catch (e) {
+                    console.log(`   [EXPORT FAIL] No se encontró botón Exportar para ${prod.sku}. Sin movimientos en 90 días.`);
                     continue;
                 }
 
-                const registros = movimientos.map(m => {
-                    let tipo = 'AJUSTE';
-                    const tipoLower = m.tipo_raw.toLowerCase();
-                    if (tipoLower.includes('entrada')) tipo = 'ENTRADA';
-                    else if (tipoLower.includes('salida') || tipoLower.includes('venta')) tipo = 'SALIDA';
-                    else if (tipoLower.includes('transferencia') && tipoLower.includes('origen')) tipo = 'TRANSFERENCIA_OUT';
-                    else if (tipoLower.includes('transferencia') && tipoLower.includes('destino')) tipo = 'TRANSFERENCIA_IN';
+                // Interceptar descarga
+                const downloadPromise = page.waitForEvent('download', { timeout: 20000 }).catch(() => null);
 
-                    const sucursal = m.sucursal_raw.toLowerCase().includes('sur') ? 'Sur' : 'Norte';
+                await page.evaluate(() => {
+                    const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Exportar'));
+                    if (btn) btn.click();
+                });
+
+                const download = await downloadPromise;
+                if (!download) {
+                    console.log(`   Sin movs exportables para ${prod.sku}. Timeout descargando Excel.`);
+                    continue;
+                }
+
+                const tempFilePath = path.join(__dirname, `temp_movs_${prod.pulpos_id}_${Date.now()}.xlsx`);
+                await download.saveAs(tempFilePath);
+
+                let movimientosRaw = [];
+                try {
+                    const workbook = xlsx.readFile(tempFilePath);
+                    const sheetName = workbook.SheetNames[0];
+                    if (sheetName) {
+                        movimientosRaw = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+                    }
+                } catch (err) {
+                    console.log(`   Error leyendo Excel para ${prod.sku}:`, err.message);
+                } finally {
+                    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+                }
+
+                if (!movimientosRaw.length) {
+                    console.log(`   Sin movs para ${prod.sku} (Excel vacío).`);
+                    continue;
+                }
+
+                const registros = movimientosRaw.map(m => {
+                    let fecha = m['Fecha'] || m['Fecha y Hora'] || Object.values(m)[0] || '';
+
+                    const tipoRaw = String(m['Movimiento'] || m['Tipo'] || '').toLowerCase();
+                    let tipo = 'AJUSTE';
+                    if (tipoRaw.includes('entrada')) tipo = 'ENTRADA';
+                    else if (tipoRaw.includes('salida') || tipoRaw.includes('venta')) tipo = 'SALIDA';
+                    else if (tipoRaw.includes('transferencia') && tipoRaw.includes('origen')) tipo = 'TRANSFERENCIA_OUT';
+                    else if (tipoRaw.includes('transferencia') && tipoRaw.includes('destino')) tipo = 'TRANSFERENCIA_IN';
+
+                    const cantidadStr = m['Variación'] || m['Cantidad'] || m['Diferencia'] || 0;
+                    const cantidad = Math.abs(parseFloat(String(cantidadStr).replace(/[^0-9.-]/g, '')) || 0);
+
+                    const stockAnteriorStr = m['Stock Anterior'] || m['Anterior'] || 0;
+                    const stockAnterior = parseFloat(String(stockAnteriorStr).replace(/[^0-9.-]/g, '')) || 0;
+
+                    const stockNuevoStr = m['Stock Nuevo'] || m['Nuevo'] || m['Stock'] || 0;
+                    const stockNuevo = parseFloat(String(stockNuevoStr).replace(/[^0-9.-]/g, '')) || 0;
+
+                    const sucursalRaw = String(m['Sucursal'] || m['Origen / Destino'] || '').toLowerCase();
+                    const sucursal = sucursalRaw.includes('sur') ? 'Sur' : 'Norte';
+                    const usuario = m['Usuario'] || m['Realizado por'] || '';
 
                     let fechaISO = new Date().toISOString();
                     try {
-                        const meses = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
-                        const partes = m.fecha.toLowerCase().split(/\s+/);
-                        if (partes.length >= 3) {
-                            fechaISO = new Date(parseInt(partes[2]), meses[partes[1]] ?? 0, parseInt(partes[0]), 12).toISOString();
+                        let partesData = typeof fecha === 'number' ? new Date((fecha - 25569) * 86400 * 1000).toISOString() : String(fecha);
+                        if (partesData.includes('/')) {
+                            const partes = partesData.split(' ')[0].split('/');
+                            if (partes.length === 3) {
+                                let d = partes[0].padStart(2, '0');
+                                let mx = partes[1].padStart(2, '0');
+                                let a = partes[2];
+                                if (a.length === 2) a = '20' + a;
+                                fechaISO = `${a}-${mx}-${d}T00:00:00.000Z`;
+                            }
+                        } else if (partesData.includes('-')) {
+                            fechaISO = partesData;
                         }
-                    } catch (_) { }
+                    } catch (e) { }
 
                     return {
                         producto_id: prod.id,
                         sucursal,
                         tipo,
-                        cantidad: m.cantidad,
-                        stock_anterior: m.stock_anterior,
-                        stock_nuevo: m.stock_nuevo,
-                        referencia: m.referencia,
-                        notas: `${m.usuario ? 'Usuario: ' + m.usuario : ''} | Sync Pulpos`,
+                        cantidad: cantidad,
+                        stock_anterior: stockAnterior,
+                        stock_nuevo: stockNuevo,
+                        referencia: String(m['Referencia'] || m['Ticket'] || ''),
+                        notas: `${usuario ? 'Usuario: ' + usuario : ''} | Sync Pulpos Excel`,
                         created_at: fechaISO
                     };
-                });
+                }).filter(r => r.cantidad > 0);
 
                 for (const reg of registros) {
                     const { error: mvErr } = await supabase
