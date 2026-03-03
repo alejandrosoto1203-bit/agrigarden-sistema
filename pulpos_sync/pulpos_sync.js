@@ -259,15 +259,19 @@ async function sincronizarMovimientos(page) {
                 const encodedName = encodeURIComponent(prod.nombre || prod.sku || '');
                 await page.goto(
                     `https://app.pulpos.com/reports/stock-movements?productName=${encodedName}&periodGrouping=byDay&period=last90Days`,
-                    { waitUntil: 'domcontentloaded' }
+                    { waitUntil: 'networkidle', timeout: 15000 }
                 );
-                // Aumentado a 5s porque los reportes suelen tardar más en cargar que las vistas simles
-                await page.waitForTimeout(5000);
+
+                const finalUrl = page.url();
+                if (!finalUrl.includes('stock-movements')) {
+                    console.log(`   [REDIRECT DETECTADO] La URL final es: ${finalUrl}`);
+                }
 
                 const diagnosticInfo = await page.evaluate(() => {
                     const rows = Array.from(document.querySelectorAll('tbody tr'));
                     const pageText = document.body.innerText.substring(0, 1000);
-                    return { rowCount: rows.length, firstLines: pageText.split('\n').filter(l => l.trim()).slice(0, 5) };
+                    const htmlSample = document.body.innerHTML.substring(0, 1500); // Diagnóstico HTML
+                    return { rowCount: rows.length, firstLines: pageText.split('\n').filter(l => l.trim()).slice(0, 3), html: htmlSample };
                 });
 
                 const movimientos = await page.evaluate(() => {
@@ -329,6 +333,7 @@ async function sincronizarMovimientos(page) {
 
                 if (!movimientos.length) {
                     console.log(`   Sin movs para ${prod.sku}. Rows TR encontradas: ${diagnosticInfo.rowCount}. Muestras texto: ${diagnosticInfo.firstLines.join(' | ')}`);
+                    console.log(`   [REPORTE HTML]:\n${diagnosticInfo.html}\n`);
                     continue;
                 }
 
