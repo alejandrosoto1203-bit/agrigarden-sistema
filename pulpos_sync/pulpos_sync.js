@@ -271,15 +271,16 @@ async function sincronizarMovimientos(page) {
                     console.log(`   [REDIRECT DETECTADO] La URL solicitada era ${targetUrl} pero Pulpos redirigió a: ${finalUrl}`);
                 }
 
-                // Localizar el botón Exportar de manera robusta usando locators de Playwright
-                const locExportar = page.locator('button:has-text("Exportar"), button:has-text("EXPORTAR")').first();
+                // Localizar el botón "Descargar Reporte" (nombre real en Pulpos) usando locators de Playwright
+                const locExportar = page.locator('button:has-text("Descargar Reporte"), button:has-text("Descargar"), button:has-text("Exportar"), button:has-text("EXPORTAR")').first();
 
-                // Esperar a que el botón Exportar esté visible y habilitado
+                // Esperar a que el botón esté visible y habilitado
                 try {
                     await locExportar.waitFor({ state: 'visible', timeout: 15000 });
+                    debugLogs.push(`[${prod.sku}] Boton encontrado OK.`);
                 } catch (e) {
-                    debugLogs.push(`[${prod.sku}] Sin boton Exportar.`);
-                    console.log(`   [EXPORT FAIL] No se encontró botón Exportar para ${prod.sku}. Sin movimientos en 90 días.`);
+                    debugLogs.push(`[${prod.sku}] Sin boton Descargar/Exportar.`);
+                    console.log(`   [EXPORT FAIL] No se encontró botón Descargar Reporte para ${prod.sku}. Sin movimientos en 90 días.`);
                     continue;
                 }
 
