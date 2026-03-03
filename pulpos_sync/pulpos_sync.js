@@ -263,10 +263,17 @@ async function sincronizarMovimientos(page) {
                 );
                 await page.waitForTimeout(2500);
 
-                const movimientos = await page.evaluate(() => {
+                const diagnosticInfo = await page.evaluate(() => {
                     const rows = Array.from(document.querySelectorAll('tbody tr'));
+                    const pageText = document.body.innerText.substring(0, 1000);
+                    return { rowCount: rows.length, firstLines: pageText.split('\n').filter(l => l.trim()).slice(0, 5) };
+                });
+
+                const movimientos = await page.evaluate(() => {
+                    // Pulpos a veces usa divs con rol row en lugar de tr, intentamos ambos
+                    const rows = Array.from(document.querySelectorAll('tbody tr, div[role="row"]'));
                     return rows.map(row => {
-                        const cells = Array.from(row.querySelectorAll('td'));
+                        const cells = Array.from(row.querySelectorAll('td, div[role="cell"]'));
                         const textos = cells.map(c => c.innerText?.trim() || '');
                         return {
                             fecha: textos[0] || '',
@@ -281,7 +288,10 @@ async function sincronizarMovimientos(page) {
                     }).filter(m => m.fecha && m.cantidad > 0);
                 });
 
-                if (!movimientos.length) { continue; }
+                if (!movimientos.length) {
+                    console.log(`   Sin movs para ${prod.sku}. Rows TR encontradas: ${diagnosticInfo.rowCount}. Muestras texto: ${diagnosticInfo.firstLines.join(' | ')}`);
+                    continue;
+                }
 
                 const registros = movimientos.map(m => {
                     let tipo = 'AJUSTE';
