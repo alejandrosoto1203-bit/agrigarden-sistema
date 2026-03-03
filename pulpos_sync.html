@@ -1009,9 +1009,13 @@
         }
 
         function mostrarExitoDirecto(modo) {
+            // --- Movimientos: mostrar staging en vez de éxito directo ---
+            if (modo === 'movimientos') {
+                mostrarStagingMovimientos();
+                return;
+            }
             const destinos = {
                 inventario: { label: '¡Inventario actualizado!', desc: 'El stock de todos los productos fue actualizado.', btn: 'Ver Productos', href: 'productos.html', icon: 'inventory_2' },
-                movimientos: { label: '¡Movimientos importados!', desc: 'Historial de entradas y salidas sincronizado.', btn: 'Ver Productos', href: 'productos.html', icon: 'history' },
                 clientes: { label: '¡Clientes sincronizados!', desc: 'Todos los clientes de Pulpos fueron importados.', btn: 'Ver Clientes', href: 'clientes.html', icon: 'people' },
             };
             const d = destinos[modo] || { label: '¡Completado!', desc: 'Sincronización exitosa.', btn: 'Inicio', href: 'dashboard.html', icon: 'check_circle' };
@@ -1033,6 +1037,166 @@
                 <span class="material-symbols-outlined text-sm">sync</span> Otro sync
             </button>
         </div>`;
+        }
+
+        // =====================================================
+        // STAGING MOVIMIENTOS: Vista previa antes de confirmar
+        // =====================================================
+        async function mostrarStagingMovimientos() {
+            document.getElementById('panelProgreso').classList.add('hidden');
+            const p = document.getElementById('panelResultado');
+            p.classList.remove('hidden');
+            p.innerHTML = `<div class="text-center py-6"><span class="material-symbols-outlined animate-spin text-gray-400 text-2xl">sync</span><p class="text-sm text-gray-500 mt-2">Cargando vista previa de movimientos...</p></div>`;
+
+            try {
+                const sbPulpos = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                const { data: staging, error } = await sbPulpos
+                    .from('movimientos_staging')
+                    .select('*')
+                    .eq('confirmado', false)
+                    .order('fecha_movimiento', { ascending: false })
+                    .limit(500);
+
+                if (error || !staging || staging.length === 0) {
+                    p.innerHTML = `
+                    <div class="text-center mb-5">
+                        <div class="size-16 bg-yellow-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                            <span class="material-symbols-outlined text-yellow-500 text-3xl">info</span>
+                        </div>
+                        <h3 class="text-xl font-black text-gray-900">Sin movimientos nuevos</h3>
+                        <p class="text-sm text-gray-500 mt-1">No hay movimientos pendientes de revisión.</p>
+                    </div>
+                    <button onclick="resetPanel()" class="w-full bg-black text-white font-bold py-3 rounded-xl text-sm">Volver</button>`;
+                    return;
+                }
+
+                // Construir tabla con los movimientos
+                let filas = '';
+                const tipoBadge = { ENTRADA: 'bg-green-100 text-green-700', SALIDA: 'bg-red-100 text-red-700', AJUSTE: 'bg-gray-100 text-gray-700', TRANSFERENCIA_OUT: 'bg-orange-100 text-orange-700', TRANSFERENCIA_IN: 'bg-blue-100 text-blue-700' };
+                staging.forEach(m => {
+                    const badgeClass = tipoBadge[m.tipo] || 'bg-gray-100 text-gray-600';
+                    const fechaCorta = m.fecha_movimiento ? new Date(m.fecha_movimiento).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+                    filas += `<tr class="border-b border-gray-50 hover:bg-gray-50 text-xs">
+                        <td class="py-2 px-2 font-mono text-gray-500">${m.producto_sku || '-'}</td>
+                        <td class="py-2 px-2 font-medium text-gray-800 max-w-[140px] truncate">${m.producto_nombre || '-'}</td>
+                        <td class="py-2 px-2"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${m.tipo}</span></td>
+                        <td class="py-2 px-2 text-right font-bold">${m.cantidad}</td>
+                        <td class="py-2 px-2 text-gray-500">${m.sucursal || '-'}</td>
+                        <td class="py-2 px-2 text-gray-400">${fechaCorta}</td>
+                        <td class="py-2 px-2 text-gray-400 max-w-[100px] truncate">${m.referencia || '-'}</td>
+                    </tr>`;
+                });
+
+                // Resumen
+                const totalEntradas = staging.filter(m => m.tipo === 'ENTRADA').length;
+                const totalSalidas = staging.filter(m => m.tipo === 'SALIDA').length;
+                const totalOtros = staging.length - totalEntradas - totalSalidas;
+
+                p.innerHTML = `
+                <div class="mb-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-purple-500">preview</span>
+                        <h3 class="text-lg font-black text-gray-900">Vista Previa — ${staging.length} movimientos</h3>
+                    </div>
+                    <div class="flex gap-2 flex-wrap text-xs mb-3">
+                        <span class="px-2 py-1 rounded-full bg-green-100 text-green-700 font-bold">↑ ${totalEntradas} entradas</span>
+                        <span class="px-2 py-1 rounded-full bg-red-100 text-red-700 font-bold">↓ ${totalSalidas} salidas</span>
+                        ${totalOtros > 0 ? `<span class="px-2 py-1 rounded-full bg-gray-100 text-gray-600 font-bold">⟳ ${totalOtros} otros</span>` : ''}
+                    </div>
+                </div>
+                <div class="overflow-x-auto max-h-[400px] overflow-y-auto border border-gray-100 rounded-xl mb-4">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 sticky top-0">
+                            <tr class="text-[10px] text-gray-500 uppercase">
+                                <th class="py-2 px-2">SKU</th>
+                                <th class="py-2 px-2">Producto</th>
+                                <th class="py-2 px-2">Tipo</th>
+                                <th class="py-2 px-2 text-right">Cant.</th>
+                                <th class="py-2 px-2">Sucursal</th>
+                                <th class="py-2 px-2">Fecha</th>
+                                <th class="py-2 px-2">Ref.</th>
+                            </tr>
+                        </thead>
+                        <tbody>${filas}</tbody>
+                    </table>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="confirmarMovimientos()" class="flex-1 bg-green-600 text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-green-700">
+                        <span class="material-symbols-outlined text-sm">check_circle</span> Confirmar e Integrar
+                    </button>
+                    <button onclick="descartarMovimientos()" class="flex-1 border border-red-200 text-red-600 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-red-50">
+                        <span class="material-symbols-outlined text-sm">delete</span> Descartar
+                    </button>
+                </div>`;
+            } catch (err) {
+                p.innerHTML = `<p class="text-red-500 text-sm">Error cargando staging: ${err.message}</p>`;
+            }
+        }
+
+        async function confirmarMovimientos() {
+            const p = document.getElementById('panelResultado');
+            p.innerHTML = `<div class="text-center py-6"><span class="material-symbols-outlined animate-spin text-green-500 text-2xl">sync</span><p class="text-sm text-gray-500 mt-2">Integrando movimientos al sistema...</p></div>`;
+
+            try {
+                const sbPulpos = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                const { data: staging } = await sbPulpos
+                    .from('movimientos_staging')
+                    .select('*')
+                    .eq('confirmado', false);
+
+                let okCount = 0;
+                for (const m of (staging || [])) {
+                    const reg = {
+                        producto_id: m.producto_id,
+                        sucursal: m.sucursal,
+                        tipo: m.tipo,
+                        cantidad: m.cantidad,
+                        stock_anterior: m.stock_anterior,
+                        stock_nuevo: m.stock_nuevo,
+                        referencia: m.referencia,
+                        notas: m.notas,
+                        created_at: m.fecha_movimiento
+                    };
+                    const { error } = await sbPulpos
+                        .from('movimientos_stock')
+                        .upsert(reg, { onConflict: 'producto_id,referencia,created_at', ignoreDuplicates: true });
+                    if (!error) {
+                        await sbPulpos.from('movimientos_staging').update({ confirmado: true }).eq('id', m.id);
+                        okCount++;
+                    }
+                }
+
+                p.innerHTML = `
+                <div class="text-center mb-5">
+                    <div class="size-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                        <span class="material-symbols-outlined text-green-500 text-3xl">check_circle</span>
+                    </div>
+                    <h3 class="text-xl font-black text-gray-900">¡${okCount} movimientos integrados!</h3>
+                    <p class="text-sm text-gray-500 mt-1">Los datos fueron guardados exitosamente en el sistema.</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="location.href='productos.html'" class="flex-1 bg-black text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">inventory_2</span> Ver Productos
+                    </button>
+                    <button onclick="resetPanel()" class="flex-1 border border-gray-200 text-gray-700 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">sync</span> Otro sync
+                    </button>
+                </div>`;
+            } catch (err) {
+                p.innerHTML = `<p class="text-red-500 text-sm">Error confirmando: ${err.message}</p>
+                <button onclick="resetPanel()" class="mt-3 w-full bg-black text-white font-bold py-3 rounded-xl text-sm">Intentar de nuevo</button>`;
+            }
+        }
+
+        async function descartarMovimientos() {
+            if (!confirm('¿Estás seguro? Se eliminarán todos los movimientos pendientes de la vista previa.')) return;
+            try {
+                const sbPulpos = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                await sbPulpos.from('movimientos_staging').delete().eq('confirmado', false);
+                resetPanel();
+            } catch (err) {
+                alert('Error descartando: ' + err.message);
+            }
         }
 
         function mostrarError(msg) {

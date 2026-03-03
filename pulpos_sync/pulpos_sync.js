@@ -394,6 +394,8 @@ async function sincronizarMovimientos(page) {
 
                     return {
                         producto_id: prod.id,
+                        producto_sku: prod.sku,
+                        producto_nombre: prod.nombre,
                         sucursal,
                         tipo,
                         cantidad: cantidad,
@@ -401,15 +403,22 @@ async function sincronizarMovimientos(page) {
                         stock_nuevo: stockNuevo,
                         referencia: String(m['Referencia'] || m['Ticket'] || ''),
                         notas: `${usuario ? 'Usuario: ' + usuario : ''} | Sync Pulpos Excel`,
-                        created_at: fechaISO
+                        fecha_movimiento: fechaISO,
+                        fecha_sync: FECHA_SYNC,
+                        sync_log_id: logId
                     };
                 }).filter(r => r.cantidad > 0);
 
-                for (const reg of registros) {
-                    const { error: mvErr } = await supabase
-                        .from('movimientos_stock')
-                        .upsert(reg, { onConflict: 'producto_id,referencia,created_at', ignoreDuplicates: true });
-                    if (!mvErr) totalMovimientos++;
+                // Guardar en STAGING (tabla de vista previa) en vez de movimientos_stock
+                if (registros.length > 0) {
+                    const { error: stgErr } = await supabase
+                        .from('movimientos_staging')
+                        .insert(registros);
+                    if (!stgErr) {
+                        totalMovimientos += registros.length;
+                    } else {
+                        debugLogs.push(`[${prod.sku}] Error staging: ${stgErr.message}`);
+                    }
                 }
 
                 console.log(`   OK ${prod.sku || prod.nombre}: ${registros.length} movimientos`);
