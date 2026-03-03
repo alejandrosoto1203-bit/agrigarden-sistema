@@ -269,24 +269,26 @@ async function sincronizarMovimientos(page) {
                     console.log(`   [REDIRECT DETECTADO] La URL solicitada era ${targetUrl} pero Pulpos redirigió a: ${finalUrl}`);
                 }
 
-                // Esperar a que el botón Exportar esté disponible
+                // Localizar el botón Exportar de manera robusta usando locators de Playwright
+                const locExportar = page.locator('button:has-text("Exportar"), button:has-text("EXPORTAR")').first();
+
+                // Esperar a que el botón Exportar esté visible y habilitado
                 try {
-                    await page.waitForFunction(() => {
-                        const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Exportar'));
-                        return !!btn;
-                    }, { timeout: 15000 });
+                    await locExportar.waitFor({ state: 'visible', timeout: 15000 });
                 } catch (e) {
                     console.log(`   [EXPORT FAIL] No se encontró botón Exportar para ${prod.sku}. Sin movimientos en 90 días.`);
                     continue;
                 }
 
-                // Interceptar descarga
-                const downloadPromise = page.waitForEvent('download', { timeout: 20000 }).catch(() => null);
+                // Interceptar descarga con un timeout mayor de 45s, porque Pulpos a veces demora en generar el Excel
+                const downloadPromise = page.waitForEvent('download', { timeout: 45000 }).catch(() => null);
 
-                await page.evaluate(() => {
-                    const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Exportar'));
-                    if (btn) btn.click();
-                });
+                // Hacer clic usando el motor de Playwright que simula eventos de puntero y confía en React
+                try {
+                    await locExportar.click({ force: true });
+                } catch (err) {
+                    console.log(`   [CLICK FAIL] No se pudo hacer clic en Exportar para ${prod.sku}. error:`, err.message);
+                }
 
                 const download = await downloadPromise;
                 if (!download) {
