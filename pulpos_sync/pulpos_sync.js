@@ -261,7 +261,8 @@ async function sincronizarMovimientos(page) {
                     `https://app.pulpos.com/reports/stock-movements?productName=${encodedName}&periodGrouping=byDay&period=last90Days`,
                     { waitUntil: 'domcontentloaded' }
                 );
-                await page.waitForTimeout(2500);
+                // Aumentado a 5s porque los reportes suelen tardar más en cargar que las vistas simles
+                await page.waitForTimeout(5000);
 
                 const diagnosticInfo = await page.evaluate(() => {
                     const rows = Array.from(document.querySelectorAll('tbody tr'));
@@ -270,11 +271,49 @@ async function sincronizarMovimientos(page) {
                 });
 
                 const movimientos = await page.evaluate(() => {
-                    // Pulpos a veces usa divs con rol row en lugar de tr, intentamos ambos
-                    const rows = Array.from(document.querySelectorAll('tbody tr, div[role="row"]'));
+                    // Pulpos usa DataGrids de React (MUI, o custom) que a veces no usan table/tr/td.
+                    // Buscamos cualquier contenedor que parezca una fila con múltiples celdas.
+                    let rows = Array.from(document.querySelectorAll('table tbody tr'));
+
+                    if (rows.length === 0) {
+                        rows = Array.from(document.querySelectorAll('div[role="row"]'));
+                    }
+                    if (rows.length === 0) {
+                        // Buscar Divs que contengan al menos 5 hijos que parezcan datos de movimiento
+                        const allDivs = Array.from(document.querySelectorAll('div'));
+                        rows = allDivs.filter(d =>
+                            d.children.length >= 6 &&
+                            // Omitir el Navbar (que tiene Nueva Venta, etc)
+                            !d.innerText.includes('Nueva Venta') &&
+                            !d.innerText.includes('Inicio | Productos')
+                        );
+                    }
+
                     return rows.map(row => {
-                        const cells = Array.from(row.querySelectorAll('td, div[role="cell"]'));
+                        let cells = Array.from(row.querySelectorAll('td'));
+                        if (cells.length === 0) {
+                            cells = Array.from(row.querySelectorAll('div[role="gridcell"], div[role="cell"], > div'));
+                        }
+
                         const textos = cells.map(c => c.innerText?.trim() || '');
+
+                        // Si no hay textos estructurados, intentar hacer parse del innerText completo de la fila
+                        if (textos.filter(t => t).length < 3) {
+                            const rawParts = row.innerText.split('\n').map(p => p.trim()).filter(p => p);
+                            if (rawParts.length >= 5 && rawParts[0].match(/^\d{2}\/\d{2}\/\d{4}$/)) { // Parece fecha
+                                return {
+                                    fecha: rawParts[0],
+                                    referencia: rawParts[1] || '',
+                                    stock_anterior: parseFloat((rawParts[2] || '0').replace(/[^0-9.]/g, '')) || 0,
+                                    tipo_raw: rawParts[3] || '',
+                                    cantidad: parseFloat((rawParts[4] || '0').replace(/[^0-9.]/g, '')) || 0,
+                                    stock_nuevo: parseFloat((rawParts[5] || '0').replace(/[^0-9.]/g, '')) || 0,
+                                    sucursal_raw: rawParts[6] || '',
+                                    usuario: rawParts[7] || ''
+                                };
+                            }
+                        }
+
                         return {
                             fecha: textos[0] || '',
                             referencia: textos[1] || '',
