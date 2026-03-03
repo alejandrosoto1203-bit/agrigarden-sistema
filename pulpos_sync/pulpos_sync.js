@@ -582,8 +582,11 @@ async function sincronizarVentas(page) {
     });
 
     console.log(`Navegando a Ventas del ${FECHA_SYNC}...`);
+    await page.goto('https://app.pulpos.com/sales', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(3000);
 
-    // --- Construir variantes de fecha para matching ---
+    // --- Construir variantes de fecha para matching en el listado ---
     const [anio, mes, dia] = FECHA_SYNC.split('-');
     const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     const hoy = new Date().toISOString().split('T')[0];
@@ -594,148 +597,54 @@ async function sincronizarVentas(page) {
     if (FECHA_SYNC === ayer) textosBuscados.push('ayer');
     textosBuscados.push(`${parseInt(dia)} ${meses[parseInt(mes) - 1]}`);
     textosBuscados.push(`${parseInt(dia)} de ${meses[parseInt(mes) - 1]}`);
-    textosBuscados.push(`${parseInt(dia)}/${mes}`);
+    textosBuscados.push(`${dia}/${mes}`);
     textosBuscados.push(`${parseInt(dia)}/${parseInt(mes)}`);
+    textosBuscados.push(`${dia}-${mes}`);
     textosBuscados.push(FECHA_SYNC);
 
     console.log(`   Variantes de fecha: ${textosBuscados.join(', ')}`);
 
-    // --- FASE 1: Navegar con filtro de fecha ---
-    // Intentar múltiples URLs con parámetros de fecha que Pulpos pueda aceptar
-    const urlsToTry = [
-        `https://app.pulpos.com/sales?date=${FECHA_SYNC}`,
-        `https://app.pulpos.com/sales?from=${FECHA_SYNC}&to=${FECHA_SYNC}`,
-        `https://app.pulpos.com/sales?startDate=${FECHA_SYNC}&endDate=${FECHA_SYNC}`,
-        `https://app.pulpos.com/sales?period=custom&from=${FECHA_SYNC}&to=${FECHA_SYNC}`,
-        'https://app.pulpos.com/sales'
-    ];
+    // --- FASE 1: Recolectar links filtrados por fecha con scroll + paginación ---
+    // IMPORTANTE: Filtramos en la LISTA (rápido), NO visitando cada link individual
+    const filteredLinks = new Set();
 
-    let linksSet = new Set();
-
-    for (const url of urlsToTry) {
-        console.log(`   Intentando URL: ${url}`);
-        await page.goto(url, { waitUntil: 'domcontentloaded' });
-        await page.waitForLoadState('domcontentloaded');
-        await page.waitForTimeout(3000);
-
-        // Recolectar links visibles
-        const links = await page.$$eval('a[href*="/sales/detail"]', els =>
-            els.map(a => a.href).filter(Boolean)
-        );
-        links.forEach(href => linksSet.add(href));
-
-        if (linksSet.size > 0) {
-            console.log(`   ✅ Encontrados ${linksSet.size} links con URL: ${url}`);
-            break;
-        }
-    }
-
-    // Si no encontramos links con URLs parametrizadas, intentar interactuar con el date picker
-    if (linksSet.size === 0) {
-        console.log('   Intentando seleccionar fecha via date picker en la UI...');
-        await page.goto('https://app.pulpos.com/sales', { waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(3000);
-
-        // Intentar encontrar y hacer clic en el filtro/selector de fecha
-        const dateFilterClicked = await page.evaluate((fechaISO) => {
-            // Buscar inputs tipo date
-            const dateInputs = document.querySelectorAll('input[type="date"]');
-            for (const input of dateInputs) {
-                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                nativeInputValueSetter.call(input, fechaISO);
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-                return 'date-input';
-            }
-
-            // Buscar botones/links con texto de fecha, "Filtrar", "Periodo", "Rango"
-            const allClickables = Array.from(document.querySelectorAll('button, a, [role="button"], div[class*="date"], div[class*="filter"], div[class*="period"]'));
-            for (const el of allClickables) {
-                const txt = (el.innerText || el.textContent || '').toLowerCase();
-                if (txt.includes('hoy') || txt.includes('periodo') || txt.includes('fecha') ||
-                    txt.includes('filtro') || txt.includes('rango') || txt.includes('date') ||
-                    txt.includes('period') || txt.includes('filter')) {
-                    el.click();
-                    return 'filter-btn: ' + txt.substring(0, 50);
+    // Función para extraer links que coincidan con la fecha en la fila
+    const extractDateFilteredLinks = async () => {
+        return await page.evaluate((variantes) => {
+            const links = Array.from(document.querySelectorAll('a[href*="/sales/detail"]'));
+            const matched = [];
+            for (const a of links) {
+                const fila = a.closest('tr') || a.closest('div') || a.parentElement;
+                const textoFila = (fila?.innerText || a.innerText || '').toLowerCase();
+                const coincide = variantes.some(v => textoFila.includes(v.toLowerCase()));
+                if (coincide) {
+                    matched.push(a.href);
                 }
             }
-            return null;
-        }, FECHA_SYNC);
+            return matched;
+        }, textosBuscados);
+    };
 
-        if (dateFilterClicked) {
-            console.log(`   Clic en filtro: ${dateFilterClicked}`);
-            await page.waitForTimeout(2000);
+    // Primero: extraer de la vista actual
+    let matchedLinks = await extractDateFilteredLinks();
+    matchedLinks.forEach(href => filteredLinks.add(href));
+    console.log(`   Vista inicial: ${matchedLinks.length} ventas del ${FECHA_SYNC}`);
 
-            // Si se abrió un dropdown/modal de fecha, intentar escribir la fecha
-            const dateSet = await page.evaluate((fechaISO, diaNum, mesAbr) => {
-                // Buscar inputs tipo date que aparecieron
-                const dateInputs = document.querySelectorAll('input[type="date"]');
-                for (const input of dateInputs) {
-                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                    nativeInputValueSetter.call(input, fechaISO);
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                    return true;
-                }
-
-                // Buscar inputs de texto donde se pueda escribir la fecha
-                const textInputs = document.querySelectorAll('input[type="text"], input:not([type])');
-                for (const input of textInputs) {
-                    const placeholder = (input.placeholder || '').toLowerCase();
-                    if (placeholder.includes('fecha') || placeholder.includes('date') ||
-                        placeholder.includes('desde') || placeholder.includes('from')) {
-                        input.value = fechaISO;
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                        return true;
-                    }
-                }
-
-                // Buscar botón "Aplicar" / "Buscar" / "Filtrar" y hacer clic
-                const btns = Array.from(document.querySelectorAll('button'));
-                for (const btn of btns) {
-                    const txt = btn.innerText.toLowerCase();
-                    if (txt.includes('aplicar') || txt.includes('buscar') || txt.includes('filtrar') || txt.includes('apply')) {
-                        btn.click();
-                        return true;
-                    }
-                }
-                return false;
-            }, FECHA_SYNC, parseInt(dia), meses[parseInt(mes) - 1]);
-
-            await page.waitForTimeout(3000);
-        }
-
-        // Recolectar links después del filtro
-        const links = await page.$$eval('a[href*="/sales/detail"]', els =>
-            els.map(a => a.href).filter(Boolean)
-        );
-        links.forEach(href => linksSet.add(href));
-        console.log(`   Después de filtro de fecha: ${linksSet.size} links`);
-    }
-
-    // --- Scroll + Paginación para capturar todos los links ---
+    // Scroll para cargar más ventas
     let sinCambio = 0;
     let scrollAttempts = 0;
-
-    while (scrollAttempts < 100 && sinCambio < 10) {
-        const links = await page.$$eval('a[href*="/sales/detail"]', els =>
-            els.map(a => a.href).filter(Boolean)
-        );
-        const prev = linksSet.size;
-        links.forEach(href => linksSet.add(href));
-        if (linksSet.size > prev) {
-            sinCambio = 0;
-        } else {
-            sinCambio++;
-        }
+    while (scrollAttempts < 60 && sinCambio < 8) {
         await page.evaluate(() => {
             window.scrollBy(0, 800);
             document.documentElement.scrollBy(0, 800);
-            const mainContainer = document.querySelector('main, [class*="content"], [class*="scroll"]');
-            if (mainContainer) mainContainer.scrollBy(0, 800);
+            const mainEl = document.querySelector('main, [class*="content"], [class*="scroll"]');
+            if (mainEl) mainEl.scrollBy(0, 800);
         });
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(600);
+        const newMatched = await extractDateFilteredLinks();
+        const prev = filteredLinks.size;
+        newMatched.forEach(href => filteredLinks.add(href));
+        sinCambio = (filteredLinks.size > prev) ? 0 : sinCambio + 1;
         scrollAttempts++;
     }
 
@@ -763,35 +672,20 @@ async function sincronizarVentas(page) {
         if (nextPageClicked) {
             pageNum++;
             await page.waitForTimeout(2000);
-            const newLinks = await page.$$eval('a[href*="/sales/detail"]', els =>
-                els.map(a => a.href).filter(Boolean)
-            );
-            newLinks.forEach(href => linksSet.add(href));
-            console.log(`   📄 Página ${pageNum}: ${newLinks.length} links (total: ${linksSet.size})`);
+            const newMatched = await extractDateFilteredLinks();
+            newMatched.forEach(href => filteredLinks.add(href));
+            console.log(`   📄 Página ${pageNum}: ${newMatched.length} coincidencias (total: ${filteredLinks.size})`);
         } else {
             hasNextPage = false;
         }
     }
 
-    console.log(`   Total links encontrados: ${linksSet.size}`);
-
-    // --- Debug: guardar diagnóstico en el log para depuración remota ---
-    const pageDebug = await page.evaluate(() => {
-        return {
-            url: window.location.href,
-            title: document.title,
-            salesLinks: document.querySelectorAll('a[href*="/sales/detail"]').length,
-            pageTextSample: document.body.innerText.substring(0, 500)
-        };
-    });
-    console.log(`   DEBUG: URL actual: ${pageDebug.url}`);
-    console.log(`   DEBUG: Título: ${pageDebug.title}`);
-    console.log(`   DEBUG: Links en DOM: ${pageDebug.salesLinks}`);
-    console.log(`   DEBUG: Texto muestra: ${pageDebug.pageTextSample.substring(0, 200)}`);
+    const linksSet = filteredLinks;
+    console.log(`   ✅ Total ventas del ${FECHA_SYNC}: ${linksSet.size}`);
 
     if (logId) {
         await supabase.from('pulpos_sync_log').update({
-            mensaje: `Fase 1: ${linksSet.size} links encontrados | URL: ${pageDebug.url} | DOM links: ${pageDebug.salesLinks}`
+            mensaje: `${linksSet.size} ventas encontradas para ${FECHA_SYNC} (${scrollAttempts} scrolls, ${pageNum} páginas)`
         }).eq('id', logId);
     }
 
@@ -816,18 +710,13 @@ async function sincronizarVentas(page) {
             await page.waitForLoadState('domcontentloaded');
             await page.waitForTimeout(2000);
 
-            const datosVenta = await page.evaluate((variantes) => {
+            const datosVenta = await page.evaluate(() => {
                 const titulo = document.querySelector('h1, h2')?.innerText || '';
                 const matchNum = titulo.match(/#(\d+)/);
                 const numeroVenta = matchNum ? '#' + matchNum[1] : null;
                 if (!numeroVenta) return null;
 
                 const pageText = document.body.innerText;
-
-                // Verificar si la venta pertenece a la fecha buscada
-                const textoLower = pageText.toLowerCase();
-                const coincideFecha = variantes.some(v => textoLower.includes(v.toLowerCase()));
-                if (!coincideFecha) return { _skipFecha: true, numeroVenta };
 
                 // Extraer total
                 let totalVenta = 0;
@@ -864,14 +753,9 @@ async function sincronizarVentas(page) {
                 const vendedor = vendedorMatch ? vendedorMatch[1].trim() : '';
 
                 return { numeroVenta, sucursal, pagada, totalVenta, cliente, metodoPago, comentarios, vendedor };
-            }, textosBuscados);
+            });
 
             if (!datosVenta || !datosVenta.numeroVenta) continue;
-
-            // Saltar si no coincide con la fecha
-            if (datosVenta._skipFecha) {
-                continue;
-            }
 
             // Saltar si ya existe en staging
             if (numerosExistentes.has(datosVenta.numeroVenta)) {

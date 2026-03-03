@@ -1086,18 +1086,46 @@
                             <p class="text-xs text-gray-400">${new Date(log.created_at).toLocaleString('es-MX')}</p>
                         </div>
                     </div>
-                    <div class="text-right max-w-[180px]">
-                        <p class="text-xs font-black text-gray-700 truncate" title="${log.mensaje || ''}">${log.mensaje || (log.ventas_importadas + ' registros') || '—'}</p>
-                        ${log.estado === 'listo_para_revision' ? `
-                        <button onclick="abrirModalRevision('${log.fecha_sync}')" 
-                            class="text-[10px] font-black text-amber-600 hover:underline">Ver revisión →</button>` : ''}
-                        ${log.estado === 'listo_para_revision_clientes' ? `
-                        <button onclick="abrirModalRevisionClientes('${log.fecha_sync}')" 
-                            class="text-[10px] font-black text-indigo-600 hover:underline">Ver revisión →</button>` : ''}
+                    <div class="flex items-center gap-2">
+                        <div class="text-right max-w-[180px]">
+                            <p class="text-xs font-black text-gray-700 truncate" title="${log.mensaje || ''}">${log.mensaje || (log.ventas_importadas + ' registros') || '—'}</p>
+                            ${log.estado === 'listo_para_revision' ? `
+                            <button onclick="abrirModalRevision('${log.fecha_sync}')" 
+                                class="text-[10px] font-black text-amber-600 hover:underline">Ver revisión →</button>` : ''}
+                            ${log.estado === 'listo_para_revision_clientes' ? `
+                            <button onclick="abrirModalRevisionClientes('${log.fecha_sync}')" 
+                                class="text-[10px] font-black text-indigo-600 hover:underline">Ver revisión →</button>` : ''}
+                        </div>
+                        ${log.estado === 'iniciado' ? `
+                        <button onclick="cancelarLogSync(${log.id})" title="Cancelar" 
+                            class="size-7 flex items-center justify-center rounded-lg border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600">
+                            <span class="material-symbols-outlined text-sm">cancel</span>
+                        </button>` : ''}
+                        ${['cancelado', 'error', 'listo_para_revision', 'listo_para_revision_clientes'].includes(log.estado) ? `
+                        <button onclick="eliminarLogSync(${log.id}, '${log.fecha_sync}')" title="Eliminar" 
+                            class="size-7 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-red-50 hover:text-red-600">
+                            <span class="material-symbols-outlined text-sm">delete</span>
+                        </button>` : ''}
                     </div>
                 </div>`).join('')}
         </div>`;
 
+        }
+
+        async function cancelarLogSync(logId) {
+            await sbPulpos.from('pulpos_sync_log').update({
+                estado: 'cancelado', mensaje: 'Cancelado manualmente'
+            }).eq('id', logId);
+            await cargarHistorial();
+        }
+
+        async function eliminarLogSync(logId, fechaSync) {
+            if (!confirm('¿Eliminar este registro del historial?')) return;
+            // Limpiar staging asociado si existe
+            await sbPulpos.from('pulpos_sync_staging').delete().eq('sync_log_id', logId);
+            await sbPulpos.from('clientes_staging').delete().eq('sync_log_id', logId);
+            await sbPulpos.from('pulpos_sync_log').delete().eq('id', logId);
+            await cargarHistorial();
         }
     </script>
 </body>
