@@ -743,8 +743,17 @@ async function sincronizarVentas(page) {
                 const pagada = textoLower.includes('pagada');
                 const clienteLinks = document.querySelectorAll('a[href*="/client"], a[href*="/customer"]');
                 const cliente = clienteLinks.length > 0 ? clienteLinks[0].innerText.trim() : '';
-                const historial = pageText.match(/Cobro de \$[\d,.]+  en (.+?)(?:\n|$)/i);
-                const metodoPago = historial ? historial[1].trim() : '';
+                // Buscar método de pago en los registros o el texto general
+                let metodoPago = '';
+                const historialText = pageText.match(/Cobro de \$[\d,.]+  en (.+?)(?:\n|$)/i);
+                if (historialText) {
+                    metodoPago = historialText[1].trim();
+                } else {
+                    // Buscar palabras clave en toda la página
+                    if (textoLower.includes('efectivo')) metodoPago = 'Efectivo';
+                    else if (textoLower.includes('tarjeta')) metodoPago = 'Tarjeta';
+                    else if (textoLower.includes('transferencia')) metodoPago = 'Transferencia';
+                }
                 const comentariosNodes = document.querySelectorAll('[class*="comment"], [class*="histor"] p, [class*="note"]');
                 const comentarios = Array.from(comentariosNodes).map(n => n.innerText).join(' ');
                 const vendedorMatch = pageText.match(/Vendedor[:\s]+([^\n]+)/i);
