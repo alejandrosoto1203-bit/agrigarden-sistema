@@ -148,6 +148,7 @@ function inyectarMenu(paginaActiva) {
                 ${itemsAMostrar.map(renderItem).join('')}
             </nav>
 
+            <div id="global-sync-widget" class="px-4 pb-4"></div>
             <div class="p-4 lg:p-6 border-t border-gray-100">
                 <button onclick="logout()" class="flex items-center gap-3 p-3 text-sm font-bold text-red-500 hover:bg-red-50 w-full rounded-xl transition-all">
                     <span class="material-symbols-outlined">logout</span> Salir
@@ -157,6 +158,11 @@ function inyectarMenu(paginaActiva) {
     `;
 
     sidebar.innerHTML = html;
+
+    // Inicializar el monitor global de sincronización en el sidebar
+    if (typeof initGlobalSyncMonitor === 'function') {
+        initGlobalSyncMonitor();
+    }
 }
 
 // Función global para abrir/cerrar submenús
@@ -229,4 +235,63 @@ function inyectarSubmenuRRHH(subPaginaActiva) {
     } else {
         main.insertAdjacentHTML('afterbegin', navHtml);
     }
+}
+
+/**
+ * Escucha los eventos de sincronización de Pulpos y muestra un widget globlal
+ * en el menú lateral si hay un proceso corriendo.
+ */
+async function initGlobalSyncMonitor() {
+    if (typeof sbPulpos === 'undefined' && typeof supabase !== 'undefined') {
+        window.sbPulpos = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+    if (!window.sbPulpos) return;
+
+    const widget = document.getElementById('global-sync-widget');
+    if (!widget) return;
+
+    const renderWidget = (log) => {
+        if (!log || ['completado', 'error', 'cancelado'].includes(log.estado)) {
+            widget.innerHTML = '';
+            return;
+        }
+
+        let icono = 'sync';
+        let color = 'text-blue-600 bg-blue-50 border-blue-200';
+        let txtColor = 'text-blue-700';
+
+        if (log.estado.includes('revision')) {
+            icono = 'warning';
+            color = 'text-amber-600 bg-amber-50 border-amber-200';
+            txtColor = 'text-amber-700';
+        }
+
+        widget.innerHTML = `
+            <div class="px-3 py-2.5 rounded-xl border ${color} flex items-start gap-2 animate-fade-in shadow-sm cursor-pointer" onclick="window.location.href='pulpos_sync.html'">
+                <span class="material-symbols-outlined text-sm pt-0.5 ${log.estado === 'iniciado' ? 'animate-spin' : 'animate-pulse'}">${icono}</span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[10px] font-black uppercase tracking-wider ${txtColor}">Sync en progreso</p>
+                    <p class="text-xs font-bold text-gray-800 truncate" title="${log.mensaje || 'Procesando...'}">${log.mensaje || 'Procesando...'}</p>
+                </div>
+            </div>
+        `;
+    };
+
+    // 1. Cargar el último de inmediato
+    const { data: ultimosLog } = await sbPulpos
+        .from('pulpos_sync_log')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+    if (ultimosLog && ultimosLog.length > 0) {
+        renderWidget(ultimosLog[0]);
+    }
+
+    // 2. Suscribirse a cambios en tiempo real
+    sbPulpos.channel('global_sync_monitor')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pulpos_sync_log' }, (payload) => {
+            renderWidget(payload.new);
+        })
+        .subscribe();
 }
