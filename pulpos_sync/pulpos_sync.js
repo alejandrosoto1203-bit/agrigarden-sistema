@@ -742,6 +742,7 @@ async function sincronizarVentas(page) {
 
                 const sucursalMatch = pageText.match(/Agrigarden\s+(Norte|Sur)/i);
                 const sucursal = sucursalMatch ? 'Agrigarden ' + sucursalMatch[1] : '';
+                const textoLower = pageText.toLowerCase();
                 const pagada = textoLower.includes('pagada');
                 const clienteLinks = document.querySelectorAll('a[href*="/client"], a[href*="/customer"]');
                 const cliente = clienteLinks.length > 0 ? clienteLinks[0].innerText.trim() : '';
