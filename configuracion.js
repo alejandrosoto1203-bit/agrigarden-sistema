@@ -432,7 +432,17 @@ window.guardarUsuario = async function (e) {
     });
 
     const payload = { nombre, email, rol, sucursal, permisos, empleado_id };
-    if (password) payload.password = password;
+
+    // Si hay contraseña nueva, hashearla antes de guardar
+    if (password) {
+        const { data: hashedPass, error: hashError } = await client
+            .rpc('hash_password', { p_password: password });
+        if (hashError) {
+            alert("Error al procesar contraseña: " + hashError.message);
+            return;
+        }
+        payload.password = hashedPass;
+    }
 
     try {
         let error;

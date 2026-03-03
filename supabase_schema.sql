@@ -56,10 +56,8 @@ create table public.sys_usuarios (
 alter table public.sys_usuarios enable row level security;
 create policy "Acceso Publico Usuarios" on public.sys_usuarios for all using (true) with check (true);
 
--- Usuario Admin por defecto
-insert into public.sys_usuarios (nombre, email, password)
-values ('Administrador', 'admin@agrigarden.com', 'Maestro2024*')
-on conflict (email) do nothing;
+-- NOTA: El usuario admin inicial debe crearse manualmente
+-- o mediante un proceso privado NO incluido en el repositorio.
 
 -- 2. Tabla de Configuración Global (Key-Value)
 create table public.sys_config (

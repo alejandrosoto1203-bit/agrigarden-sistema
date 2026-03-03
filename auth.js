@@ -11,12 +11,6 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     }
 
     try {
-        // Fallback legacy access
-        if (email === "admin@agrigarden.com" && pass === "Maestro2024*" && (!window.supabase)) {
-            sessionStorage.setItem('isLoggedIn', 'true');
-            window.location.href = "dashboard.html";
-            return;
-        }
 
         // Intento de recuperación si window.sb no está inicializado
         // Definimos credenciales localmente para evitar errores si api.js falla
@@ -34,16 +28,14 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
             throw new Error("Librería de conexión no cargada o cliente no inicializado.");
         }
 
-        const { data, error } = await window.sb
-            .from('sys_usuarios')
-            .select('*')
-            .eq('email', email)
-            .eq('password', pass) // Plain text check per simple requirement
-            .maybeSingle();
+        // Login seguro: la comparación de contraseña se hace en el servidor
+        const { data: result, error } = await window.sb
+            .rpc('verify_login', { p_email: email, p_password: pass });
 
         if (error) throw error;
 
-        if (data) {
+        if (result && result.success) {
+            const data = result.user;
             sessionStorage.setItem('isLoggedIn', 'true');
             sessionStorage.setItem('userRole', data.rol || 'viewer');
             sessionStorage.setItem('userName', data.nombre);
@@ -56,31 +48,19 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
                 window.location.href = 'dashboard.html';
             }
         } else {
-            // Check hardcoded fallback if DB check fails/returns empty but credentials match legacy
-            if (email === "admin@agrigarden.com" && pass === "Maestro2024*") {
-                sessionStorage.setItem('isLoggedIn', 'true');
-                window.location.href = "dashboard.html";
-            } else {
-                alert("Credenciales incorrectas.");
-                if (btn) {
-                    btn.innerText = "INGRESAR AL SISTEMA";
-                    btn.disabled = false;
-                }
+            alert("Credenciales incorrectas.");
+            if (btn) {
+                btn.innerText = "INGRESAR AL SISTEMA";
+                btn.disabled = false;
             }
         }
 
     } catch (err) {
         console.error("Login error:", err);
-        // Fallback if DB Error but legacy credentials used
-        if (email === "admin@agrigarden.com" && pass === "Maestro2024*") {
-            sessionStorage.setItem('isLoggedIn', 'true');
-            window.location.href = "dashboard.html";
-        } else {
-            alert("Error al iniciar sesión: " + err.message);
-            if (btn) {
-                btn.innerText = "INGRESAR AL SISTEMA";
-                btn.disabled = false;
-            }
+        alert("Error al iniciar sesión: " + err.message);
+        if (btn) {
+            btn.innerText = "INGRESAR AL SISTEMA";
+            btn.disabled = false;
         }
     }
 });

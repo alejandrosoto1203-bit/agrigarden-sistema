@@ -21,17 +21,7 @@ const CONFIG_NEGOCIO = {
 // ==========================================
 // 1. SEGURIDAD Y ACCESO
 // ==========================================
-document.getElementById('loginForm')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const email = document.getElementById('email').value;
-    const pass = document.getElementById('password').value;
-    if (email === "admin@agrigarden.com" && pass === "Maestro2024*") {
-        sessionStorage.setItem('isLoggedIn', 'true');
-        window.location.href = "dashboard.html";
-    } else {
-        alert("Credenciales incorrectas.");
-    }
-});
+// Login manejado por auth.js — este bloque legacy se desactiva por seguridad
 
 const paginasPublicas = ['index.html', ''];
 const currentPage = window.location.pathname.split("/").pop();

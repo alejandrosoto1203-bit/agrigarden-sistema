@@ -491,10 +491,7 @@ CREATE POLICY "Acceso Total" ON venta_items FOR ALL USING (true) WITH CHECK (tru
 -- DATOS INICIALES (Para que funcione la app)
 -- =====================================================
 
--- Usuario Admin por defecto
-INSERT INTO sys_usuarios (nombre, email, password)
-VALUES ('Administrador', 'admin@agrigarden.com', 'Maestro2024*')
-ON CONFLICT DO NOTHING;
+-- NOTA: El usuario admin debe crearse manualmente, no en el repositorio.
 
 -- Configuración de comisiones
 INSERT INTO sys_config (key, value, description)
