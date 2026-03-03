@@ -468,6 +468,11 @@
                 return;
             }
 
+            // CANDADO: Cancelar cualquier sync que esté corriendo
+            await sbPulpos.from('pulpos_sync_log')
+                .update({ estado: 'cancelado', mensaje: 'Cancelado: nueva sincronización iniciada' })
+                .eq('estado', 'iniciado');
+
             // Para ventas: limpiar staging previo del mismo día
             if (modo === 'ventas' && fecha) {
                 await sbPulpos.from('pulpos_sync_staging').delete().eq('fecha_sync', fecha).eq('confirmado', false);
@@ -570,9 +575,9 @@
                     return;
                 }
 
-                if (intentos >= 30) {
+                if (intentos >= 60) {
                     clearInterval(timerInterval);
-                    mostrarError('Tiempo de espera agotado. Revisa GitHub Actions para más detalles.');
+                    mostrarError('Tiempo de espera agotado (10 min). Revisa GitHub Actions para más detalles.');
                     return;
                 }
                 setTimeout(poll, 10000);
