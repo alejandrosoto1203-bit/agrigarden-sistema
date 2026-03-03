@@ -257,14 +257,34 @@ async function sincronizarMovimientos(page) {
         for (const prod of productos) {
             try {
                 const encodedName = encodeURIComponent(prod.nombre || prod.sku || '');
-                await page.goto(
-                    `https://app.pulpos.com/reports/stock-movements?productName=${encodedName}&periodGrouping=byDay&period=last90Days`,
-                    { waitUntil: 'networkidle', timeout: 15000 }
-                );
+                const targetUrl = `https://app.pulpos.com/reports/stock-movements?productName=${encodedName}&periodGrouping=byDay&period=last90Days`;
+
+                await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+                // Esperar a que aparezcan filas de tabla o grid, o que pasen 6 segundos máximo
+                try {
+                    await page.waitForFunction(() => {
+                        const trs = document.querySelectorAll('tbody tr');
+                        if (trs.length > 0) return true;
+
+                        const gridRows = document.querySelectorAll('div[role="row"]');
+                        if (gridRows.length > 0) return true;
+
+                        // Si usan div genéricos en react (muy comun) buscar contenedor con celdas
+                        const divs = Array.from(document.querySelectorAll('div'));
+                        const possibleRows = divs.filter(d =>
+                            d.children.length >= 5 &&
+                            !d.innerText.includes('Nueva Venta')
+                        );
+                        return possibleRows.length > 0;
+                    }, { timeout: 6000 });
+                } catch (e) {
+                    // Si falla el timeout, no tirar la excepcion, simplemente seguir para imprimir nuestro REPORTE HTML y diagnosticar
+                }
 
                 const finalUrl = page.url();
                 if (!finalUrl.includes('stock-movements')) {
-                    console.log(`   [REDIRECT DETECTADO] La URL final es: ${finalUrl}`);
+                    console.log(`   [REDIRECT DETECTADO] La URL solicitada era ${targetUrl} pero Pulpos redirigió a: ${finalUrl}`);
                 }
 
                 const diagnosticInfo = await page.evaluate(() => {
