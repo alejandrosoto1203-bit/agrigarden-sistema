@@ -1097,12 +1097,12 @@
                                 class="text-[10px] font-black text-indigo-600 hover:underline">Ver revisión →</button>` : ''}
                         </div>
                         ${log.estado === 'iniciado' ? `
-                        <button onclick="cancelarLogSync(${log.id})" title="Cancelar" 
+                        <button onclick="cancelarLogSync('${log.id}')" title="Cancelar" 
                             class="size-7 flex items-center justify-center rounded-lg border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600">
                             <span class="material-symbols-outlined text-sm">cancel</span>
                         </button>` : ''}
                         ${['cancelado', 'error', 'listo_para_revision', 'listo_para_revision_clientes'].includes(log.estado) ? `
-                        <button onclick="eliminarLogSync(${log.id}, '${log.fecha_sync}')" title="Eliminar" 
+                        <button onclick="eliminarLogSync('${log.id}', '${log.fecha_sync}')" title="Eliminar" 
                             class="size-7 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-red-50 hover:text-red-600">
                             <span class="material-symbols-outlined text-sm">delete</span>
                         </button>` : ''}
