@@ -686,60 +686,99 @@
 
             const formatMonto = (m) => '$' + parseFloat(m || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
-            container.innerHTML = `
-        <div class="space-y-2">
-            ${stagingVentas.map((v, i) => `
-                <div class="rounded-xl border ${v.requiere_revision ? 'border-amber-200 bg-amber-50/50' : 'border-gray-100 bg-white'} p-4">
-                    <div class="flex items-start justify-between gap-4">
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-1">
-                                ${v.requiere_revision
-                    ? `<span class="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full">⚠️ Revisar banco</span>`
-                    : `<span class="bg-green-50 text-green-700 text-[10px] font-black px-2 py-0.5 rounded-full">✅ OK</span>`
-                }
-                                <span class="text-sm font-black text-gray-800">${v.numero_venta}</span>
-                                <span class="text-xs text-gray-400">${v.sucursal || ''}</span>
-                            </div>
-                            <div class="flex items-center gap-4 text-xs text-gray-500">
-                                <span>${v.nombre_cliente || 'PÚBLICO GENERAL'}</span>
-                                <span>${v.estado_cobro || ''}</span>
-                                ${v.vendedor ? `<span>Vendedor: ${v.vendedor}</span>` : ''}
-                            </div>
-                            ${v.requiere_revision ? `
-                            <div class="mt-2 flex items-center gap-2">
-                                <span class="text-xs text-amber-700 font-bold">Pulpos dice:</span>
-                                <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-mono">${v.metodo_pulpos || v.metodo_pago}</span>
-                                <span class="text-xs text-gray-400">→ ¿Cuál banco?</span>
-                                <select id="metodo-${i}" 
-                                    class="text-xs border border-amber-300 bg-white rounded-lg px-2 py-1 font-bold focus:outline-none focus:border-amber-500"
-                                    onchange="actualizarMetodo(${i}, this.value)">
-                                    <option value="">-- Seleccionar --</option>
-                                    ${METODOS_PAGO.filter(m => m.includes(v.metodo_pago?.split(' ')[0] || '')).map(m =>
-                    `<option value="${m}" ${m === v.metodo_pago ? 'selected' : ''}>${m}</option>`
-                ).join('')}
-                                    <optgroup label="Todos los métodos">
-                                        ${METODOS_PAGO.map(m => `<option value="${m}">${m}</option>`).join('')}
-                                    </optgroup>
-                                </select>
-                            </div>` : ''}
+            // Agrupar por sucursal
+            const ventasAgrupadas = {
+                'Agrigarden Norte': [],
+                'Agrigarden Sur': [],
+                'Otras': []
+            };
+
+            stagingVentas.forEach(v => {
+                const suc = v.sucursal || '';
+                if (suc.includes('Norte')) ventasAgrupadas['Agrigarden Norte'].push(v);
+                else if (suc.includes('Sur')) ventasAgrupadas['Agrigarden Sur'].push(v);
+                else ventasAgrupadas['Otras'].push(v);
+            });
+
+            let htmlChunks = [];
+
+            for (const [nombreSucursal, ventas] of Object.entries(ventasAgrupadas)) {
+                if (ventas.length === 0) continue;
+
+                // Cabecera de la sucursal
+                htmlChunks.push(`
+                <div class="mt-6 mb-3">
+                    <h3 class="font-black text-gray-800 text-sm border-b border-gray-200 pb-2 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-gray-400">storefront</span>
+                            ${nombreSucursal.toUpperCase()}
                         </div>
-                        <div class="text-right shrink-0">
-                            <p class="text-base font-black text-gray-900">${formatMonto(v.monto)}</p>
-                            <p class="text-xs text-gray-400">${v.metodo_pago || ''}</p>
+                        <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">${ventas.length} ventas</span>
+                    </h3>
+                </div>
+                <div class="space-y-2">
+                `);
+
+                // Items de las ventas
+                const itemsHtml = ventas.map(v => `
+                    <div class="rounded-xl border ${v.requiere_revision ? 'border-amber-200 bg-amber-50/50' : 'border-gray-100 bg-white'} p-4 transition-all" id="venta-${v.id}">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    ${v.requiere_revision
+                        ? `<span class="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full">⚠️ Revisar banco</span>`
+                        : `<span class="bg-green-50 text-green-700 text-[10px] font-black px-2 py-0.5 rounded-full">✅ OK</span>`
+                    }
+                                    <span class="text-sm font-black text-gray-800">${v.numero_venta}</span>
+                                </div>
+                                <div class="flex items-center gap-4 text-xs text-gray-500">
+                                    <span>${v.nombre_cliente || 'PÚBLICO GENERAL'}</span>
+                                    <span>${v.estado_cobro || ''}</span>
+                                    ${v.vendedor ? `<span>Vendedor: ${v.vendedor}</span>` : ''}
+                                </div>
+                                ${v.requiere_revision ? `
+                                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                    <span class="text-xs text-amber-700 font-bold">Pulpos dice:</span>
+                                    <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-mono">${v.metodo_pulpos || v.metodo_pago}</span>
+                                    <span class="text-xs text-gray-400">→ ¿Cuál banco?</span>
+                                    <select id="metodo-${v.id}" 
+                                        class="text-xs border border-amber-300 bg-white rounded-lg px-2 py-1 font-bold focus:outline-none focus:border-amber-500"
+                                        onchange="actualizarMetodo('${v.id}', this.value)">
+                                        <option value="">-- Seleccionar --</option>
+                                        ${METODOS_PAGO.filter(m => m.includes(v.metodo_pago?.split(' ')[0] || '')).map(m =>
+                        `<option value="${m}" ${m === v.metodo_pago ? 'selected' : ''}>${m}</option>`
+                    ).join('')}
+                                        <optgroup label="Todos los métodos">
+                                            ${METODOS_PAGO.map(m => `<option value="${m}">${m}</option>`).join('')}
+                                        </optgroup>
+                                    </select>
+                                </div>` : ''}
+                            </div>
+                            <div class="text-right shrink-0">
+                                <p class="text-base font-black text-gray-900">${formatMonto(v.monto)}</p>
+                                <p class="text-xs text-gray-400 font-bold">${v.metodo_pago || ''}</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
+                `).join('');
+
+                htmlChunks.push(itemsHtml);
+                htmlChunks.push(`</div>`); // Cerrar div.space-y-2
+            }
+
+            // Primer div quitar mt-6
+            container.innerHTML = htmlChunks.join('').replace('class="mt-6 mb-3"', 'class="mb-3"');
         }
 
-        function actualizarMetodo(idx, nuevoMetodo) {
+        function actualizarMetodo(ventaId, nuevoMetodo) {
+            const idx = stagingVentas.findIndex(v => v.id === ventaId);
+            if (idx === -1) return;
+
             stagingVentas[idx].metodo_pago = nuevoMetodo;
             // Actualizar en Supabase staging
             sbPulpos.from('pulpos_sync_staging')
                 .update({ metodo_pago: nuevoMetodo, requiere_revision: false })
-                .eq('id', stagingVentas[idx].id)
+                .eq('id', ventaId)
                 .then(() => {
                     stagingVentas[idx].requiere_revision = false;
                     renderTablaRevision();
