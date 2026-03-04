@@ -31,6 +31,7 @@ function inyectarMenu(paginaActiva) {
             subItems: [
                 { id: 'inventario_stock', nombre: 'Stock Actual', link: 'inventario.html' },
                 { id: 'productos', nombre: 'Productos', link: 'productos.html' },
+                { id: 'traspasos', nombre: 'Traspasos', link: 'traspasos.html' },
                 { id: 'conteo_inventario', nombre: 'Conteo de Inventario', link: 'conteo_inventario.html' }
             ]
         },

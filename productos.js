@@ -931,7 +931,8 @@ async function ejecutarTransferencia() {
                 stock_anterior: stockOrigen,
                 stock_nuevo: nuevoStockOrigen,
                 referencia: `Transferencia a ${destino}`,
-                notas: notas || null
+                notas: notas || null,
+                usuario: sessionStorage.getItem('userName') || 'Usuario'
             },
             {
                 producto_id: productoId,
@@ -941,7 +942,8 @@ async function ejecutarTransferencia() {
                 stock_anterior: productoSeleccionado[destinoKey] || 0,
                 stock_nuevo: nuevoStockDestino,
                 referencia: `Transferencia desde ${origen}`,
-                notas: notas || null
+                notas: notas || null,
+                usuario: sessionStorage.getItem('userName') || 'Usuario'
             }
         ];
 
