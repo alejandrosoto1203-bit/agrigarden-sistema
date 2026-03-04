@@ -945,7 +945,7 @@ async function sincronizarVentas(page) {
 async function sincronizarFotos(page) {
     console.log('\n========== SINCRONIZAR FOTOS DE PRODUCTOS ==========');
 
-    // 1. Obtener TODOS los productos de nuestra BD (sin filtro de pulpos_id)
+    // 1. Obtener todos los productos de nuestra BD
     const { data: productos, error: prodErr } = await supabase
         .from('productos')
         .select('id, sku, nombre, imagen_url')
@@ -955,7 +955,6 @@ async function sincronizarFotos(page) {
         console.error('No hay productos en la BD:', prodErr?.message);
         return;
     }
-
     console.log(`Productos en nuestra BD: ${productos.length}`);
 
     // 2. Navegar a la lista de productos en Pulpos
@@ -963,101 +962,98 @@ async function sincronizarFotos(page) {
     await page.goto('https://app.pulpos.com/products', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForTimeout(5000);
 
-    // 3. Scroll para cargar todos los productos (Pulpos usa lazy loading)
-    console.log('Scrolleando para cargar todos los productos...');
-    let prevCount = 0;
-    for (let i = 0; i < 30; i++) {
-        const currentCount = await page.evaluate(() => {
-            return document.querySelectorAll('table tbody tr, [class*="product"]').length;
-        });
-        if (currentCount === prevCount && i > 3) break;
-        prevCount = currentCount;
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-        await page.waitForTimeout(1500);
-    }
+    // 3. Extraer productos con imágenes paginando por TODAS las páginas
+    const pulposProductos = [];
+    let pageNum = 1;
 
-    // 4. Extraer TODOS los pares SKU→ImageURL del DOM de Pulpos en un solo paso
-    console.log('Extrayendo imágenes del catálogo...');
-    const pulposProductos = await page.evaluate(() => {
-        const result = [];
-        // Buscar filas de tabla de productos
-        const rows = document.querySelectorAll('table tbody tr');
-        rows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            if (cells.length < 3) return;
+    while (true) {
+        console.log(`  Extrayendo página ${pageNum}...`);
 
-            // Buscar SKU en las celdas de texto
-            let sku = '';
-            let imgSrc = '';
+        const pageData = await page.evaluate(() => {
+            const result = [];
+            const rows = document.querySelectorAll('table tbody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length < 3) return;
 
-            // La imagen suele estar en la primera celda
-            const img = row.querySelector('img[src*="imagedelivery"]');
-            if (img) {
-                imgSrc = img.src.replace(/\/(thumbnail|midsquare|small)$/, '/public');
-            }
+                // Cell[1] contiene: imagen + nombre + SKU (en líneas separadas por \n)
+                const cell1 = cells[1];
+                if (!cell1) return;
 
-            // Buscar el SKU — suele estar en una celda con texto corto tipo código
-            cells.forEach(cell => {
-                const text = cell.innerText.trim();
-                // SKU patterns: alfanuméricos cortos, ej: AP00801, BL82210, etc.
-                if (/^[A-Z0-9]{4,15}$/i.test(text) && !sku) {
-                    sku = text.toUpperCase();
+                // Extraer imagen
+                const img = cell1.querySelector('img[src*="imagedelivery"]');
+                const imgSrc = img ? img.src.replace(/\/(thumbnail|midsquare|small)$/, '/public') : '';
+
+                // Extraer SKU: está en la segunda línea del texto de cell[1]
+                const textLines = cell1.innerText.trim().split('\n').map(l => l.trim()).filter(l => l);
+                // El SKU es la última línea (después del nombre del producto)
+                const sku = textLines.length >= 2 ? textLines[textLines.length - 1] : '';
+
+                if (sku && imgSrc) {
+                    result.push({ sku: sku.toUpperCase(), imgSrc });
                 }
             });
-
-            if (sku && imgSrc) {
-                result.push({ sku, imgSrc });
-            }
+            return result;
         });
 
-        // Fallback: buscar en cualquier estructura (cards, divs, etc.)
-        if (result.length === 0) {
-            const allImgs = document.querySelectorAll('img[src*="imagedelivery"]');
-            allImgs.forEach(img => {
-                const container = img.closest('tr, [class*="product"], a[href*="products"]');
-                if (!container) return;
-                const text = container.innerText || '';
-                const skuMatch = text.match(/\b([A-Z0-9]{4,15})\b/);
-                if (skuMatch) {
-                    result.push({
-                        sku: skuMatch[1].toUpperCase(),
-                        imgSrc: img.src.replace(/\/(thumbnail|midsquare|small)$/, '/public')
-                    });
+        pulposProductos.push(...pageData);
+        console.log(`    → ${pageData.length} productos con imagen en esta página`);
+
+        if (pageData.length > 0) {
+            console.log(`    Ejemplo: SKU="${pageData[0].sku}"`);
+        }
+
+        // 4. Buscar botón de siguiente página y hacer clic
+        const hasNext = await page.evaluate(() => {
+            // Buscar botones de paginación
+            const buttons = document.querySelectorAll('button, a');
+            for (const btn of buttons) {
+                const text = btn.innerText.trim().toLowerCase();
+                const ariaLabel = (btn.getAttribute('aria-label') || '').toLowerCase();
+                // Buscar "Next", "Siguiente", ">", o icono de flecha derecha
+                if ((text === '›' || text === '»' || text === '>' || text.includes('next') ||
+                    text.includes('siguiente') || ariaLabel.includes('next')) &&
+                    !btn.disabled && btn.offsetParent !== null) {
+                    btn.click();
+                    return true;
                 }
-            });
-        }
-
-        return result;
-    });
-
-    console.log(`Productos con imagen encontrados en Pulpos: ${pulposProductos.length}`);
-
-    if (!pulposProductos.length) {
-        // Fallback: navegar producto por producto usando pulpos_id
-        console.log('No se pudieron extraer imágenes de la lista. Intentando producto por producto...');
-        const productosConId = productos.filter(p => p.pulpos_id);
-        for (const prod of productosConId) {
-            try {
-                if (prod.imagen_url && prod.imagen_url.includes('supabase')) continue;
-                await page.goto(`https://app.pulpos.com/products/${prod.pulpos_id}`, {
-                    waitUntil: 'domcontentloaded', timeout: 15000
-                });
-                await page.waitForTimeout(2000);
-                const imgUrl = await page.evaluate(() => {
-                    const img = document.querySelector('img[src*="imagedelivery"]');
-                    return img ? img.src.replace(/\/(thumbnail|midsquare|small)$/, '/public') : null;
-                });
-                if (imgUrl) pulposProductos.push({ sku: prod.sku, imgSrc: imgUrl });
-            } catch (e) {
-                console.log(`  [${prod.sku}] Error navegando: ${e.message}`);
             }
+            // También buscar por SVG de flecha en botones de navegación
+            const navBtns = document.querySelectorAll('nav button:not([disabled]), [class*="pagination"] button:not([disabled])');
+            const lastBtn = navBtns[navBtns.length - 1];
+            if (lastBtn && lastBtn.offsetParent !== null) {
+                lastBtn.click();
+                return true;
+            }
+            return false;
+        });
+
+        if (!hasNext) {
+            console.log('  No hay más páginas.');
+            break;
         }
-        console.log(`Productos encontrados vía fallback: ${pulposProductos.length}`);
+
+        pageNum++;
+        await page.waitForTimeout(3000); // Esperar a que cargue la siguiente página
+
+        // Safety limit
+        if (pageNum > 100) {
+            console.log('  Límite de páginas alcanzado (100).');
+            break;
+        }
     }
+
+    console.log(`\nTotal productos con imagen en Pulpos: ${pulposProductos.length}`);
 
     // 5. Crear mapa SKU → imgURL
     const skuToImg = {};
     pulposProductos.forEach(p => { skuToImg[p.sku.toUpperCase()] = p.imgSrc; });
+
+    // Debug: mostrar algunos SKUs de Pulpos vs BD para verificar match
+    const pulposSKUs = Object.keys(skuToImg).slice(0, 5);
+    const bdSKUs = productos.filter(p => p.sku).slice(0, 5).map(p => p.sku.toUpperCase());
+    console.log(`  Muestra SKUs Pulpos: ${pulposSKUs.join(', ')}`);
+    console.log(`  Muestra SKUs BD:     ${bdSKUs.join(', ')}`);
 
     let fotosSubidas = 0;
     let fotasOmitidas = 0;
@@ -1067,7 +1063,6 @@ async function sincronizarFotos(page) {
     // 6. Procesar cada producto de nuestra BD
     for (const prod of productos) {
         try {
-            // Si ya tiene imagen de Supabase Storage, omitir
             if (prod.imagen_url && prod.imagen_url.includes('supabase')) {
                 fotasOmitidas++;
                 continue;
@@ -1081,7 +1076,6 @@ async function sincronizarFotos(page) {
 
             console.log(`  [${prod.sku}] Descargando foto...`);
 
-            // 7. Descargar la imagen
             const response = await page.request.get(imgUrl);
             if (!response.ok()) {
                 console.log(`  [${prod.sku}] Error descargando (HTTP ${response.status()})`);
@@ -1092,14 +1086,12 @@ async function sincronizarFotos(page) {
             const imageBuffer = await response.body();
             const contentType = response.headers()['content-type'] || 'image/jpeg';
 
-            // Determinar extensión
             let ext = 'jpg';
             if (contentType.includes('png')) ext = 'png';
             else if (contentType.includes('webp')) ext = 'webp';
 
             const fileName = `${prod.sku.toLowerCase().replace(/[^a-z0-9]/g, '_')}.${ext}`;
 
-            // 8. Subir a Supabase Storage
             const { error: uploadErr } = await supabase.storage
                 .from('productos-fotos')
                 .upload(fileName, imageBuffer, {
@@ -1113,7 +1105,6 @@ async function sincronizarFotos(page) {
                 continue;
             }
 
-            // 9. Obtener URL pública y actualizar BD
             const { data: publicUrlData } = supabase.storage
                 .from('productos-fotos')
                 .getPublicUrl(fileName);
@@ -1124,7 +1115,7 @@ async function sincronizarFotos(page) {
                 .eq('id', prod.id);
 
             if (updateErr) {
-                console.log(`  [${prod.sku}] Error actualizando BD: ${updateErr.message}`);
+                console.log(`  [${prod.sku}] Error BD: ${updateErr.message}`);
                 errores++;
                 continue;
             }
