@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.movimientos_staging (
     id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     fecha_sync      TEXT        NOT NULL,
     sync_log_id     UUID        REFERENCES public.pulpos_sync_log(id) ON DELETE CASCADE,
-    producto_id     UUID        REFERENCES public.productos(id),
+    producto_id     BIGINT      REFERENCES public.productos(id),
     producto_sku    TEXT,
     producto_nombre TEXT,
     sucursal        TEXT,
