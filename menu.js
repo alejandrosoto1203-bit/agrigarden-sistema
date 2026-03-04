@@ -23,9 +23,17 @@ function inyectarMenu(paginaActiva) {
         { id: 'inversiones', nombre: 'Inversiones', icon: 'account_balance', link: 'inversiones.html' },
         { id: 'prestamos', nombre: 'Préstamos', icon: 'real_estate_agent', link: 'prestamos.html' },
         { id: 'rrhh', nombre: 'Recursos Humanos', icon: 'groups', link: 'rrhh_empleados.html' },
-        { id: 'inventario', nombre: 'Inventario', icon: 'inventory_2', link: 'inventario.html' },
-        { id: 'conteo_inventario', nombre: 'Conteo de Inventario', icon: 'fact_check', link: 'conteo_inventario.html' },
-        { id: 'productos', nombre: 'Productos', icon: 'category', link: 'productos.html' },
+        {
+            id: 'inventario',
+            nombre: 'Inventario',
+            icon: 'inventory_2',
+            link: '#',
+            subItems: [
+                { id: 'inventario_stock', nombre: 'Stock Actual', link: 'inventario.html' },
+                { id: 'productos', nombre: 'Productos', link: 'productos.html' },
+                { id: 'conteo_inventario', nombre: 'Conteo de Inventario', link: 'conteo_inventario.html' }
+            ]
+        },
         { id: 'clientes', nombre: 'Clientes', icon: 'people', link: 'clientes.html' },
         { id: 'flotilla', nombre: 'Control de Flotillas', icon: 'directions_car', link: 'flotilla.html' },
         { id: 'efectivo', nombre: 'Control de Efectivo', icon: 'local_atm', link: 'control_efectivo.html' },
