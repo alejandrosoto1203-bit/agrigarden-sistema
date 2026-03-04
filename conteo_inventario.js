@@ -221,7 +221,7 @@ async function continuarConteo(id) {
         // Si es un conteo NUEVO (sin items guardados), pre-cargar productos del catálogo
         if (itemsActivosCache.length === 0) {
             try {
-                const resProds = await sbFetch(`productos?select=sku,nombre,stock_norte,stock_sur&order=sku.asc`);
+                const resProds = await sbFetch(`productos?select=sku,nombre,stock_norte,stock_sur,imagen_url&order=sku.asc`);
                 const productos = await resProds.json();
 
                 // Mapear productos al formato de items de conteo
@@ -230,6 +230,7 @@ async function continuarConteo(id) {
                     id: newRowId(), // ID temporal
                     codigo_producto: p.sku || '',
                     nombre_producto: p.nombre || '',
+                    imagen_url: p.imagen_url || '',
                     existencias_sistema: parseFloat(p[stockField]) || 0,
                     existencias_reales: 0,
                     existencias_taller: 0,
@@ -303,7 +304,13 @@ function agregarFilaProducto(data = null, esVacia = false) {
     tr.setAttribute('data-conteo-id', conteoActivoId);
     if (data) tr.setAttribute('data-item-id', data.id);
 
+    const imgUrl = data ? (data.imagen_url || '') : '';
+    const imgSrc = imgUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent((nom || 'P').charAt(0))}&background=f1f5f9&color=94a3b8&size=32`;
+
     tr.innerHTML = `
+        <td class="px-2 py-2 text-center">
+            <img src="${imgSrc}" class="size-8 rounded-lg object-cover border border-slate-100 mx-auto" alt="">
+        </td>
         <td class="px-4 py-2">
             <input type="text" value="${cod}"
                 class="input-conteo row-codigo uppercase" placeholder="CÓDIGO"
