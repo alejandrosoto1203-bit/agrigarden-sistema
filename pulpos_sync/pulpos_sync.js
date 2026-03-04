@@ -3,6 +3,7 @@
 //       node pulpos_sync.js --modo=inventario
 //       node pulpos_sync.js --modo=movimientos
 //       node pulpos_sync.js --modo=clientes
+//       node pulpos_sync.js --modo=fotos
 //       node pulpos_sync.js --modo=ventas --fecha=2026-02-24
 // En GitHub Actions: se pasan las variables de entorno automáticamente
 
@@ -939,6 +940,145 @@ async function sincronizarVentas(page) {
 }
 
 // =====================================================
+// SINCRONIZAR FOTOS DE PRODUCTOS (Pulpos → Supabase Storage)
+// =====================================================
+async function sincronizarFotos(page) {
+    console.log('\n========== SINCRONIZAR FOTOS DE PRODUCTOS ==========');
+
+    // 1. Obtener todos los productos con pulpos_id
+    const { data: productos, error: prodErr } = await supabase
+        .from('productos')
+        .select('id, sku, nombre, pulpos_id, imagen_url')
+        .not('pulpos_id', 'is', null)
+        .order('sku');
+
+    if (prodErr || !productos?.length) {
+        console.error('No hay productos con pulpos_id:', prodErr?.message);
+        return;
+    }
+
+    console.log(`Productos con pulpos_id encontrados: ${productos.length}`);
+
+    // 2. Navegar a la lista de productos en Pulpos
+    await page.goto('https://app.pulpos.com/products', { waitUntil: 'networkidle', timeout: 30000 });
+    await page.waitForTimeout(3000);
+
+    let fotosSubidas = 0;
+    let fotasOmitidas = 0;
+    let errores = 0;
+
+    for (const prod of productos) {
+        try {
+            // Si ya tiene imagen de Supabase Storage, omitir
+            if (prod.imagen_url && prod.imagen_url.includes('supabase')) {
+                console.log(`  [${prod.sku}] Ya tiene foto en Supabase — omitida`);
+                fotasOmitidas++;
+                continue;
+            }
+
+            // 3. Navegar al detalle del producto en Pulpos
+            const productUrl = `https://app.pulpos.com/products/${prod.pulpos_id}`;
+            console.log(`  [${prod.sku}] Navegando a ${productUrl}...`);
+            await page.goto(productUrl, { waitUntil: 'networkidle', timeout: 20000 });
+            await page.waitForTimeout(2000);
+
+            // 4. Extraer la URL de la imagen del producto
+            const imgUrl = await page.evaluate(() => {
+                // Buscar imágenes de productos (excluir avatares, logos, iconos)
+                const imgs = document.querySelectorAll('img');
+                for (const img of imgs) {
+                    const src = img.src || '';
+                    if (src.includes('imagedelivery.net') && img.width > 50) {
+                        // Reemplazar /thumbnail por /public para máxima calidad
+                        return src.replace(/\/(thumbnail|midsquare|small)$/, '/public');
+                    }
+                }
+                // Buscar también en background-image
+                const divs = document.querySelectorAll('[style*="background-image"]');
+                for (const div of divs) {
+                    const bg = div.style.backgroundImage;
+                    const match = bg.match(/url\(["']?(https:\/\/imagedelivery\.net\/[^"')]+)["']?\)/);
+                    if (match) return match[1].replace(/\/(thumbnail|midsquare|small)$/, '/public');
+                }
+                return null;
+            });
+
+            if (!imgUrl) {
+                console.log(`  [${prod.sku}] Sin imagen en Pulpos — omitida`);
+                fotasOmitidas++;
+                continue;
+            }
+
+            console.log(`  [${prod.sku}] Foto encontrada: ${imgUrl.substring(0, 80)}...`);
+
+            // 5. Descargar la imagen
+            const response = await page.request.get(imgUrl);
+            if (!response.ok()) {
+                console.log(`  [${prod.sku}] Error descargando (HTTP ${response.status()}) — omitida`);
+                errores++;
+                continue;
+            }
+
+            const imageBuffer = await response.body();
+            const contentType = response.headers()['content-type'] || 'image/jpeg';
+
+            // Determinar extensión
+            let ext = 'jpg';
+            if (contentType.includes('png')) ext = 'png';
+            else if (contentType.includes('webp')) ext = 'webp';
+
+            const fileName = `${prod.sku.toLowerCase().replace(/[^a-z0-9]/g, '_')}.${ext}`;
+
+            // 6. Subir a Supabase Storage
+            const { data: uploadData, error: uploadErr } = await supabase.storage
+                .from('productos-fotos')
+                .upload(fileName, imageBuffer, {
+                    contentType: contentType,
+                    upsert: true  // Sobrescribir si ya existe
+                });
+
+            if (uploadErr) {
+                console.log(`  [${prod.sku}] Error subiendo a Storage: ${uploadErr.message}`);
+                errores++;
+                continue;
+            }
+
+            // 7. Obtener URL pública
+            const { data: publicUrlData } = supabase.storage
+                .from('productos-fotos')
+                .getPublicUrl(fileName);
+
+            const publicUrl = publicUrlData.publicUrl;
+
+            // 8. Actualizar tabla productos con la URL de Supabase
+            const { error: updateErr } = await supabase
+                .from('productos')
+                .update({ imagen_url: publicUrl })
+                .eq('id', prod.id);
+
+            if (updateErr) {
+                console.log(`  [${prod.sku}] Error actualizando BD: ${updateErr.message}`);
+                errores++;
+                continue;
+            }
+
+            console.log(`  [${prod.sku}] ✓ Foto subida y vinculada → ${fileName}`);
+            fotosSubidas++;
+
+        } catch (e) {
+            console.error(`  [${prod.sku}] Error inesperado: ${e.message}`);
+            errores++;
+        }
+    }
+
+    console.log(`\n--- Resultado Fotos ---`);
+    console.log(`  Subidas exitosamente: ${fotosSubidas}`);
+    console.log(`  Omitidas (ya tenían foto): ${fotasOmitidas}`);
+    console.log(`  Errores: ${errores}`);
+    console.log(`  Total procesados: ${productos.length}`);
+}
+
+// =====================================================
 // FUNCIÓN PRINCIPAL
 // =====================================================
 async function main() {
@@ -963,6 +1103,9 @@ async function main() {
         }
         if (MODO === 'ventas' || MODO === 'all') {
             await sincronizarVentas(page);
+        }
+        if (MODO === 'fotos') {
+            await sincronizarFotos(page);
         }
 
         console.log('\nSincronizacion completada exitosamente.');

@@ -9,7 +9,7 @@ on:
         default: ''
         type: string
       modo:
-        description: 'Modo de sincronización: ventas | inventario | movimientos | clientes'
+        description: 'Modo de sincronización: ventas | inventario | movimientos | clientes | fotos'
         required: false
         default: 'ventas'
         type: string
