@@ -355,23 +355,25 @@ async function sincronizarMovimientos(page) {
                 const registros = movimientosRaw.map(m => {
                     let fecha = m['Fecha'] || m['Fecha y Hora'] || Object.values(m)[0] || '';
 
-                    const tipoRaw = String(m['Movimiento'] || m['Tipo'] || '').toLowerCase();
+                    // TIPO: La columna 'Tipo' en Pulpos contiene "Entrada" o "Salida" limpio
+                    const tipoRaw = String(m['Tipo'] || m['Movimiento'] || '').toLowerCase();
                     let tipo = 'AJUSTE';
-                    if (tipoRaw.includes('entrada')) tipo = 'ENTRADA';
-                    else if (tipoRaw.includes('salida') || tipoRaw.includes('venta')) tipo = 'SALIDA';
+                    if (tipoRaw.includes('entrada') || tipoRaw.includes('compra') || tipoRaw.includes('devolución') || tipoRaw.includes('recepción')) tipo = 'ENTRADA';
+                    else if (tipoRaw.includes('salida') || tipoRaw.includes('venta') || tipoRaw.includes('envío')) tipo = 'SALIDA';
                     else if (tipoRaw.includes('transferencia') && tipoRaw.includes('origen')) tipo = 'TRANSFERENCIA_OUT';
                     else if (tipoRaw.includes('transferencia') && tipoRaw.includes('destino')) tipo = 'TRANSFERENCIA_IN';
 
-                    const cantidadStr = m['Variación'] || m['Cantidad'] || m['Diferencia'] || 0;
+                    const cantidadStr = m['Cantidad'] || m['Variación'] || m['Diferencia'] || 0;
                     const cantidad = Math.abs(parseFloat(String(cantidadStr).replace(/[^0-9.-]/g, '')) || 0);
 
                     const stockAnteriorStr = m['Stock Anterior'] || m['Anterior'] || 0;
                     const stockAnterior = parseFloat(String(stockAnteriorStr).replace(/[^0-9.-]/g, '')) || 0;
 
-                    const stockNuevoStr = m['Stock Nuevo'] || m['Nuevo'] || m['Stock'] || 0;
+                    const stockNuevoStr = m['Nuevo Stock'] || m['Stock Nuevo'] || m['Stock'] || 0;
                     const stockNuevo = parseFloat(String(stockNuevoStr).replace(/[^0-9.-]/g, '')) || 0;
 
-                    const sucursalRaw = String(m['Sucursal'] || m['Origen / Destino'] || '').toLowerCase();
+                    // UBICACIÓN: La columna real en Pulpos se llama "Ubicación", no "Sucursal"
+                    const sucursalRaw = String(m['Ubicación'] || m['Sucursal'] || m['Origen / Destino'] || '').toLowerCase();
                     const sucursal = sucursalRaw.includes('sur') ? 'Sur' : 'Norte';
                     const usuario = m['Usuario'] || m['Realizado por'] || '';
 
