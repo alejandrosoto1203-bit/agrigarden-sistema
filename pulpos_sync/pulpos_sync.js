@@ -966,6 +966,7 @@ async function sincronizarFotos(page) {
     const pulposProductos = [];
     let pageNum = 1;
 
+    let prevPageSKUs = '';
     while (true) {
         console.log(`  Extrayendo página ${pageNum}...`);
 
@@ -982,7 +983,7 @@ async function sincronizarFotos(page) {
 
                 // Extraer imagen
                 const img = cell1.querySelector('img[src*="imagedelivery"]');
-                const imgSrc = img ? img.src.replace(/\/(thumbnail|midsquare|small)$/, '/public') : '';
+                const imgSrc = img ? img.src : '';
 
                 // Extraer SKU: está en la segunda línea del texto de cell[1]
                 const textLines = cell1.innerText.trim().split('\n').map(l => l.trim()).filter(l => l);
@@ -995,6 +996,14 @@ async function sincronizarFotos(page) {
             });
             return result;
         });
+
+        // Detectar si la página es repetida (loop de paginación)
+        const currentSKUs = pageData.map(p => p.sku).join(',');
+        if (currentSKUs === prevPageSKUs) {
+            console.log('  Página repetida detectada — fin de paginación.');
+            break;
+        }
+        prevPageSKUs = currentSKUs;
 
         pulposProductos.push(...pageData);
         console.log(`    → ${pageData.length} productos con imagen en esta página`);
