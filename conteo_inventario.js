@@ -218,6 +218,29 @@ async function continuarConteo(id) {
         const resItems = await sbFetch(`conteo_items?conteo_id=eq.${id}&order=created_at.asc`);
         itemsActivosCache = await resItems.json();
 
+        // Si es un conteo NUEVO (sin items guardados), pre-cargar productos del catálogo
+        if (itemsActivosCache.length === 0) {
+            try {
+                const resProds = await sbFetch(`productos?select=sku,nombre,stock_norte,stock_sur&order=sku.asc`);
+                const productos = await resProds.json();
+
+                // Mapear productos al formato de items de conteo
+                const stockField = cab.sucursal === 'Sur' ? 'stock_sur' : 'stock_norte';
+                itemsActivosCache = productos.map(p => ({
+                    id: newRowId(), // ID temporal
+                    codigo_producto: p.sku || '',
+                    nombre_producto: p.nombre || '',
+                    existencias_sistema: parseFloat(p[stockField]) || 0,
+                    existencias_reales: 0,
+                    existencias_taller: 0,
+                    diferencia: 0,
+                    anotaciones: ''
+                }));
+            } catch (e) {
+                console.warn('No se pudieron cargar productos del catálogo:', e);
+            }
+        }
+
         // Renderizar tabla de captura (items existentes + filas vacías hasta 200)
         renderizarTablaCaptura(itemsActivosCache);
         abrirModal('modalConteoActivo');
