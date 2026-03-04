@@ -447,6 +447,7 @@ function abrirDetalleProducto(id) {
 
         ${p.descripcion ? `<p class="text-sm text-slate-600 bg-slate-50 p-4 rounded-xl">${p.descripcion}</p>` : ''}
 
+        ${!p.es_servicio ? `
         <!-- Stock Norte -->
         <div class="bg-blue-50 p-4 rounded-2xl">
             <p class="text-xs font-black uppercase text-blue-600 mb-2">Sucursal Norte</p>
@@ -498,6 +499,12 @@ function abrirDetalleProducto(id) {
             <span class="font-bold text-slate-600">Stock Total:</span>
             <span class="text-2xl font-black text-primary">${stockTotal}</span>
         </div>
+        ` : `
+        <div class="flex items-center gap-2 px-4 py-3 bg-purple-50 rounded-xl">
+            <span class="material-symbols-outlined text-purple-500">info</span>
+            <span class="text-sm font-bold text-purple-600">Este producto es un servicio — no maneja existencias</span>
+        </div>
+        `}
 
         <!-- Precios -->
         <div class="bg-primary/5 p-4 rounded-2xl border border-primary/20">
@@ -536,11 +543,11 @@ function abrirDetalleProducto(id) {
             </div>
             <div class="bg-slate-50 p-3 rounded-xl">
                 <p class="text-[9px] font-bold text-slate-400">IVA</p>
-                <p class="text-sm font-black text-slate-700">${p.iva_porcentaje ?? 16}%</p>
+                <p class="text-sm font-black text-slate-700">${((p.iva_porcentaje ?? 16) < 1 ? (p.iva_porcentaje * 100) : (p.iva_porcentaje ?? 16))}%</p>
             </div>
             <div class="bg-slate-50 p-3 rounded-xl">
                 <p class="text-[9px] font-bold text-slate-400">IEPS</p>
-                <p class="text-sm font-black text-slate-700">${p.ieps_porcentaje || 0}%</p>
+                <p class="text-sm font-black text-slate-700">${((p.ieps_porcentaje || 0) < 1 && (p.ieps_porcentaje || 0) > 0 ? (p.ieps_porcentaje * 100) : (p.ieps_porcentaje || 0))}%</p>
             </div>
         </div>
 
