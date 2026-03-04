@@ -434,7 +434,7 @@ function abrirDetalleProducto(id) {
 
     document.getElementById('contenidoDetalleProducto').innerHTML = `
         <div class="text-center">
-            <img src="${imgUrl}" class="w-32 h-32 mx-auto rounded-2xl object-cover border-2 border-slate-100 shadow-lg">
+            <img src="${imgUrl}" class="w-32 h-32 mx-auto rounded-2xl object-cover border-2 border-slate-100 shadow-lg ${p.imagen_url ? 'cursor-zoom-in hover:ring-4 hover:ring-primary/30 transition-all' : ''}" onclick="${p.imagen_url ? `abrirImagenGrande('${encodeURIComponent(p.imagen_url)}')` : ''}" title="${p.imagen_url ? 'Clic para ver en grande' : ''}">
             <h3 class="text-xl font-black text-slate-800 mt-4">${p.nombre}</h3>
             <p class="text-sm text-slate-400">${p.categoria || 'Sin categoría'} ${p.marca ? '• ' + p.marca : ''}</p>
             ${p.sku ? `<p class="font-mono text-xs text-slate-500 mt-1">SKU: ${p.sku}</p>` : ''}
@@ -1039,4 +1039,59 @@ function descargarPlantillaExcel() {
 // =====================================================
 function formatMoney(amount) {
     return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount || 0);
+}
+
+// =====================================================
+// 9. LIGHTBOX — VER IMAGEN EN GRANDE
+// =====================================================
+function abrirImagenGrande(imgUrlEncoded) {
+    const imgUrl = decodeURIComponent(imgUrlEncoded);
+
+    // Crear overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'lightboxOverlay';
+    overlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0,0,0,0.85);
+        display: flex; align-items: center; justify-content: center;
+        cursor: zoom-out; opacity: 0; transition: opacity 0.3s ease;
+    `;
+
+    overlay.innerHTML = `
+        <div style="position:relative; max-width:90vw; max-height:90vh;">
+            <img src="${imgUrl}" style="max-width:90vw; max-height:85vh; object-fit:contain; border-radius:16px; box-shadow:0 25px 60px rgba(0,0,0,0.5);">
+            <button onclick="cerrarImagenGrande()" style="
+                position:absolute; top:-12px; right:-12px;
+                width:36px; height:36px; border-radius:50%;
+                background:white; border:none; cursor:pointer;
+                font-size:18px; font-weight:900; color:#334155;
+                box-shadow:0 4px 15px rgba(0,0,0,0.3);
+                display:flex; align-items:center; justify-content:center;
+            ">✕</button>
+        </div>
+    `;
+
+    overlay.onclick = (e) => {
+        if (e.target === overlay) cerrarImagenGrande();
+    };
+
+    document.body.appendChild(overlay);
+
+    // Fade in
+    requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+
+    // Cerrar con Escape
+    document.addEventListener('keydown', _lightboxEscHandler);
+}
+
+function _lightboxEscHandler(e) {
+    if (e.key === 'Escape') cerrarImagenGrande();
+}
+
+function cerrarImagenGrande() {
+    const overlay = document.getElementById('lightboxOverlay');
+    if (!overlay) return;
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.remove(), 300);
+    document.removeEventListener('keydown', _lightboxEscHandler);
 }
