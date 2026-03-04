@@ -945,76 +945,146 @@ async function sincronizarVentas(page) {
 async function sincronizarFotos(page) {
     console.log('\n========== SINCRONIZAR FOTOS DE PRODUCTOS ==========');
 
-    // 1. Obtener todos los productos con pulpos_id
+    // 1. Obtener TODOS los productos de nuestra BD (sin filtro de pulpos_id)
     const { data: productos, error: prodErr } = await supabase
         .from('productos')
-        .select('id, sku, nombre, pulpos_id, imagen_url')
-        .not('pulpos_id', 'is', null)
+        .select('id, sku, nombre, imagen_url')
         .order('sku');
 
     if (prodErr || !productos?.length) {
-        console.error('No hay productos con pulpos_id:', prodErr?.message);
+        console.error('No hay productos en la BD:', prodErr?.message);
         return;
     }
 
-    console.log(`Productos con pulpos_id encontrados: ${productos.length}`);
+    console.log(`Productos en nuestra BD: ${productos.length}`);
 
     // 2. Navegar a la lista de productos en Pulpos
-    await page.goto('https://app.pulpos.com/products', { waitUntil: 'networkidle', timeout: 30000 });
-    await page.waitForTimeout(3000);
+    console.log('Navegando a la lista de productos en Pulpos...');
+    await page.goto('https://app.pulpos.com/products', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForTimeout(5000);
+
+    // 3. Scroll para cargar todos los productos (Pulpos usa lazy loading)
+    console.log('Scrolleando para cargar todos los productos...');
+    let prevCount = 0;
+    for (let i = 0; i < 30; i++) {
+        const currentCount = await page.evaluate(() => {
+            return document.querySelectorAll('table tbody tr, [class*="product"]').length;
+        });
+        if (currentCount === prevCount && i > 3) break;
+        prevCount = currentCount;
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await page.waitForTimeout(1500);
+    }
+
+    // 4. Extraer TODOS los pares SKU→ImageURL del DOM de Pulpos en un solo paso
+    console.log('Extrayendo imágenes del catálogo...');
+    const pulposProductos = await page.evaluate(() => {
+        const result = [];
+        // Buscar filas de tabla de productos
+        const rows = document.querySelectorAll('table tbody tr');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 3) return;
+
+            // Buscar SKU en las celdas de texto
+            let sku = '';
+            let imgSrc = '';
+
+            // La imagen suele estar en la primera celda
+            const img = row.querySelector('img[src*="imagedelivery"]');
+            if (img) {
+                imgSrc = img.src.replace(/\/(thumbnail|midsquare|small)$/, '/public');
+            }
+
+            // Buscar el SKU — suele estar en una celda con texto corto tipo código
+            cells.forEach(cell => {
+                const text = cell.innerText.trim();
+                // SKU patterns: alfanuméricos cortos, ej: AP00801, BL82210, etc.
+                if (/^[A-Z0-9]{4,15}$/i.test(text) && !sku) {
+                    sku = text.toUpperCase();
+                }
+            });
+
+            if (sku && imgSrc) {
+                result.push({ sku, imgSrc });
+            }
+        });
+
+        // Fallback: buscar en cualquier estructura (cards, divs, etc.)
+        if (result.length === 0) {
+            const allImgs = document.querySelectorAll('img[src*="imagedelivery"]');
+            allImgs.forEach(img => {
+                const container = img.closest('tr, [class*="product"], a[href*="products"]');
+                if (!container) return;
+                const text = container.innerText || '';
+                const skuMatch = text.match(/\b([A-Z0-9]{4,15})\b/);
+                if (skuMatch) {
+                    result.push({
+                        sku: skuMatch[1].toUpperCase(),
+                        imgSrc: img.src.replace(/\/(thumbnail|midsquare|small)$/, '/public')
+                    });
+                }
+            });
+        }
+
+        return result;
+    });
+
+    console.log(`Productos con imagen encontrados en Pulpos: ${pulposProductos.length}`);
+
+    if (!pulposProductos.length) {
+        // Fallback: navegar producto por producto usando pulpos_id
+        console.log('No se pudieron extraer imágenes de la lista. Intentando producto por producto...');
+        const productosConId = productos.filter(p => p.pulpos_id);
+        for (const prod of productosConId) {
+            try {
+                if (prod.imagen_url && prod.imagen_url.includes('supabase')) continue;
+                await page.goto(`https://app.pulpos.com/products/${prod.pulpos_id}`, {
+                    waitUntil: 'domcontentloaded', timeout: 15000
+                });
+                await page.waitForTimeout(2000);
+                const imgUrl = await page.evaluate(() => {
+                    const img = document.querySelector('img[src*="imagedelivery"]');
+                    return img ? img.src.replace(/\/(thumbnail|midsquare|small)$/, '/public') : null;
+                });
+                if (imgUrl) pulposProductos.push({ sku: prod.sku, imgSrc: imgUrl });
+            } catch (e) {
+                console.log(`  [${prod.sku}] Error navegando: ${e.message}`);
+            }
+        }
+        console.log(`Productos encontrados vía fallback: ${pulposProductos.length}`);
+    }
+
+    // 5. Crear mapa SKU → imgURL
+    const skuToImg = {};
+    pulposProductos.forEach(p => { skuToImg[p.sku.toUpperCase()] = p.imgSrc; });
 
     let fotosSubidas = 0;
     let fotasOmitidas = 0;
+    let sinFoto = 0;
     let errores = 0;
 
+    // 6. Procesar cada producto de nuestra BD
     for (const prod of productos) {
         try {
             // Si ya tiene imagen de Supabase Storage, omitir
             if (prod.imagen_url && prod.imagen_url.includes('supabase')) {
-                console.log(`  [${prod.sku}] Ya tiene foto en Supabase — omitida`);
                 fotasOmitidas++;
                 continue;
             }
 
-            // 3. Navegar al detalle del producto en Pulpos
-            const productUrl = `https://app.pulpos.com/products/${prod.pulpos_id}`;
-            console.log(`  [${prod.sku}] Navegando a ${productUrl}...`);
-            await page.goto(productUrl, { waitUntil: 'networkidle', timeout: 20000 });
-            await page.waitForTimeout(2000);
-
-            // 4. Extraer la URL de la imagen del producto
-            const imgUrl = await page.evaluate(() => {
-                // Buscar imágenes de productos (excluir avatares, logos, iconos)
-                const imgs = document.querySelectorAll('img');
-                for (const img of imgs) {
-                    const src = img.src || '';
-                    if (src.includes('imagedelivery.net') && img.width > 50) {
-                        // Reemplazar /thumbnail por /public para máxima calidad
-                        return src.replace(/\/(thumbnail|midsquare|small)$/, '/public');
-                    }
-                }
-                // Buscar también en background-image
-                const divs = document.querySelectorAll('[style*="background-image"]');
-                for (const div of divs) {
-                    const bg = div.style.backgroundImage;
-                    const match = bg.match(/url\(["']?(https:\/\/imagedelivery\.net\/[^"')]+)["']?\)/);
-                    if (match) return match[1].replace(/\/(thumbnail|midsquare|small)$/, '/public');
-                }
-                return null;
-            });
-
+            const imgUrl = skuToImg[(prod.sku || '').toUpperCase()];
             if (!imgUrl) {
-                console.log(`  [${prod.sku}] Sin imagen en Pulpos — omitida`);
-                fotasOmitidas++;
+                sinFoto++;
                 continue;
             }
 
-            console.log(`  [${prod.sku}] Foto encontrada: ${imgUrl.substring(0, 80)}...`);
+            console.log(`  [${prod.sku}] Descargando foto...`);
 
-            // 5. Descargar la imagen
+            // 7. Descargar la imagen
             const response = await page.request.get(imgUrl);
             if (!response.ok()) {
-                console.log(`  [${prod.sku}] Error descargando (HTTP ${response.status()}) — omitida`);
+                console.log(`  [${prod.sku}] Error descargando (HTTP ${response.status()})`);
                 errores++;
                 continue;
             }
@@ -1029,31 +1099,28 @@ async function sincronizarFotos(page) {
 
             const fileName = `${prod.sku.toLowerCase().replace(/[^a-z0-9]/g, '_')}.${ext}`;
 
-            // 6. Subir a Supabase Storage
-            const { data: uploadData, error: uploadErr } = await supabase.storage
+            // 8. Subir a Supabase Storage
+            const { error: uploadErr } = await supabase.storage
                 .from('productos-fotos')
                 .upload(fileName, imageBuffer, {
                     contentType: contentType,
-                    upsert: true  // Sobrescribir si ya existe
+                    upsert: true
                 });
 
             if (uploadErr) {
-                console.log(`  [${prod.sku}] Error subiendo a Storage: ${uploadErr.message}`);
+                console.log(`  [${prod.sku}] Error subiendo: ${uploadErr.message}`);
                 errores++;
                 continue;
             }
 
-            // 7. Obtener URL pública
+            // 9. Obtener URL pública y actualizar BD
             const { data: publicUrlData } = supabase.storage
                 .from('productos-fotos')
                 .getPublicUrl(fileName);
 
-            const publicUrl = publicUrlData.publicUrl;
-
-            // 8. Actualizar tabla productos con la URL de Supabase
             const { error: updateErr } = await supabase
                 .from('productos')
-                .update({ imagen_url: publicUrl })
+                .update({ imagen_url: publicUrlData.publicUrl })
                 .eq('id', prod.id);
 
             if (updateErr) {
@@ -1062,20 +1129,21 @@ async function sincronizarFotos(page) {
                 continue;
             }
 
-            console.log(`  [${prod.sku}] ✓ Foto subida y vinculada → ${fileName}`);
+            console.log(`  [${prod.sku}] ✓ Subida → ${fileName}`);
             fotosSubidas++;
 
         } catch (e) {
-            console.error(`  [${prod.sku}] Error inesperado: ${e.message}`);
+            console.error(`  [${prod.sku}] Error: ${e.message}`);
             errores++;
         }
     }
 
     console.log(`\n--- Resultado Fotos ---`);
-    console.log(`  Subidas exitosamente: ${fotosSubidas}`);
-    console.log(`  Omitidas (ya tenían foto): ${fotasOmitidas}`);
-    console.log(`  Errores: ${errores}`);
-    console.log(`  Total procesados: ${productos.length}`);
+    console.log(`  ✓ Subidas exitosamente: ${fotosSubidas}`);
+    console.log(`  ⏭ Ya tenían foto: ${fotasOmitidas}`);
+    console.log(`  ⚠ Sin foto en Pulpos: ${sinFoto}`);
+    console.log(`  ✗ Errores: ${errores}`);
+    console.log(`  Total productos: ${productos.length}`);
 }
 
 // =====================================================
