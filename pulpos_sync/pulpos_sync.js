@@ -981,9 +981,9 @@ async function sincronizarFotos(page) {
                 const cell1 = cells[1];
                 if (!cell1) return;
 
-                // Extraer imagen
                 const img = cell1.querySelector('img[src*="imagedelivery"]');
-                const imgSrc = img ? img.src : '';
+                // Reemplazar variante thumbnail/midsquare con w=2048 para alta resolución (1200x1200)
+                const imgSrc = img ? img.src.replace(/\/(thumbnail|midsquare|small|fullscreen)$/, '/w=2048') : '';
 
                 // Extraer SKU: está en la segunda línea del texto de cell[1]
                 const textLines = cell1.innerText.trim().split('\n').map(l => l.trim()).filter(l => l);
@@ -1071,11 +1071,8 @@ async function sincronizarFotos(page) {
 
     // 6. Procesar cada producto de nuestra BD
     for (const prod of productos) {
+        // Las fotos existentes se re-suben en alta resolución (upsert: true)
         try {
-            if (prod.imagen_url && prod.imagen_url.includes('supabase')) {
-                fotasOmitidas++;
-                continue;
-            }
 
             const imgUrl = skuToImg[(prod.sku || '').toUpperCase()];
             if (!imgUrl) {
