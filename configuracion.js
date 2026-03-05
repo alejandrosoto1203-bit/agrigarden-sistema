@@ -548,3 +548,104 @@ window.guardarConfigEfectivo = async function () {
         alert("Error al guardar: " + e.message);
     }
 }
+
+// ---------------------------
+// 5. MECÁNICOS DE TALLER
+// ---------------------------
+async function cargarMecanicosUI() {
+    const contenedor = document.getElementById('listaMecanicos');
+    if (!contenedor) return;
+    contenedor.innerHTML = '<p class="text-gray-400 italic">Cargando...</p>';
+
+    try {
+        const client = getClient();
+        if (!client) throw new Error("Supabase no disponible");
+
+        const { data, error } = await client
+            .from('mecanicos')
+            .select('*')
+            .order('nombre');
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            contenedor.innerHTML = '<p class="text-gray-400 italic text-sm text-center py-6">No hay mecánicos registrados. Agrega uno para comenzar.</p>';
+            return;
+        }
+
+        contenedor.innerHTML = data.map(m => `
+            <div class="flex items-center justify-between p-4 rounded-xl border border-gray-100 ${m.activo ? 'bg-white' : 'bg-gray-50 opacity-60'}">
+                <div class="flex items-center gap-3">
+                    <div class="size-10 rounded-full ${m.activo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'} flex items-center justify-center font-bold text-lg">
+                        ${m.nombre.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <p class="font-bold text-sm">${m.nombre}</p>
+                        <p class="text-[10px] font-bold uppercase ${m.activo ? 'text-green-600' : 'text-gray-400'}">${m.activo ? 'Activo' : 'Inactivo'}</p>
+                    </div>
+                </div>
+                <button onclick="toggleMecanico(${m.id}, ${m.activo})"
+                    class="px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors ${m.activo
+                ? 'text-red-500 hover:bg-red-50 border border-red-100'
+                : 'text-green-600 hover:bg-green-50 border border-green-100'}">
+                    ${m.activo ? 'Desactivar' : 'Activar'}
+                </button>
+            </div>
+        `).join('');
+
+    } catch (e) {
+        console.error(e);
+        contenedor.innerHTML = `<p class="text-red-500 text-sm">${e.message}</p>`;
+    }
+}
+
+window.abrirFormMecanico = function () {
+    document.getElementById('formNuevoMecanico').classList.remove('hidden');
+    document.getElementById('inputNombreMecanico').focus();
+}
+
+window.cancelarFormMecanico = function () {
+    document.getElementById('formNuevoMecanico').classList.add('hidden');
+    document.getElementById('inputNombreMecanico').value = '';
+}
+
+window.guardarMecanico = async function () {
+    const nombre = document.getElementById('inputNombreMecanico').value.trim();
+    if (!nombre) return alert('Escribe el nombre del mecánico.');
+
+    try {
+        const client = getClient();
+        const { error } = await client
+            .from('mecanicos')
+            .insert([{ nombre, activo: true }]);
+
+        if (error) throw error;
+
+        cancelarFormMecanico();
+        cargarMecanicosUI();
+        alert('Mecánico agregado.');
+    } catch (e) {
+        console.error(e);
+        alert('Error: ' + e.message);
+    }
+}
+
+window.toggleMecanico = async function (id, estadoActual) {
+    const accion = estadoActual ? 'desactivar' : 'activar';
+    if (!confirm(`¿${accion.charAt(0).toUpperCase() + accion.slice(1)} este mecánico?`)) return;
+
+    try {
+        const client = getClient();
+        const { error } = await client
+            .from('mecanicos')
+            .update({ activo: !estadoActual })
+            .eq('id', id);
+
+        if (error) throw error;
+        cargarMecanicosUI();
+    } catch (e) {
+        console.error(e);
+        alert('Error: ' + e.message);
+    }
+}
+
