@@ -604,7 +604,7 @@ function agregarFilaMercancia(gastoRowId) {
         <td class="p-1">
             <input type="text" list="${dlId}" class="w-full bg-white border border-gray-200 rounded px-2 py-1.5 text-xs item-sku" placeholder="SKU o Nombre" onchange="autocompletarProducto('${mid}')">
             <datalist id="${dlId}">
-                ${productosVentaCache.map(p => `<option value="${p.sku || p.nombre}">${p.nombre}</option>`).join('')}
+                ${(Array.isArray(productosVentaCache) ? productosVentaCache : []).map(p => `<option value="${p.sku || p.nombre}">${p.nombre}</option>`).join('')}
             </datalist>
         </td>
         <td class="p-1"><input type="number" min="1" step="0.01" class="w-full bg-white border border-gray-200 rounded px-2 py-1.5 text-xs text-center item-qty" placeholder="0" value="1" oninput="calcularSubtotalMercancia('${mid}', '${gastoRowId}')"></td>
