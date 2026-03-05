@@ -1,4 +1,33 @@
-// gastos.js - Gestión de Egresos y Registro Múltiple de Gastos
+
+  const consoleLog = console.log;
+  const consoleError = console.error;
+  
+  const document = {
+    getElementById: id => {
+       if (id === 'testRowId-items-body') {
+           return { 
+               children: [], 
+               appendChild: (el) => consoleLog('Appended child to body id: ' + el.id),
+               id: id 
+           }; 
+       }
+       return null;
+    },
+    createElement: tag => {
+       return { id: '', className: '', innerHTML: '' };
+    }
+  };
+  const window = { location: { pathname: 'registro_gastos.html' } };
+  const Date = { now: () => 12345 };
+  const Math = { random: () => 0.5, floor: global.Math.floor };
+  const SUPABASE_URL = 'http://test';
+  const SUPABASE_KEY = 'test';
+  let productosVentaCache = [];
+  
+  // mock fetch
+  global.fetch = () => Promise.resolve({ json: () => Promise.resolve([]) });
+  
+  // gastos.js - Gestión de Egresos y Registro Múltiple de Gastos
 
 // --- UTILS FALLBACK ---
 if (typeof formatMoney === 'undefined') {
@@ -353,7 +382,7 @@ function mostrarModalGasto() {
 
 // 3. LÓGICA DE REGISTRO MÚLTIPLE DE GASTOS
 let proveedoresCargados = [];
-let productosVentaCache = [];
+/* let productosVentaCache = []; */
 
 async function initGastosRegistro() {
     // Cargar proveedores para autocompletado
@@ -449,21 +478,11 @@ function agregarFilaGasto() {
                     <tbody id="${rId}-items-body">
                     </tbody>
                 </table>
-                <button type="button" id="${rId}-btn-add-mercancia" class="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"><span class="material-symbols-outlined text-sm">add</span> Añadir Artículo</button>
+                <button type="button" onclick="agregarFilaMercancia('${rId}')" class="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"><span class="material-symbols-outlined text-sm">add</span> Añadir Artículo</button>
             </div>
         </td>
     `;
     tbody.appendChild(trItems);
-
-    // Adjuntar evento de click explicitamente para evitar fallas silenciosas del DOM
-    const btnAdd = document.getElementById(`${rId}-btn-add-mercancia`);
-    if (btnAdd) {
-        btnAdd.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            agregarFilaMercancia(rId);
-        });
-    }
 
     actualizarTotalesGastos();
 }
@@ -603,19 +622,9 @@ function agregarFilaMercancia(gastoRowId) {
         <td class="p-1"><input type="text" class="w-full bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-xs text-gray-600 item-desc" placeholder="Descripción extraida del SKU" readonly></td>
         <td class="p-1"><input type="number" min="0" step="0.01" class="w-full bg-white border border-gray-200 rounded px-2 py-1.5 text-xs text-right font-bold item-costo" placeholder="0.00" oninput="calcularSubtotalMercancia('${mid}', '${gastoRowId}')"></td>
         <td class="p-1"><input type="number" class="w-full bg-blue-50/30 border-none font-black text-right text-blue-700 px-2 py-1.5 text-xs item-subtotal" readonly value="0.00"></td>
-        <td class="p-1 text-center"><button type="button" id="${mid}-btn-close" class="text-gray-300 hover:text-red-500"><span class="material-symbols-outlined text-sm pt-1">close</span></button></td>
+        <td class="p-1 text-center"><button type="button" onclick="document.getElementById('${mid}').remove(); calcularTotalMercancia('${gastoRowId}')" class="text-gray-300 hover:text-red-500"><span class="material-symbols-outlined text-sm pt-1">close</span></button></td>
     `;
     tbody.appendChild(tr);
-
-    const btnClose = document.getElementById(`${mid}-btn-close`);
-    if (btnClose) {
-        btnClose.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            document.getElementById(mid)?.remove();
-            calcularTotalMercancia(gastoRowId);
-        });
-    }
 }
 
 function autocompletarProducto(mid) {
@@ -999,3 +1008,10 @@ window.calcularSubtotalMercancia = calcularSubtotalMercancia;
 window.calcularTotalMercancia = calcularTotalMercancia;
 window.actualizarTotalesGastos = actualizarTotalesGastos;
 window.guardarLoteGastos = guardarLoteGastos;
+  
+  try {
+      agregarFilaMercancia('testRowId');
+      consoleLog('Execution successful for testRowId!');
+  } catch (e) {
+      consoleError('Execution Failed: ', e);
+  }
