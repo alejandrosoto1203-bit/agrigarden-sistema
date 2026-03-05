@@ -723,7 +723,7 @@ function descargarPDFCotizacion() {
             i.cantidad || 1,
             i.sku || '—',
             i.descripcion || '—',
-            `$${Number(i.precio_sin_iva || 0).toFixed(2)}`,
+            `$${Number(i.precio_unitario || 0).toFixed(2)}`,
             `$${Number(i.precio_con_iva || 0).toFixed(2)}`
         ]);
 
@@ -731,8 +731,9 @@ function descargarPDFCotizacion() {
             startY: y + 2,
             head: [['Cant.', 'SKU', 'Descripción', 'Precio Unit.', 'Importe']],
             body: tableData,
-            styles: { fontSize: 9 },
-            headStyles: { fillColor: [25, 230, 107], textColor: 0, fontStyle: 'bold' },
+            theme: 'grid',
+            styles: { fontSize: 9, cellPadding: 3 },
+            headStyles: { fillColor: [25, 230, 107], textColor: [0, 0, 0], fontStyle: 'bold' },
             columnStyles: {
                 0: { halign: 'center', cellWidth: 15 },
                 3: { halign: 'right' },
