@@ -20,6 +20,7 @@ let carrito = [];
 let categoriaActiva = 'Todos';
 let metodoPagoSeleccionado = 'Efectivo';
 let tipoPrecioActivo = 'precio_publico';
+let ventaDesdeReparacion = null; // Datos de orden de reparación si viene del módulo de taller
 
 // =====================================================
 // INICIALIZACIÓN
@@ -154,6 +155,51 @@ async function entrarPOS() {
 
     // Cargar productos
     await cargarProductosPOS();
+
+    // Verificar si viene de una orden de reparación
+    const datosReparacion = sessionStorage.getItem('ordenReparacionPOS');
+    if (datosReparacion) {
+        ventaDesdeReparacion = JSON.parse(datosReparacion);
+        sessionStorage.removeItem('ordenReparacionPOS');
+        cargarItemsReparacionEnCarrito();
+    }
+}
+
+// Cargar items de orden de reparación automáticamente en el carrito
+function cargarItemsReparacionEnCarrito() {
+    if (!ventaDesdeReparacion || !ventaDesdeReparacion.items) return;
+
+    carrito = [];
+    for (const item of ventaDesdeReparacion.items) {
+        const producto = productosCache.find(p => p.id === item.producto_id);
+        const precio = item.precio_unitario || (producto ? producto.precio_publico : 0) || 0;
+        const ivaPct = producto?.aplica_impuestos !== false ? (producto?.iva_porcentaje || 16) : 0;
+
+        const nuevoItem = {
+            producto_id: item.producto_id,
+            producto_nombre: item.descripcion || producto?.nombre || '',
+            producto_sku: item.sku || producto?.sku || '',
+            cantidad: item.cantidad,
+            precio_unitario: precio,
+            precio_tipo: 'PUBLICO',
+            subtotal: precio * item.cantidad,
+            iva_porcentaje: ivaPct,
+            iva_monto: 0,
+            ieps_porcentaje: 0,
+            ieps_monto: 0,
+            total: 0
+        };
+        calcularImpuestosItem(nuevoItem, producto || { aplica_impuestos: true, iva_porcentaje: ivaPct });
+        carrito.push(nuevoItem);
+    }
+
+    renderizarCarrito();
+
+    // Auto-fill cliente
+    const inputCliente = document.getElementById('inputClienteVenta');
+    if (inputCliente && ventaDesdeReparacion.cliente) {
+        inputCliente.value = ventaDesdeReparacion.cliente;
+    }
 }
 
 function volverSeleccionCaja() {
@@ -647,7 +693,10 @@ async function confirmarVenta() {
         });
 
         // 3. Descontar stock y registrar movimientos
-        const stockKey = cajaActual === 'Norte' ? 'stock_norte' : 'stock_sur';
+        // CANDADO: Si la venta viene de una orden de reparación,
+        // descontar de stock_taller, NO de stock de sucursal
+        const esVentaReparacion = !!ventaDesdeReparacion;
+        const stockKey = esVentaReparacion ? 'stock_taller' : (cajaActual === 'Norte' ? 'stock_norte' : 'stock_sur');
 
         for (const item of carrito) {
             const producto = productosCache.find(p => p.id === item.producto_id);
@@ -681,17 +730,36 @@ async function confirmarVenta() {
                 },
                 body: JSON.stringify({
                     producto_id: item.producto_id,
-                    sucursal: cajaActual,
-                    tipo: 'VENTA',
+                    sucursal: esVentaReparacion ? 'Taller' : cajaActual,
+                    tipo: esVentaReparacion ? 'VENTA_REPARACION' : 'VENTA',
                     cantidad: item.cantidad,
                     stock_anterior: stockAnterior,
                     stock_nuevo: stockNuevo,
-                    referencia: `Venta POS - ${transaccionId.slice(0, 8)}`
+                    referencia: esVentaReparacion
+                        ? `Venta Reparación ${ventaDesdeReparacion.folio}`
+                        : `Venta POS - ${transaccionId.slice(0, 8)}`
                 })
             });
 
             // Actualizar cache local
             producto[stockKey] = stockNuevo;
+        }
+
+        // Si es venta de reparación, marcar orden como ENTREGADA
+        if (esVentaReparacion && ventaDesdeReparacion.orden_id) {
+            await fetch(`${window.SUPABASE_URL}/rest/v1/ordenes_reparacion?id=eq.${ventaDesdeReparacion.orden_id}`, {
+                method: 'PATCH',
+                headers: {
+                    'apikey': window.SUPABASE_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    estatus: 'ENTREGADA',
+                    fecha_entrega: new Date().toISOString()
+                })
+            });
+            ventaDesdeReparacion = null; // Limpiar después de procesar
         }
 
         // 4. Mostrar éxito
