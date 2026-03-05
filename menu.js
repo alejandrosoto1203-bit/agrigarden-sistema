@@ -36,6 +36,17 @@ function inyectarMenu(paginaActiva) {
             ]
         },
         { id: 'clientes', nombre: 'Clientes', icon: 'people', link: 'clientes.html' },
+        {
+            id: 'taller',
+            nombre: 'Taller',
+            icon: 'build',
+            link: '#',
+            subItems: [
+                { id: 'ordenes_reparacion', nombre: 'Registro de Órdenes', link: 'ordenes_reparacion.html' },
+                { id: 'ordenes_pendientes', nombre: 'Órdenes Pendientes', link: 'ordenes_pendientes.html' },
+                { id: 'ordenes_terminadas', nombre: 'Órdenes Terminadas', link: 'ordenes_terminadas.html' }
+            ]
+        },
         { id: 'flotilla', nombre: 'Control de Flotillas', icon: 'directions_car', link: 'flotilla.html' },
         { id: 'efectivo', nombre: 'Control de Efectivo', icon: 'local_atm', link: 'control_efectivo.html' },
         { id: 'estado_resultados', nombre: 'Estado de Resultados', icon: 'trending_up', link: 'estado_resultados.html' },
