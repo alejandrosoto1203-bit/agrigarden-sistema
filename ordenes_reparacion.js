@@ -49,7 +49,7 @@ function renderizarOrdenes(ordenes) {
         tbody.innerHTML = '<tr><td colspan="8" class="py-12 text-center text-slate-300 italic text-xs">Sin órdenes registradas</td></tr>';
         return;
     }
-    const esAdmin = sessionStorage.getItem('userRol') === 'admin';
+    const esAdmin = sessionStorage.getItem('userRole') === 'admin';
 
     tbody.innerHTML = ordenes.map(o => {
         const fecha = new Date(o.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' });

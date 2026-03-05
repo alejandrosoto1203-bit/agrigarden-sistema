@@ -100,7 +100,7 @@ function renderizarTabla(datos) {
     emptyState?.classList.add('hidden');
 
     tabla.innerHTML = datos.map(p => {
-        const stockTotal = (p.stock_norte || 0) + (p.stock_sur || 0) + (p.stock_matriz || 0);
+        const stockTotal = (p.stock_norte || 0) + (p.stock_sur || 0) + (p.stock_taller || 0) + (p.stock_matriz || 0);
         const stockBajo = stockTotal <= (p.stock_minimo || 0);
         const imgUrl = p.imagen_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.nombre?.charAt(0) || 'P')}&background=f1f5f9&color=94a3b8`;
 
@@ -119,6 +119,7 @@ function renderizarTabla(datos) {
                 </td>
                 <td class="px-4 py-3 text-center font-bold ${(p.stock_norte || 0) <= (p.stock_minimo || 0) ? 'text-orange-500' : 'text-slate-600'}">${p.stock_norte || 0}</td>
                 <td class="px-4 py-3 text-center font-bold ${(p.stock_sur || 0) <= (p.stock_minimo || 0) ? 'text-orange-500' : 'text-slate-600'}">${p.stock_sur || 0}</td>
+                <td class="px-4 py-3 text-center font-bold text-slate-600">${p.stock_taller || 0}</td>
                 <td class="px-4 py-3 text-center font-black ${stockBajo ? 'text-orange-500' : 'text-primary'}">${stockTotal}</td>
                 <td class="px-4 py-3 text-right font-black text-slate-700">${formatMoney(p.precio_publico || 0)}</td>
                 <td class="px-4 py-3 text-center" onclick="event.stopPropagation()">
@@ -140,12 +141,12 @@ function actualizarKPIs() {
     const activos = productosCache.filter(p => p.activo !== false);
     const totalProductos = activos.length;
     const stockBajo = activos.filter(p => {
-        const stockTotal = (p.stock_norte || 0) + (p.stock_sur || 0) + (p.stock_matriz || 0);
+        const stockTotal = (p.stock_norte || 0) + (p.stock_sur || 0) + (p.stock_taller || 0) + (p.stock_matriz || 0);
         return stockTotal <= (p.stock_minimo || 0);
     }).length;
 
     const valorInventario = activos.reduce((sum, p) => {
-        const stockTotal = (p.stock_norte || 0) + (p.stock_sur || 0) + (p.stock_matriz || 0);
+        const stockTotal = (p.stock_norte || 0) + (p.stock_sur || 0) + (p.stock_taller || 0) + (p.stock_matriz || 0);
         return sum + (stockTotal * (p.precio_publico || 0));
     }, 0);
 

@@ -77,7 +77,7 @@ function renderizarLista() {
         return;
     }
 
-    const esAdmin = sessionStorage.getItem('userRol') === 'admin';
+    const esAdmin = sessionStorage.getItem('userRole') === 'admin';
 
     contenedor.innerHTML = ordenesPendientes.map(o => {
         const fecha = new Date(o.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' });
@@ -154,10 +154,13 @@ async function abrirDetalle(id) {
 
     // Mostrar/ocultar botones según estatus
     const btnAceptada = document.getElementById('btnAceptada');
+    const btnMarcarTerminada = document.getElementById('btnMarcarTerminada');
     if (ordenActual.estatus === 'EN_PROCESO') {
         btnAceptada.classList.add('hidden');
+        btnMarcarTerminada.classList.remove('hidden');
     } else {
         btnAceptada.classList.remove('hidden');
+        btnMarcarTerminada.classList.add('hidden');
     }
 
     // Cambiar vista
@@ -223,7 +226,7 @@ function renderizarItems() {
                     <input type="text" value="${item.sku || ''}" placeholder="SKU..."
                         oninput="buscarSKU('${key}', this.value)" onfocus="buscarSKU('${key}', this.value)"
                         class="sku-input input-form text-xs py-2 px-3" data-fila="${key}">
-                    <div id="skuDrop_${key}" class="sku-dropdown autocomplete-dropdown hidden"></div>
+                    <div id="skuDrop_${key}" class="sku-dropdown autocomplete-dropdown hidden w-[400px]"></div>
                 </td>
                 <td class="px-3 py-2">
                     <input type="text" value="${item.descripcion || ''}" id="desc_${key}"
@@ -265,8 +268,14 @@ function buscarSKU(filaId, query) {
     } else {
         dropdown.innerHTML = resultados.map(p => `
             <div class="autocomplete-item" onclick="seleccionarProductoItem('${filaId}', ${p.id})">
-                <p class="text-xs font-bold text-slate-700">${p.nombre}</p>
-                <p class="text-[10px] text-slate-400 font-mono">${p.sku || '—'} • $${(p.precio_publico || 0).toFixed(2)}</p>
+                <div class="flex-1">
+                    <p class="text-[11px] font-black text-slate-800 leading-tight">${p.nombre}</p>
+                    <p class="text-[10px] text-slate-400 font-mono mt-0.5">${p.sku || 'N/A'}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs font-black text-primary">$${(p.precio_publico || 0).toFixed(2)}</p>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase">Stock: ${p.stock_norte + p.stock_sur + (p.stock_taller || 0)}</p>
+                </div>
             </div>
         `).join('');
     }
@@ -500,6 +509,35 @@ async function aceptadaPorCliente() {
     }
 }
 
+// =====================================================
+// MARCAR COMO TERMINADA
+// =====================================================
+async function marcarComoTerminada() {
+    if (!ordenActual) return;
+    if (!confirm(`¿Marcar la orden ${ordenActual.folio} como TERMINADA?\n\nLa orden pasará a la bandeja de Órdenes Terminadas lista para ser cobrada y entregada.`)) return;
+
+    try {
+        await fetch(`${window.SUPABASE_URL}/rest/v1/ordenes_reparacion?id=eq.${ordenActual.id}`, {
+            method: 'PATCH',
+            headers: {
+                'apikey': window.SUPABASE_KEY,
+                'Authorization': `Bearer ${window.SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                estatus: 'TERMINADA',
+                fecha_terminacion: new Date().toISOString()
+            })
+        });
+
+        alert('✅ Orden marcada como Terminada exitosamente.');
+        volverALista();
+    } catch (e) {
+        console.error("Error marcando terminada:", e);
+        alert('Error al marcar terminada: ' + e.message);
+    }
+}
+
 async function guardarCotizacionSilenciosa() {
     const notas = document.getElementById('inputNotasRevision').value.trim().toUpperCase();
 
@@ -546,84 +584,91 @@ async function guardarCotizacionSilenciosa() {
 function descargarPDFCotizacion() {
     if (!ordenActual) return;
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
 
-    // Header
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.text('AGRIGARDEN', 14, 20);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Cotización de Reparación', 14, 27);
+        // Header
+        doc.setFontSize(20);
+        doc.setFont('helvetica', 'bold');
+        doc.text('AGRIGARDEN', 14, 20);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Cotización de Reparación', 14, 27);
 
-    // Info orden
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Orden: ${ordenActual.folio}`, 140, 20);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Fecha: ${new Date(ordenActual.created_at).toLocaleDateString('es-MX')}`, 140, 26);
-    doc.text(`Impreso: ${new Date().toLocaleDateString('es-MX')} ${new Date().toLocaleTimeString('es-MX')}`, 140, 31);
-
-    // Datos cliente
-    doc.setFontSize(10);
-    let y = 40;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Cliente:', 14, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(ordenActual.cliente_nombre, 40, y);
-    y += 5;
-    doc.text(`Tel: ${ordenActual.cliente_telefono || '—'}`, 14, y);
-    doc.text(`Comp: ${ordenActual.tipo_comprobante}`, 100, y);
-    y += 5;
-    doc.text(`Equipo: ${ordenActual.equipo} — ${ordenActual.marca_modelo}`, 14, y);
-    y += 5;
-    doc.text(`Mecánico: ${ordenActual.mecanico}`, 14, y);
-    y += 5;
-    if (ordenActual.observaciones) {
-        doc.text(`Observaciones: ${ordenActual.observaciones}`, 14, y);
-        y += 7;
-    }
-
-    // Tabla
-    const tableData = itemsOrden.filter(i => i.producto_id).map(i => [
-        i.cantidad,
-        i.sku || '—',
-        i.descripcion,
-        `$${(i.precio_sin_iva || 0).toFixed(2)}`,
-        `$${(i.precio_con_iva || 0).toFixed(2)}`
-    ]);
-
-    doc.autoTable({
-        startY: y + 2,
-        head: [['Cant.', 'SKU', 'Descripción', 'Precio s/IVA', 'Precio c/IVA']],
-        body: tableData,
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [25, 230, 107], textColor: 0, fontStyle: 'bold' },
-        columnStyles: {
-            0: { halign: 'center', cellWidth: 15 },
-            3: { halign: 'right' },
-            4: { halign: 'right' }
-        }
-    });
-
-    // Total
-    const finalY = doc.lastAutoTable.finalY + 5;
-    const total = itemsOrden.reduce((s, i) => s + (i.precio_con_iva || 0), 0);
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL: $${total.toFixed(2)}`, 150, finalY);
-
-    // Notas
-    const notas = document.getElementById('inputNotasRevision').value.trim();
-    if (notas) {
+        // Info orden
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Orden: ${ordenActual.folio || 'S/F'}`, 140, 20);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Notas de revisión: ${notas}`, 14, finalY + 10);
-    }
+        doc.text(`Fecha: ${new Date(ordenActual.created_at || new Date()).toLocaleDateString('es-MX')}`, 140, 26);
+        doc.text(`Impreso: ${new Date().toLocaleDateString('es-MX')} ${new Date().toLocaleTimeString('es-MX')}`, 140, 31);
 
-    doc.save(`Cotizacion_${ordenActual.folio}.pdf`);
+        // Datos cliente
+        doc.setFontSize(10);
+        let y = 40;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Cliente:', 14, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(ordenActual.cliente_nombre || 'Desconocido', 40, y);
+        y += 5;
+        doc.text(`Tel: ${ordenActual.cliente_telefono || '—'}`, 14, y);
+        doc.text(`Comp: ${ordenActual.tipo_comprobante || 'Remisión'}`, 100, y);
+        y += 5;
+        doc.text(`Equipo: ${ordenActual.equipo || '—'} — ${ordenActual.marca_modelo || '—'}`, 14, y);
+        y += 5;
+        doc.text(`Mecánico: ${ordenActual.mecanico || 'Pendiente'}`, 14, y);
+        y += 5;
+        if (ordenActual.observaciones) {
+            doc.text(`Observaciones: ${ordenActual.observaciones}`, 14, y);
+            y += 7;
+        }
+
+        // Tabla
+        const itemsValidos = itemsOrden.filter(i => i.producto_id || (i.descripcion && i.descripcion.trim() !== ''));
+        const tableData = itemsValidos.map(i => [
+            i.cantidad || 1,
+            i.sku || '—',
+            i.descripcion || '—',
+            `$${(i.precio_sin_iva || 0).toFixed(2)}`,
+            `$${(i.precio_con_iva || 0).toFixed(2)}`
+        ]);
+
+        doc.autoTable({
+            startY: y + 2,
+            head: [['Cant.', 'SKU', 'Descripción', 'Precio s/IVA', 'Precio c/IVA']],
+            body: tableData,
+            styles: { fontSize: 9 },
+            headStyles: { fillColor: [25, 230, 107], textColor: 0, fontStyle: 'bold' },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 15 },
+                3: { halign: 'right' },
+                4: { halign: 'right' }
+            }
+        });
+
+        // Total
+        const finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 5 : y + 20;
+        const total = itemsValidos.reduce((s, i) => s + (i.precio_con_iva || 0), 0);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`TOTAL: $${total.toFixed(2)}`, 150, finalY);
+
+        // Notas
+        const notasInput = document.getElementById('inputNotasRevision');
+        const notas = notasInput ? notasInput.value.trim() : '';
+        if (notas) {
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Notas de revisión: ${notas}`, 14, finalY + 10);
+        }
+
+        doc.save(`Cotizacion_${ordenActual.folio || 'OR'}.pdf`);
+    } catch (error) {
+        console.error("Error al generar PDF:", error);
+        alert("Ocurrió un error al generar el PDF. Verifica la consola para más detalles.");
+    }
 }
 
 // =====================================================

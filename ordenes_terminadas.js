@@ -28,7 +28,7 @@ async function cargarOrdenesTerminadas() {
     if (filtro) {
         query = `estatus=eq.${filtro}`;
     } else {
-        query = 'estatus=in.(EN_PROCESO,TERMINADA)';
+        query = 'estatus=in.(TERMINADA,ENTREGADA)';
     }
 
     try {
@@ -48,7 +48,7 @@ function renderizarListaTerminadas() {
         contenedor.innerHTML = '<div class="text-center py-16"><span class="material-symbols-outlined text-5xl text-slate-200">inbox</span><p class="text-slate-400 font-bold mt-2">No hay órdenes</p></div>';
         return;
     }
-    const esAdmin = sessionStorage.getItem('userRol') === 'admin';
+    const esAdmin = sessionStorage.getItem('userRole') === 'admin';
 
     contenedor.innerHTML = ordenesTerminadas.map(o => {
         const fecha = new Date(o.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
@@ -61,10 +61,7 @@ function renderizarListaTerminadas() {
         const labels = { 'EN_PROCESO': 'En Proceso', 'TERMINADA': 'Terminada', 'ENTREGADA': 'Entregada' };
 
         let accionBtn = '';
-        if (o.estatus === 'EN_PROCESO') {
-            accionBtn = `<button onclick="marcarTerminada(${o.id})" class="px-5 py-3 bg-green-500 text-white rounded-xl text-xs font-black uppercase hover:bg-green-600 flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">check</span> Terminada</button>`;
-        } else if (o.estatus === 'TERMINADA') {
+        if (o.estatus === 'TERMINADA') {
             accionBtn = `<button onclick="abrirDetalleTerminada(${o.id})" class="px-5 py-3 bg-primary text-black rounded-xl text-xs font-black uppercase hover:scale-[1.02] transition-all flex items-center gap-2">
                 <span class="material-symbols-outlined text-sm">point_of_sale</span> Cobrar</button>`;
         } else {
@@ -210,13 +207,6 @@ async function abrirDetalleTerminada(id) {
             <div class="flex-1 bg-green-50 text-green-700 py-4 rounded-2xl font-black uppercase text-sm flex items-center justify-center gap-2">
                 <span class="material-symbols-outlined">check_circle</span> Entregada — ${new Date(ordenTerminadaActual.fecha_entrega).toLocaleDateString('es-MX')}
             </div>
-        `;
-    } else {
-        acciones.innerHTML = `
-            <button onclick="marcarTerminada(${ordenTerminadaActual.id}); abrirDetalleTerminada(${ordenTerminadaActual.id});"
-                class="flex-1 bg-green-500 text-white py-4 rounded-2xl font-black uppercase text-sm flex items-center justify-center gap-2 hover:bg-green-600">
-                <span class="material-symbols-outlined">check</span> Marcar Terminada
-            </button>
         `;
     }
 
