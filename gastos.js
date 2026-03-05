@@ -395,7 +395,7 @@ function agregarFilaGasto() {
         <td class="p-1 relative">
             <div class="flex items-center gap-1">
                 <input type="text" class="input-capture row-proveedor uppercase flex-1 text-center" placeholder="Buscar Proveedor..." list="datalistProveedores" oninput="validarProveedorSeleccionado(this)" data-pid="">
-                <button onclick="abrirModalNuevoProveedorRapido(this)" class="p-1 bg-red-50 text-red-500 rounded hover:bg-red-100 transition-colors shrink-0" title="Alta Rápida"><span class="material-symbols-outlined text-sm">person_add</span></button>
+                <button type="button" onclick="abrirModalNuevoProveedorRapido(this)" class="p-1 bg-red-50 text-red-500 rounded hover:bg-red-100 transition-colors shrink-0" title="Alta Rápida"><span class="material-symbols-outlined text-sm">person_add</span></button>
             </div>
             <datalist id="datalistProveedores">
                 ${proveedoresCargados.map(p => `<option value="${p.nombre}"></option>`).join('')}
@@ -420,7 +420,7 @@ function agregarFilaGasto() {
         <td class="p-1"><input type="number" step="0.01" class="input-capture text-right row-monto font-black focus:bg-red-50 focus:text-red-600" placeholder="0.00" oninput="actualizarTotalesGastos()"></td>
         <td class="p-1"><select class="input-capture row-sucursal text-center"><option value="Sur">Sur</option><option value="Norte">Norte</option><option value="Matriz">Matriz</option></select></td>
         <td class="p-1"><input type="text" class="input-capture row-nota uppercase" placeholder="Notas..."></td>
-        <td class="p-1 text-center"><button onclick="eliminarFilaGasto('${rId}')" class="text-gray-300 hover:text-red-500 transition-colors pt-2"><span class="material-symbols-outlined">delete</span></button></td>
+        <td class="p-1 text-center"><button type="button" onclick="eliminarFilaGasto('${rId}')" class="text-gray-300 hover:text-red-500 transition-colors pt-2"><span class="material-symbols-outlined">delete</span></button></td>
     `;
     tbody.appendChild(tr);
 
@@ -449,7 +449,7 @@ function agregarFilaGasto() {
                     <tbody id="${rId}-items-body">
                     </tbody>
                 </table>
-                <button onclick="agregarFilaMercancia('${rId}')" class="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"><span class="material-symbols-outlined text-sm">add</span> Añadir Artículo</button>
+                <button type="button" onclick="agregarFilaMercancia('${rId}')" class="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"><span class="material-symbols-outlined text-sm">add</span> Añadir Artículo</button>
             </div>
         </td>
     `;
@@ -592,7 +592,7 @@ function agregarFilaMercancia(gastoRowId) {
         <td class="p-1"><input type="text" class="w-full bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-xs text-gray-600 item-desc" placeholder="Descripción extraida del SKU" readonly></td>
         <td class="p-1"><input type="number" min="0" step="0.01" class="w-full bg-white border border-gray-200 rounded px-2 py-1.5 text-xs text-right font-bold item-costo" placeholder="0.00" oninput="calcularSubtotalMercancia('${mid}', '${gastoRowId}')"></td>
         <td class="p-1"><input type="number" class="w-full bg-blue-50/30 border-none font-black text-right text-blue-700 px-2 py-1.5 text-xs item-subtotal" readonly value="0.00"></td>
-        <td class="p-1 text-center"><button onclick="document.getElementById('${mid}').remove(); calcularTotalMercancia('${gastoRowId}')" class="text-gray-300 hover:text-red-500"><span class="material-symbols-outlined text-sm pt-1">close</span></button></td>
+        <td class="p-1 text-center"><button type="button" onclick="document.getElementById('${mid}').remove(); calcularTotalMercancia('${gastoRowId}')" class="text-gray-300 hover:text-red-500"><span class="material-symbols-outlined text-sm pt-1">close</span></button></td>
     `;
     tbody.appendChild(tr);
 }
