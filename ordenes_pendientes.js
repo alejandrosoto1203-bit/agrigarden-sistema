@@ -77,6 +77,8 @@ function renderizarLista() {
         return;
     }
 
+    const esAdmin = sessionStorage.getItem('userRol') === 'admin';
+
     contenedor.innerHTML = ordenesPendientes.map(o => {
         const fecha = new Date(o.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' });
         const estilos = {
@@ -96,11 +98,19 @@ function renderizarLista() {
                     <p class="text-sm font-bold text-slate-700">${o.cliente_nombre}</p>
                     <p class="text-xs text-slate-400">${o.equipo} — ${o.marca_modelo} | ${o.mecanico} | ${fecha}</p>
                 </div>
-                <button onclick="abrirDetalle(${o.id})"
-                    class="px-6 py-3 ${o.estatus === 'PENDIENTE' ? 'bg-primary text-black' : 'bg-slate-100 text-slate-600'} rounded-xl text-xs font-black uppercase hover:scale-[1.02] transition-all flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">${o.estatus === 'PENDIENTE' ? 'build' : 'edit'}</span>
-                    ${o.estatus === 'PENDIENTE' ? 'Atender' : 'Ver / Editar'}
-                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="abrirDetalle(${o.id})"
+                        class="px-6 py-3 ${o.estatus === 'PENDIENTE' ? 'bg-primary text-black' : 'bg-slate-100 text-slate-600'} rounded-xl text-xs font-black uppercase hover:scale-[1.02] transition-all flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">${o.estatus === 'PENDIENTE' ? 'build' : 'edit'}</span>
+                        ${o.estatus === 'PENDIENTE' ? 'Atender' : 'Ver / Editar'}
+                    </button>
+                    ${esAdmin ? `
+                    <button onclick="eliminarOrdenDesdeModulo(${o.id}, '${o.folio}', '${o.estatus}')" title="Eliminar orden"
+                        class="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                        <span class="material-symbols-outlined text-sm">delete</span>
+                    </button>
+                    ` : ''}
+                </div>
             </div>
         `;
     }).join('');
@@ -614,4 +624,81 @@ function descargarPDFCotizacion() {
     }
 
     doc.save(`Cotizacion_${ordenActual.folio}.pdf`);
+}
+
+// =====================================================
+// ELIMINAR ORDEN (SOLO ADMIN)
+// =====================================================
+async function eliminarOrdenDesdeModulo(ordenId, folio, estatus) {
+    if (!confirm(`¿Eliminar la orden ${folio} permanentemente?\n\nTodas las piezas asociadas se revertirán.`)) return;
+    if (!confirm(`⚠️ CONFIRMACIÓN FINAL: ¿Seguro que deseas eliminar ${folio}?`)) return;
+
+    try {
+        const usuario = sessionStorage.getItem('userName') || 'Admin';
+
+        // Si ENTREGADA: eliminar transacción vinculada
+        if (estatus === 'ENTREGADA') {
+            const resTx = await fetch(
+                `${window.SUPABASE_URL}/rest/v1/transacciones?orden_reparacion_id=eq.${ordenId}&select=id`,
+                { headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` } }
+            );
+            const txs = await resTx.json();
+            for (const tx of txs) {
+                await fetch(`${window.SUPABASE_URL}/rest/v1/venta_items?transaccion_id=eq.${tx.id}`, {
+                    method: 'DELETE', headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+                });
+                await fetch(`${window.SUPABASE_URL}/rest/v1/transacciones?id=eq.${tx.id}`, {
+                    method: 'DELETE', headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+                });
+            }
+        }
+
+        // Si EN_PROCESO o TERMINADA: revertir stock_taller
+        if (estatus === 'EN_PROCESO' || estatus === 'TERMINADA') {
+            const resItems = await fetch(
+                `${window.SUPABASE_URL}/rest/v1/ordenes_reparacion_items?orden_id=eq.${ordenId}&select=producto_id,cantidad`,
+                { headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` } }
+            );
+            const items = await resItems.json();
+            for (const item of items) {
+                const resProd = await fetch(
+                    `${window.SUPABASE_URL}/rest/v1/productos?id=eq.${item.producto_id}&select=id,stock_taller,stock_norte`,
+                    { headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` } }
+                );
+                const [prod] = await resProd.json();
+                if (!prod) continue;
+                await fetch(`${window.SUPABASE_URL}/rest/v1/productos?id=eq.${item.producto_id}`, {
+                    method: 'PATCH',
+                    headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        stock_taller: Math.max(0, (prod.stock_taller || 0) - item.cantidad),
+                        stock_norte: (prod.stock_norte || 0) + item.cantidad
+                    })
+                });
+                await fetch(`${window.SUPABASE_URL}/rest/v1/movimientos_stock`, {
+                    method: 'POST',
+                    headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        producto_id: item.producto_id, sucursal: 'Taller', tipo: 'REVERSION', cantidad: item.cantidad,
+                        stock_anterior: prod.stock_taller || 0, stock_nuevo: Math.max(0, (prod.stock_taller || 0) - item.cantidad),
+                        referencia: `Orden ${folio} eliminada por ${usuario}`, usuario
+                    })
+                });
+            }
+        }
+
+        // Eliminar items y orden
+        await fetch(`${window.SUPABASE_URL}/rest/v1/ordenes_reparacion_items?orden_id=eq.${ordenId}`, {
+            method: 'DELETE', headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+        });
+        await fetch(`${window.SUPABASE_URL}/rest/v1/ordenes_reparacion?id=eq.${ordenId}`, {
+            method: 'DELETE', headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+        });
+
+        alert(`✅ Orden ${folio} eliminada exitosamente.`);
+        volverALista();
+    } catch (e) {
+        console.error(e);
+        alert('Error: ' + e.message);
+    }
 }

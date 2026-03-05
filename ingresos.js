@@ -142,17 +142,27 @@ function renderizarTablaIngresos(datos) {
             ? 'bg-purple-100 text-purple-700'
             : 'bg-green-50 text-green-700';
         const tipoLabel = esAbono ? 'Abono' : (item.tipo === 'Venta Directa' ? 'Venta' : item.tipo);
+        const esVentaPOS = item.categoria === 'VENTA POS';
+        const esReparacion = item.notas?.startsWith('Reparación') || item.orden_reparacion_id;
 
         return `
-            <tr class="hover:bg-gray-50/80 transition-all border-b border-gray-50 font-bold ${esAbono ? 'bg-purple-50/30' : ''}">
+            <tr class="hover:bg-gray-50/80 transition-all border-b border-gray-50 font-bold ${esAbono ? 'bg-purple-50/30' : ''} ${esReparacion ? 'border-l-4 border-l-amber-400' : ''}">
                 <td class="px-4 py-3 text-gray-600">${fecha}</td>
                 <td class="px-4 py-3 text-center text-xs text-gray-400 font-mono">#${item.categoria || 'S/N'}</td>
-                <td class="px-4 py-3 text-center"><span class="${tipoBadge} px-2 py-0.5 rounded text-[9px] font-black uppercase">${tipoLabel}</span></td>
+                <td class="px-4 py-3 text-center">
+                    <span class="${tipoBadge} px-2 py-0.5 rounded text-[9px] font-black uppercase">${tipoLabel}</span>
+                    ${esReparacion ? '<span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[9px] font-black uppercase ml-1">🔧 REP</span>' : ''}
+                </td>
                 <td class="px-4 py-3 text-center text-gray-500">${item.metodo_pago}</td>
                 <td class="px-4 py-3 text-center text-gray-600 truncate max-w-[100px]" title="${item.nombre_cliente || ''}">${item.nombre_cliente || '-'}</td>
                 <td class="px-4 py-3 text-right ${esAbono ? 'text-purple-600' : 'text-primary'} font-black">${formatMoney(item.monto)}</td>
                 <td class="px-4 py-3 text-center">
                     <div class="flex justify-center gap-1">
+                        ${esVentaPOS ? `
+                        <button onclick="verDetalleVenta('${item.id}')" class="p-1.5 bg-gray-50 text-amber-600 rounded hover:bg-amber-600 hover:text-white transition-all" title="Ver detalle">
+                            <span class="material-symbols-outlined text-sm">visibility</span>
+                        </button>
+                        ` : ''}
                         <button onclick='abrirModalEditarIngreso(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="p-1.5 bg-gray-50 text-blue-600 rounded hover:bg-blue-600 hover:text-white transition-all">
                             <span class="material-symbols-outlined text-sm">edit</span>
                         </button>
@@ -160,6 +170,11 @@ function renderizarTablaIngresos(datos) {
                             <span class="material-symbols-outlined text-sm">delete</span>
                         </button>
                     </div>
+                </td>
+            </tr>
+            <tr id="detalleVenta_${item.id}" class="hidden">
+                <td colspan="7" class="px-4 py-0">
+                    <div class="bg-slate-50 rounded-xl p-4 mb-2" id="contenidoDetalle_${item.id}"></div>
                 </td>
             </tr>
         `;
@@ -251,6 +266,12 @@ async function actualizarIngreso() {
 async function eliminarIngreso(id) {
     if (!confirm("¿Estás seguro de eliminar este ingreso permanentemente?")) return;
     try {
+        // También eliminar venta_items asociados
+        await fetch(`${SUPABASE_URL}/rest/v1/venta_items?transaccion_id=eq.${id}`, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+
         const res = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${id}`, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -260,6 +281,72 @@ async function eliminarIngreso(id) {
             alert("Registro eliminado.");
         }
     } catch (e) { console.error(e); }
+}
+
+// Mostrar detalle de venta POS (items)
+async function verDetalleVenta(transaccionId) {
+    const filaDetalle = document.getElementById(`detalleVenta_${transaccionId}`);
+    const contenedor = document.getElementById(`contenidoDetalle_${transaccionId}`);
+    if (!filaDetalle || !contenedor) return;
+
+    // Toggle
+    if (!filaDetalle.classList.contains('hidden')) {
+        filaDetalle.classList.add('hidden');
+        return;
+    }
+
+    contenedor.innerHTML = '<p class="text-xs text-slate-400 italic">Cargando detalle...</p>';
+    filaDetalle.classList.remove('hidden');
+
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/venta_items?transaccion_id=eq.${transaccionId}&select=*&order=id.asc`,
+            { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+        );
+        const items = await res.json();
+
+        if (!items || items.length === 0) {
+            contenedor.innerHTML = '<p class="text-xs text-slate-400 italic">Sin detalle de productos.</p>';
+            return;
+        }
+
+        const total = items.reduce((s, i) => s + (i.total || i.subtotal || 0), 0);
+
+        contenedor.innerHTML = `
+            <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Detalle de la Venta — ${items.length} productos</p>
+            <table class="w-full text-xs">
+                <thead>
+                    <tr class="text-[9px] font-black uppercase text-slate-400 border-b border-slate-200">
+                        <th class="py-1 text-center">Cant.</th>
+                        <th class="py-1 text-left">SKU</th>
+                        <th class="py-1 text-left">Producto</th>
+                        <th class="py-1 text-right">P.Unit</th>
+                        <th class="py-1 text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${items.map(i => `
+                        <tr class="border-b border-slate-100">
+                            <td class="py-1.5 text-center font-bold">${i.cantidad}</td>
+                            <td class="py-1.5 font-mono text-slate-500">${i.producto_sku || '—'}</td>
+                            <td class="py-1.5 font-bold text-slate-700">${i.producto_nombre}</td>
+                            <td class="py-1.5 text-right text-slate-500">${formatMoney(i.precio_unitario)}</td>
+                            <td class="py-1.5 text-right font-black text-primary">${formatMoney(i.total || i.subtotal)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+                <tfoot>
+                    <tr class="border-t-2 border-slate-300">
+                        <td colspan="4" class="py-2 text-right font-black uppercase text-slate-500">Total</td>
+                        <td class="py-2 text-right font-black text-primary text-sm">${formatMoney(total)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        `;
+    } catch (e) {
+        console.error(e);
+        contenedor.innerHTML = '<p class="text-xs text-red-500">Error cargando detalle.</p>';
+    }
 }
 
 // 3. CÁLCULOS DE KPIs

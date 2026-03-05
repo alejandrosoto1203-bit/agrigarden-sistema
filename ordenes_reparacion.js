@@ -49,6 +49,7 @@ function renderizarOrdenes(ordenes) {
         tbody.innerHTML = '<tr><td colspan="8" class="py-12 text-center text-slate-300 italic text-xs">Sin órdenes registradas</td></tr>';
         return;
     }
+    const esAdmin = sessionStorage.getItem('userRol') === 'admin';
 
     tbody.innerHTML = ordenes.map(o => {
         const fecha = new Date(o.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' });
@@ -67,10 +68,18 @@ function renderizarOrdenes(ordenes) {
                 <td class="px-4 py-3 text-xs font-bold text-slate-600">${o.mecanico}</td>
                 <td class="px-4 py-3 text-center">${badgeEstatus(o.estatus)}</td>
                 <td class="px-4 py-3 text-center">
-                    <button onclick="verOrden(${o.id})"
-                        class="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all">
-                        <span class="material-symbols-outlined text-sm">visibility</span>
-                    </button>
+                    <div class="flex justify-center gap-1">
+                        <button onclick="verOrden(${o.id})"
+                            class="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all">
+                            <span class="material-symbols-outlined text-sm">visibility</span>
+                        </button>
+                        ${esAdmin ? `
+                        <button onclick="eliminarOrdenReparacion(${o.id}, '${o.folio}', '${o.estatus}')" title="Eliminar orden"
+                            class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                            <span class="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                        ` : ''}
+                    </div>
                 </td>
             </tr>
         `;
@@ -411,5 +420,108 @@ async function guardarOrden() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<span class="material-symbols-outlined">save</span> Guardar Orden de Reparación';
+    }
+}
+
+// =====================================================
+// ELIMINAR ORDEN (SOLO ADMIN)
+// =====================================================
+async function eliminarOrdenReparacion(ordenId, folio, estatus) {
+    const msg = estatus === 'ENTREGADA'
+        ? `¿Eliminar la orden ${folio}? \n\nEsta orden ya fue ENTREGADA. Se eliminará también el ingreso registrado en Ingresos.`
+        : `¿Eliminar la orden ${folio} permanentemente?\n\nTodas las piezas asociadas se revertirán.`;
+
+    if (!confirm(msg)) return;
+    if (!confirm(`⚠️ CONFIRMACIÓN FINAL: ¿Seguro que deseas eliminar ${folio}?`)) return;
+
+    try {
+        const usuario = sessionStorage.getItem('userName') || 'Admin';
+
+        // 1. Si ENTREGADA: eliminar transacción/ingreso vinculado
+        if (estatus === 'ENTREGADA') {
+            // Buscar transacción por orden_reparacion_id
+            const resTx = await fetch(
+                `${window.SUPABASE_URL}/rest/v1/transacciones?orden_reparacion_id=eq.${ordenId}&select=id`,
+                { headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` } }
+            );
+            const txs = await resTx.json();
+
+            for (const tx of txs) {
+                // Eliminar venta_items de esa transacción
+                await fetch(`${window.SUPABASE_URL}/rest/v1/venta_items?transaccion_id=eq.${tx.id}`, {
+                    method: 'DELETE',
+                    headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+                });
+                // Eliminar la transacción
+                await fetch(`${window.SUPABASE_URL}/rest/v1/transacciones?id=eq.${tx.id}`, {
+                    method: 'DELETE',
+                    headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+                });
+            }
+        }
+
+        // 2. Si EN_PROCESO o TERMINADA: revertir stock_taller
+        if (estatus === 'EN_PROCESO' || estatus === 'TERMINADA') {
+            const resItems = await fetch(
+                `${window.SUPABASE_URL}/rest/v1/ordenes_reparacion_items?orden_id=eq.${ordenId}&select=producto_id,cantidad`,
+                { headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` } }
+            );
+            const items = await resItems.json();
+
+            for (const item of items) {
+                // Obtener stock actual
+                const resProd = await fetch(
+                    `${window.SUPABASE_URL}/rest/v1/productos?id=eq.${item.producto_id}&select=id,stock_taller,stock_norte`,
+                    { headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` } }
+                );
+                const [prod] = await resProd.json();
+                if (!prod) continue;
+
+                // Devolver de taller a norte (default)
+                await fetch(`${window.SUPABASE_URL}/rest/v1/productos?id=eq.${item.producto_id}`, {
+                    method: 'PATCH',
+                    headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        stock_taller: Math.max(0, (prod.stock_taller || 0) - item.cantidad),
+                        stock_norte: (prod.stock_norte || 0) + item.cantidad
+                    })
+                });
+
+                // Registrar movimiento de reversión
+                await fetch(`${window.SUPABASE_URL}/rest/v1/movimientos_stock`, {
+                    method: 'POST',
+                    headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        producto_id: item.producto_id,
+                        sucursal: 'Taller',
+                        tipo: 'REVERSION',
+                        cantidad: item.cantidad,
+                        stock_anterior: prod.stock_taller || 0,
+                        stock_nuevo: Math.max(0, (prod.stock_taller || 0) - item.cantidad),
+                        referencia: `Orden ${folio} eliminada por ${usuario}`,
+                        usuario: usuario
+                    })
+                });
+            }
+        }
+
+        // 3. Eliminar items de la orden
+        await fetch(`${window.SUPABASE_URL}/rest/v1/ordenes_reparacion_items?orden_id=eq.${ordenId}`, {
+            method: 'DELETE',
+            headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+        });
+
+        // 4. Eliminar la orden
+        await fetch(`${window.SUPABASE_URL}/rest/v1/ordenes_reparacion?id=eq.${ordenId}`, {
+            method: 'DELETE',
+            headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+        });
+
+        alert(`✅ Orden ${folio} eliminada exitosamente.`);
+        await cargarOrdenes();
+
+    } catch (e) {
+        console.error('Error eliminando orden:', e);
+        alert('Error: ' + e.message);
     }
 }

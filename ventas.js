@@ -632,6 +632,7 @@ async function confirmarVenta() {
     try {
         // 1. Crear transacción en tabla transacciones (para que aparezca en Ingresos)
         const transaccionId = crypto.randomUUID();
+        const esVentaRep = !!ventaDesdeReparacion;
         const transaccionData = {
             id: transaccionId,
             created_at: new Date().toISOString(),
@@ -645,7 +646,10 @@ async function confirmarVenta() {
             sucursal: cajaActual,
             estado_cobro: metodoPagoSeleccionado === 'Crédito' ? 'Pendiente' : 'Pagado',
             saldo_pendiente: metodoPagoSeleccionado === 'Crédito' ? total : 0,
-            notas: notas || `Venta POS - ${carrito.length} productos`
+            notas: esVentaRep
+                ? `Reparación ${ventaDesdeReparacion.folio} — ${carrito.length} items`
+                : (notas || `Venta POS - ${carrito.length} productos`),
+            orden_reparacion_id: esVentaRep ? ventaDesdeReparacion.orden_id : null
         };
 
         const resTransaccion = await fetch(`${window.SUPABASE_URL}/rest/v1/transacciones`, {
