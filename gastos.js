@@ -361,16 +361,24 @@ async function initGastosRegistro() {
         const resP = await fetch(`${SUPABASE_URL}/rest/v1/proveedores?select=id,nombre,rfc&order=nombre.asc`, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
-        proveedoresCargados = await resP.json();
-    } catch (e) { console.error('Error cargando proveedores:', e); }
+        const dataP = await resP.json();
+        proveedoresCargados = Array.isArray(dataP) ? dataP : [];
+    } catch (e) {
+        console.error('Error cargando proveedores:', e);
+        proveedoresCargados = [];
+    }
 
     // Cargar productos para SKU typeahead y autocompletar descripcion/costo
     try {
         const resProd = await fetch(`${SUPABASE_URL}/rest/v1/productos?select=id,sku,nombre,costo_promedio&order=nombre.asc`, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
-        productosVentaCache = await resProd.json();
-    } catch (e) { console.error('Error cargando productos:', e); }
+        const dataProd = await resProd.json();
+        productosVentaCache = Array.isArray(dataProd) ? dataProd : [];
+    } catch (e) {
+        console.error('Error cargando productos:', e);
+        productosVentaCache = [];
+    }
 }
 
 // Inicializar si estamos en la vista de registro
