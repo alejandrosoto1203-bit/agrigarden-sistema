@@ -633,27 +633,34 @@ async function confirmarVenta() {
         // 0. Obtener el último número de transacción (TXN#)
         let proximoTxnNum = 1;
         try {
-            const resUltimoTxn = await fetch(
-                `${window.SUPABASE_URL}/rest/v1/transacciones?categoria=like.*TXN*&select=categoria&order=created_at.desc&limit=1`,
+            // Buscamos todas las categorías que contengan '#' (ya sea #, ##, #TXN)
+            const resTxn = await fetch(
+                `${window.SUPABASE_URL}/rest/v1/transacciones?categoria=like.*%23*&select=categoria`,
                 {
                     headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
                 }
             );
-            if (resUltimoTxn.ok) {
-                const dataTxn = await resUltimoTxn.json();
-                if (dataTxn && dataTxn.length > 0 && dataTxn[0].categoria) {
-                    // Extraer los números de la cadena (ej. "#TXN-9484" o "##9484")
-                    const matchNumeric = dataTxn[0].categoria.match(/\d+/);
-                    if (matchNumeric && matchNumeric[0]) {
-                        proximoTxnNum = parseInt(matchNumeric[0], 10) + 1;
+            if (resTxn.ok) {
+                const dataTxn = await resTxn.json();
+                let maxNum = 0;
+                dataTxn.forEach(t => {
+                    if (t.categoria) {
+                        const matchInfo = t.categoria.match(/\d+/);
+                        if (matchInfo && matchInfo[0]) {
+                            const val = parseInt(matchInfo[0], 10);
+                            if (val > maxNum) maxNum = val;
+                        }
                     }
+                });
+                if (maxNum > 0) {
+                    proximoTxnNum = maxNum + 1;
                 }
             }
         } catch (errorTxn) {
-            console.warn("No se pudo obtener el último TXN, iniciando en 1", errorTxn);
+            console.warn("No se pudo obtener el último número de transacción, iniciando en 1", errorTxn);
         }
 
-        const folioTxn = `#TXN-${proximoTxnNum}`;
+        const folioTxn = `##${proximoTxnNum}`;
 
         // 1. Crear transacción en tabla transacciones (para que aparezca en Ingresos)
         const esVentaRep = !!ventaDesdeReparacion;

@@ -142,7 +142,7 @@ function renderizarTablaIngresos(datos) {
             ? 'bg-purple-100 text-purple-700'
             : 'bg-green-50 text-green-700';
         const tipoLabel = esAbono ? 'Abono' : (item.tipo === 'Venta Directa' ? 'Venta' : item.tipo);
-        const esVentaPOS = item.categoria === 'VENTA POS';
+        const esVentaPOS = item.tipo === 'Venta Directa' || (item.categoria && item.categoria.includes('#'));
         const esReparacion = item.notas?.startsWith('Reparación') || item.orden_reparacion_id;
 
         return `
