@@ -368,7 +368,7 @@ async function cobrarVenta() {
 
     // Redirigir al POS
     alert('Se abrirá el Punto de Venta con los productos de esta orden. Procesa el cobro normalmente.');
-    window.location.href = 'ventas.html?from_repair=true';
+    window.location.href = 'pos.html?from_repair=true';
 }
 
 // =====================================================
