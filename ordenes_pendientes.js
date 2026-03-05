@@ -65,6 +65,7 @@ async function cargarOrdenesPendientes() {
             { headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` } }
         );
         ordenesPendientes = await res.json();
+        actualizarKPIsPendientes();
         renderizarLista();
     } catch (e) { console.error(e); }
 }
@@ -96,24 +97,69 @@ function renderizarLista() {
                         <span class="estatus-badge ${estilos[o.estatus] || ''}">${labels[o.estatus] || o.estatus}</span>
                     </div>
                     <p class="text-sm font-bold text-slate-700">${o.cliente_nombre}</p>
-                    <p class="text-xs text-slate-400">${o.equipo} — ${o.marca_modelo} | ${o.mecanico} | ${fecha}</p>
+                    <p class="text-xs text-slate-400 mt-1">${o.equipo} — ${o.marca_modelo}</p>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="abrirDetalle(${o.id})"
-                        class="px-6 py-3 ${o.estatus === 'PENDIENTE' ? 'bg-primary text-black' : 'bg-slate-100 text-slate-600'} rounded-xl text-xs font-black uppercase hover:scale-[1.02] transition-all flex items-center gap-2">
-                        <span class="material-symbols-outlined text-sm">${o.estatus === 'PENDIENTE' ? 'build' : 'edit'}</span>
-                        ${o.estatus === 'PENDIENTE' ? 'Atender' : 'Ver / Editar'}
-                    </button>
-                    ${esAdmin ? `
-                    <button onclick="eliminarOrdenDesdeModulo(${o.id}, '${o.folio}', '${o.estatus}')" title="Eliminar orden"
-                        class="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
-                        <span class="material-symbols-outlined text-sm">delete</span>
-                    </button>
-                    ` : ''}
+                <div class="flex items-center gap-6 w-full lg:w-auto mt-2 lg:mt-0 justify-between lg:justify-end">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-tight">Mecánico</p>
+                        <p class="text-sm font-bold text-slate-700 leading-tight">${o.mecanico || 'Sin Asignar'}</p>
+                        <p class="text-[10px] text-slate-400 mt-1">${fecha}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="abrirDetalle(${o.id})"
+                            class="px-6 py-3 ${o.estatus === 'PENDIENTE' ? 'bg-primary text-black' : 'bg-slate-100 text-slate-600'} rounded-xl text-xs font-black uppercase hover:scale-[1.02] transition-all flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">${o.estatus === 'PENDIENTE' ? 'build' : 'edit'}</span>
+                            ${o.estatus === 'PENDIENTE' ? 'Atender' : 'Ver / Editar'}
+                        </button>
+                        ${esAdmin ? `
+                        <button onclick="eliminarOrdenDesdeModulo(${o.id}, '${o.folio}', '${o.estatus}')" title="Eliminar orden"
+                            class="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                            <span class="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
         `;
     }).join('');
+}
+
+function actualizarKPIsPendientes() {
+    document.getElementById('kpiTotalOrdenes').textContent = ordenesPendientes.length;
+    document.getElementById('kpiPendientes').textContent = ordenesPendientes.filter(o => o.estatus === 'PENDIENTE').length;
+    document.getElementById('kpiCotizadas').textContent = ordenesPendientes.filter(o => o.estatus === 'COTIZACION_ENVIADA').length;
+    document.getElementById('kpiEnProceso').textContent = ordenesPendientes.filter(o => o.estatus === 'EN_PROCESO').length;
+
+    if (ordenesPendientes.length > 0) {
+        const ordenadas = [...ordenesPendientes].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        const masAntigua = ordenadas[0];
+        document.getElementById('kpiOrdenAntigua').innerHTML = `
+            <span class="text-primary text-lg">${masAntigua.folio}</span> <span class="text-slate-400 text-xs ml-1">— ${new Date(masAntigua.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+            <br><span class="text-[11px] font-bold text-slate-500 mt-1 block">${masAntigua.equipo} (${masAntigua.mecanico || 'Sin Asignar'})</span>
+        `;
+    } else {
+        document.getElementById('kpiOrdenAntigua').innerHTML = '<span class="italic font-normal text-slate-400">Sin órdenes</span>';
+    }
+
+    const mecanicos = {};
+    ordenesPendientes.forEach(o => {
+        const mec = o.mecanico || 'Sin Asignar';
+        mecanicos[mec] = (mecanicos[mec] || 0) + 1;
+    });
+
+    const mContainer = document.getElementById('kpiMecanicos');
+    const mecanicosArr = Object.entries(mecanicos).sort((a, b) => b[1] - a[1]);
+
+    if (mecanicosArr.length > 0) {
+        mContainer.innerHTML = mecanicosArr.map(([mec, count]) => `
+            <div class="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 flex items-center justify-between gap-3 flex-grow lg:flex-grow-0">
+                <span class="text-slate-600 font-black">${mec}</span>
+                <span class="bg-white text-primary px-2 py-0.5 rounded font-black text-xs shadow-sm">${count}</span>
+            </div>
+        `).join('');
+    } else {
+        mContainer.innerHTML = '<span class="italic font-normal text-slate-400 text-sm">Sin asignaciones</span>';
+    }
 }
 
 // =====================================================
@@ -185,6 +231,15 @@ async function cargarItemsOrden() {
             { headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` } }
         );
         itemsOrden = await res.json();
+
+        // Hidratar precio_original para calcular descuentos visuales
+        itemsOrden.forEach(i => {
+            if (i.producto_id) {
+                const prod = productosCache.find(p => p.id === i.producto_id);
+                if (prod) i.precio_original = prod.precio_publico || 0;
+            }
+        });
+
     } catch (e) { itemsOrden = []; }
 
     if (itemsOrden.length === 0) {
@@ -215,10 +270,20 @@ function renderizarItems() {
 
     tbody.innerHTML = itemsOrden.map((item, idx) => {
         const key = item._filaId || item.id;
+
+        let htmlDescuento = '';
+        const descLower = (item.descripcion || '').toLowerCase();
+        const noAplicaDescuento = descLower.includes('mano de obra') || descLower.includes('servicio');
+
+        if (item.precio_original && parseFloat(item.precio_unitario) < parseFloat(item.precio_original) && !noAplicaDescuento) {
+            const pct = ((1 - (item.precio_unitario / item.precio_original)) * 100).toFixed(1);
+            htmlDescuento = `<p class="text-[9px] font-black text-red-500 uppercase mt-0.5">Desc: ${pct}%</p>`;
+        }
+
         return `
             <tr class="border-b border-slate-50" data-fila="${key}">
                 <td class="px-3 py-2">
-                    <input type="number" value="${item.cantidad}" min="1" step="1"
+                    <input type="number" value="${item.cantidad}" min="1" step="0.1"
                         onchange="actualizarItemCantidad('${key}', this.value)"
                         class="w-16 text-center font-bold border border-slate-200 rounded-lg py-1 focus:border-primary focus:outline-none">
                 </td>
@@ -232,8 +297,11 @@ function renderizarItems() {
                     <input type="text" value="${item.descripcion || ''}" id="desc_${key}"
                         class="input-form text-xs py-2 px-3" readonly>
                 </td>
-                <td class="px-3 py-2 text-right font-bold text-sm text-slate-600" id="sinIva_${key}">
-                    $${(item.precio_sin_iva || 0).toFixed(2)}
+                <td class="px-3 py-2 text-right">
+                    <input type="number" step="0.01" min="0" value="${item.precio_unitario || 0}"
+                        onchange="actualizarItemPrecio('${key}', this.value)"
+                        class="w-24 text-right font-bold border border-slate-200 rounded-lg py-1 px-2 focus:border-primary focus:outline-none">
+                    ${htmlDescuento}
                 </td>
                 <td class="px-3 py-2 text-right font-black text-sm text-primary" id="conIva_${key}">
                     $${(item.precio_con_iva || 0).toFixed(2)}
@@ -297,6 +365,7 @@ function seleccionarProductoItem(filaId, productoId) {
     item.producto_id = producto.id;
     item.sku = producto.sku || '';
     item.descripcion = producto.nombre;
+    item.precio_original = precioConIva;
     item.precio_unitario = precioConIva;
     item.precio_sin_iva = precioSinIva * item.cantidad;
     item.precio_con_iva = precioConIva * item.cantidad;
@@ -309,7 +378,7 @@ function actualizarItemCantidad(filaId, valor) {
     const item = itemsOrden.find(i => String(i._filaId || i.id) === String(filaId));
     if (!item) return;
 
-    item.cantidad = Math.max(1, parseInt(valor) || 1);
+    item.cantidad = Math.max(0.1, parseFloat(valor) || 1);
 
     if (item.precio_unitario) {
         const ivaPct = item.producto_id ? (() => {
@@ -321,6 +390,29 @@ function actualizarItemCantidad(filaId, valor) {
         item.precio_con_iva = item.precio_unitario * item.cantidad;
         item.precio_sin_iva = (item.precio_unitario / (1 + ivaPct)) * item.cantidad;
     }
+
+    renderizarItems();
+}
+
+function actualizarItemPrecio(filaId, valor) {
+    const item = itemsOrden.find(i => String(i._filaId || i.id) === String(filaId));
+    if (!item) return;
+
+    valor = parseFloat(valor);
+    if (isNaN(valor) || valor < 0) valor = 0;
+
+    item.precio_unitario = valor;
+
+    const ivaPct = item.producto_id ? (() => {
+        const p = productosCache.find(pr => pr.id === item.producto_id);
+        const raw = p?.aplica_impuestos !== false ? (p?.iva_porcentaje || 16) : 0;
+        return raw < 1 ? raw : raw / 100;
+    })() : 0.16;
+
+    const precioSinIva = valor / (1 + ivaPct);
+
+    item.precio_sin_iva = precioSinIva * item.cantidad;
+    item.precio_con_iva = valor * item.cantidad;
 
     renderizarItems();
 }
@@ -631,8 +723,8 @@ function descargarPDFCotizacion() {
             i.cantidad || 1,
             i.sku || '—',
             i.descripcion || '—',
-            `$${(i.precio_sin_iva || 0).toFixed(2)}`,
-            `$${(i.precio_con_iva || 0).toFixed(2)}`
+            `$${Number(i.precio_sin_iva || 0).toFixed(2)}`,
+            `$${Number(i.precio_con_iva || 0).toFixed(2)}`
         ]);
 
         doc.autoTable({
@@ -650,7 +742,7 @@ function descargarPDFCotizacion() {
 
         // Total
         const finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 5 : y + 20;
-        const total = itemsValidos.reduce((s, i) => s + (i.precio_con_iva || 0), 0);
+        const total = itemsValidos.reduce((s, i) => s + Number(i.precio_con_iva || 0), 0);
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text(`TOTAL: $${total.toFixed(2)}`, 150, finalY);

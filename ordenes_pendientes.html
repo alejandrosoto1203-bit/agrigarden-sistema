@@ -101,6 +101,62 @@
             <p class="text-slate-500 font-medium text-lg mt-1">Atender, cotizar y aceptar órdenes de reparación.</p>
         </header>
 
+        <!-- KPIs RÁPIDOS -->
+        <div id="kpisOrdenes" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+                <div>
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Máquinas</p>
+                    <p id="kpiTotalOrdenes" class="text-2xl font-black text-slate-800 mt-1">0</p>
+                </div>
+                <div class="size-10 rounded-full bg-slate-50 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-slate-400">build</span>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+                <div>
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Pendientes</p>
+                    <p id="kpiPendientes" class="text-2xl font-black text-yellow-500 mt-1">0</p>
+                </div>
+                <div class="size-10 rounded-full bg-yellow-50 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-yellow-500">pending_actions</span>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+                <div>
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cotizadas</p>
+                    <p id="kpiCotizadas" class="text-2xl font-black text-blue-500 mt-1">0</p>
+                </div>
+                <div class="size-10 rounded-full bg-blue-50 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-blue-500">request_quote</span>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+                <div>
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">En Proceso</p>
+                    <p id="kpiEnProceso" class="text-2xl font-black text-orange-500 mt-1">0</p>
+                </div>
+                <div class="size-10 rounded-full bg-orange-50 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-orange-500">engineering</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="kpisExtra" class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6">
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3">Asignaciones por
+                    Mecánico</p>
+                <div id="kpiMecanicos" class="flex flex-wrap gap-2 text-xs font-bold">
+                    <span class="italic font-normal text-slate-400 text-sm">Sin asignaciones</span>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3">Orden Más Antigua</p>
+                <div id="kpiOrdenAntigua" class="text-sm font-bold text-slate-600">
+                    <span class="italic font-normal text-slate-400">Sin órdenes</span>
+                </div>
+            </div>
+        </div>
+
         <!-- LISTA DE ÓRDENES -->
         <div id="listaOrdenes" class="space-y-4">
             <p class="text-slate-300 italic text-sm text-center py-12">Cargando...</p>
