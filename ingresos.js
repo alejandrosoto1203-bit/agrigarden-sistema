@@ -24,11 +24,39 @@ async function cargarIngresos() {
     }
 
     try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?select=*&order=created_at.desc`, {
-            method: 'GET',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' }
-        });
-        datosCacheIngresos = await response.json();
+        let allData = [];
+        let offset = 0;
+        const limit = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?select=*&order=created_at.desc`, {
+                method: 'GET',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Range-Unit': 'items',
+                    'Range': `${offset}-${offset + limit - 1}`
+                }
+            });
+
+            if (!response.ok) {
+                console.error("Error fetching paginated data", response.statusText);
+                break;
+            }
+
+            const chunk = await response.json();
+            allData = allData.concat(chunk);
+
+            if (chunk.length < limit) {
+                hasMore = false;
+            } else {
+                offset += limit;
+            }
+        }
+
+        datosCacheIngresos = allData;
         aplicarFiltrosIngresos();
     } catch (error) { console.error("Error ingresos:", error); }
 }
