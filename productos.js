@@ -499,6 +499,21 @@ function abrirDetalleProducto(id) {
             <span class="font-bold text-slate-600">Stock Total:</span>
             <span class="text-2xl font-black text-primary">${stockTotal}</span>
         </div>
+
+        <!-- Piezas en Taller -->
+        ${(p.stock_taller || 0) > 0 ? `
+        <div class="bg-amber-50 p-4 rounded-2xl border border-amber-200">
+            <div class="flex justify-between items-center cursor-pointer" onclick="toggleDetallesTaller(${p.id})">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-600">build</span>
+                    <span class="text-xs font-black uppercase text-amber-700">Piezas en Taller</span>
+                </div>
+                <span class="text-2xl font-black text-amber-600">${p.stock_taller}</span>
+            </div>
+            <p class="text-[10px] text-amber-600 mt-1">Clic para ver en qué órdenes</p>
+            <div id="detalleTaller_${p.id}" class="hidden mt-3 space-y-1"></div>
+        </div>
+        ` : ''}
         ` : `
         <div class="flex items-center gap-2 px-4 py-3 bg-purple-50 rounded-xl">
             <span class="material-symbols-outlined text-purple-500">info</span>
@@ -647,6 +662,52 @@ async function cargarMovimientosProducto(productoId) {
 function cerrarDetalleProducto() {
     document.getElementById('slideDetalleProducto').classList.remove('active');
     productoSeleccionado = null;
+}
+
+// Mostrar/ocultar en qué órdenes de reparación están las piezas de taller
+async function toggleDetallesTaller(productoId) {
+    const contenedor = document.getElementById(`detalleTaller_${productoId}`);
+    if (!contenedor) return;
+
+    if (!contenedor.classList.contains('hidden')) {
+        contenedor.classList.add('hidden');
+        return;
+    }
+
+    contenedor.innerHTML = '<p class="text-xs text-amber-500 italic">Buscando órdenes...</p>';
+    contenedor.classList.remove('hidden');
+
+    try {
+        // Buscar items de órdenes que tengan este producto y estatus EN_PROCESO
+        const res = await fetch(
+            `${window.SUPABASE_URL}/rest/v1/ordenes_reparacion_items?producto_id=eq.${productoId}&select=cantidad,orden_id,ordenes_reparacion(id,folio,estatus,mecanico)`,
+            { headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` } }
+        );
+        const items = await res.json();
+
+        // Filtrar solo las que están EN_PROCESO
+        const enTaller = items.filter(i => i.ordenes_reparacion?.estatus === 'EN_PROCESO');
+
+        if (enTaller.length === 0) {
+            contenedor.innerHTML = '<p class="text-xs text-amber-500 italic">Sin órdenes activas en taller.</p>';
+            return;
+        }
+
+        contenedor.innerHTML = enTaller.map(i => `
+            <a href="ordenes_pendientes.html?id=${i.ordenes_reparacion.id}"
+                class="flex justify-between items-center bg-white px-3 py-2 rounded-lg hover:bg-amber-100 transition-all">
+                <div>
+                    <span class="text-xs font-black text-primary">${i.ordenes_reparacion.folio}</span>
+                    <span class="text-[10px] text-slate-400 ml-2">${i.ordenes_reparacion.mecanico}</span>
+                </div>
+                <span class="text-xs font-bold text-amber-700">${i.cantidad} pzas</span>
+            </a>
+        `).join('');
+
+    } catch (e) {
+        console.error(e);
+        contenedor.innerHTML = '<p class="text-xs text-red-500">Error cargando datos</p>';
+    }
 }
 
 // =====================================================
