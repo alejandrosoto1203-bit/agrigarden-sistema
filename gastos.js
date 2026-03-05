@@ -146,6 +146,10 @@ function renderizarTablaGastos(datos) {
                 <td class="px-2 py-3 text-center text-gray-400 truncate max-w-[50px] italic" title="${principal.notas || ''}">${principal.notas?.substring(0, 8) || '-'}</td>
                 <td class="px-2 py-3 text-center">
                     <div class="flex justify-center gap-1">
+                        ${principal.categoria === 'Costo' && (principal.subcategoria || '').toUpperCase().includes('MERCANCIA') ? `
+                        <button onclick="verDetalleCompra('${principal.id}')" class="p-1 bg-gray-50 text-emerald-600 rounded hover:bg-emerald-600 hover:text-white transition-all" title="Ver Detalle de Mercancía">
+                            <span class="material-symbols-outlined text-xs">visibility</span>
+                        </button>` : ''}
                         <button onclick='abrirModalEdicion(${JSON.stringify(principal).replace(/'/g, "&apos;")})' class="p-1 bg-gray-50 text-blue-600 rounded hover:bg-blue-600 hover:text-white transition-all">
                             <span class="material-symbols-outlined text-xs">edit</span>
                         </button>
@@ -348,16 +352,57 @@ function mostrarModalGasto() {
 }
 
 // 3. LÓGICA DE REGISTRO MÚLTIPLE DE GASTOS
+let proveedoresCargados = [];
+let productosVentaCache = [];
+
+async function initGastosRegistro() {
+    // Cargar proveedores para autocompletado
+    try {
+        const resP = await fetch(`${SUPABASE_URL}/rest/v1/proveedores?select=id,nombre,rfc&order=nombre.asc`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        proveedoresCargados = await resP.json();
+    } catch (e) { console.error('Error cargando proveedores:', e); }
+
+    // Cargar productos para SKU typeahead y autocompletar descripcion/costo
+    try {
+        const resProd = await fetch(`${SUPABASE_URL}/rest/v1/productos?select=id,sku,nombre,costo_promedio&order=nombre.asc`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        productosVentaCache = await resProd.json();
+    } catch (e) { console.error('Error cargando productos:', e); }
+}
+
+// Inicializar si estamos en la vista de registro
+if (window.location.pathname.includes('registro_gastos.html')) {
+    initGastosRegistro();
+}
+
+let rowIdCounter = 0;
+
 function agregarFilaGasto() {
     const tbody = document.getElementById('filasCapturaGastos');
     if (!tbody) return;
+    rowIdCounter++;
+    const rId = `gasto-row-${rowIdCounter}`;
+
     const tr = document.createElement('tr');
-    tr.className = "capture-row group";
+    tr.className = "capture-row group align-top";
+    tr.id = rId;
+
     tr.innerHTML = `
         <td class="p-1"><input type="date" class="input-capture row-fecha" value="${new Date().toISOString().split('T')[0]}"></td>
-        <td class="p-1"><input type="text" class="input-capture row-proveedor text-center uppercase" placeholder="Proveedor"></td>
-        <td class="p-1"><select class="input-capture row-categoria text-center"><option value="Gasto">Gasto</option><option value="Costo">Costo</option><option value="Gasto Financiero">Gasto Financiero</option><option value="Gasto Contable">Gasto Contable</option><option value="Pago de Pasivo">Pago de Pasivo</option></select></td>
-        <td class="p-1"><select class="input-capture row-subcat text-center" onchange="verificarExtrasGasto(this)"><option value="Mantenimiento">Mantenimiento</option><option value="Marketing">Marketing</option><option value="Administrativos">Administrativos</option><option value="Mercancia">Mercancia</option><option value="Nomina">Nomina</option><option value="Combustible">Combustible</option><option value="Servicios">Servicios</option><option value="Taller">Taller</option><option value="Limpieza">Limpieza</option><option value="Papeleria">Papeleria</option><option value="Sistemas">Sistemas</option><option value="Renta">Renta</option><option value="Intereses">Intereses Financieros</option><option value="Abono Capital">Abono a Capital</option><option value="Comisión Tarjeta">Comisión Tarjeta</option><option value="Depreciación">Depreciación</option><option value="otros:">otros:</option></select><input type="text" class="input-capture row-subcat-extra hidden input-others text-center" placeholder="¿Cuál?"></td>
+        <td class="p-1 relative">
+            <div class="flex items-center gap-1">
+                <input type="text" class="input-capture row-proveedor uppercase flex-1 text-center" placeholder="Buscar Proveedor..." list="datalistProveedores" oninput="validarProveedorSeleccionado(this)" data-pid="">
+                <button onclick="abrirModalNuevoProveedorRapido(this)" class="p-1 bg-red-50 text-red-500 rounded hover:bg-red-100 transition-colors shrink-0" title="Alta Rápida"><span class="material-symbols-outlined text-sm">person_add</span></button>
+            </div>
+            <datalist id="datalistProveedores">
+                ${proveedoresCargados.map(p => `<option value="${p.nombre}"></option>`).join('')}
+            </datalist>
+        </td>
+        <td class="p-1"><select class="input-capture row-categoria text-center" onchange="verificarMercanciaToggle('${rId}')"><option value="Gasto">Gasto</option><option value="Costo">Costo</option><option value="Gasto Financiero">Gasto Financiero</option><option value="Gasto Contable">Gasto Contable</option><option value="Pago de Pasivo">Pago de Pasivo</option></select></td>
+        <td class="p-1"><select class="input-capture row-subcat text-center" onchange="verificarExtrasGasto(this); verificarMercanciaToggle('${rId}')"><option value="Mantenimiento">Mantenimiento</option><option value="Marketing">Marketing</option><option value="Administrativos">Administrativos</option><option value="Mercancia">Mercancia</option><option value="Nomina">Nomina</option><option value="Combustible">Combustible</option><option value="Servicios">Servicios</option><option value="Taller">Taller</option><option value="Limpieza">Limpieza</option><option value="Papeleria">Papeleria</option><option value="Sistemas">Sistemas</option><option value="Renta">Renta</option><option value="Intereses">Intereses Financieros</option><option value="Abono Capital">Abono a Capital</option><option value="Comisión Tarjeta">Comisión Tarjeta</option><option value="Depreciación">Depreciación</option><option value="otros:">otros:</option></select><input type="text" class="input-capture row-subcat-extra hidden input-others text-center" placeholder="¿Cuál?"></td>
         <td class="p-1">
             <select class="input-capture row-metodo text-center" onchange="verificarExtrasGasto(this); actualizarTotalesGastos()">
                 <option value="Efectivo">Efectivo</option>
@@ -372,14 +417,235 @@ function agregarFilaGasto() {
             <input type="number" class="input-capture row-dias-credito hidden input-credit-days text-center" placeholder="Días crédito">
             <input type="text" class="input-capture row-metodo-otro hidden mt-2 border-red-500 uppercase text-center" placeholder="Escribe método...">
         </td>
-        <td class="p-1"><input type="number" step="0.01" class="input-capture text-right row-monto font-black" placeholder="0.00" oninput="actualizarTotalesGastos()"></td>
+        <td class="p-1"><input type="number" step="0.01" class="input-capture text-right row-monto font-black focus:bg-red-50 focus:text-red-600" placeholder="0.00" oninput="actualizarTotalesGastos()"></td>
         <td class="p-1"><select class="input-capture row-sucursal text-center"><option value="Sur">Sur</option><option value="Norte">Norte</option><option value="Matriz">Matriz</option></select></td>
         <td class="p-1"><input type="text" class="input-capture row-nota uppercase" placeholder="Notas..."></td>
-        <td class="p-1 text-center"><button onclick="this.parentElement.parentElement.remove(); actualizarTotalesGastos();" class="text-gray-300 hover:text-red-500 transition-colors"><span class="material-symbols-outlined">delete</span></button></td>
+        <td class="p-1 text-center"><button onclick="eliminarFilaGasto('${rId}')" class="text-gray-300 hover:text-red-500 transition-colors pt-2"><span class="material-symbols-outlined">delete</span></button></td>
     `;
     tbody.appendChild(tr);
+
+    // Fila oculta para tabla de mercancia
+    const trItems = document.createElement('tr');
+    trItems.id = `${rId}-items-row`;
+    trItems.className = "hidden bg-blue-50/30";
+    trItems.innerHTML = `
+        <td colspan="9" class="p-4 border-b border-blue-100">
+            <div class="bg-white rounded-xl border border-blue-100 p-4 shadow-sm">
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="text-xs font-black uppercase tracking-widest text-blue-800 flex items-center gap-2"><span class="material-symbols-outlined text-sm">inventory_2</span> Detalle de Mercancía</h4>
+                    <span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">El monto total se calculará basado en estos artículos</span>
+                </div>
+                <table class="w-full text-xs text-left mb-3">
+                    <thead class="bg-blue-50/50 text-blue-600 font-bold uppercase tracking-wider text-[9px]">
+                        <tr>
+                            <th class="py-2 px-2 w-[20%]">SKU / Producto</th>
+                            <th class="py-2 px-2 w-[10%] text-center">Cantidad</th>
+                            <th class="py-2 px-2 w-[40%]">Descripción (Auto)</th>
+                            <th class="py-2 px-2 w-[12%] text-right">Costo Unit.</th>
+                            <th class="py-2 px-2 w-[13%] text-right text-blue-800">Subtotal</th>
+                            <th class="py-2 px-1 w-[5%]"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="${rId}-items-body">
+                    </tbody>
+                </table>
+                <button onclick="agregarFilaMercancia('${rId}')" class="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"><span class="material-symbols-outlined text-sm">add</span> Añadir Artículo</button>
+            </div>
+        </td>
+    `;
+    tbody.appendChild(trItems);
+
     actualizarTotalesGastos();
 }
+
+function eliminarFilaGasto(rId) {
+    document.getElementById(rId)?.remove();
+    document.getElementById(`${rId}-items-row`)?.remove();
+    actualizarTotalesGastos();
+}
+
+// ==========================================
+// PROVEEDOR AUTOCOMPLETE & ALTA RAPIDA
+// ==========================================
+function validarProveedorSeleccionado(inputNode) {
+    const val = inputNode.value.toUpperCase();
+    inputNode.value = val;
+    // Intentar buscar el ID
+    const encontrado = proveedoresCargados.find(p => (p.nombre || '').toUpperCase() === val);
+    if (encontrado) {
+        inputNode.dataset.pid = encontrado.id;
+        inputNode.classList.add('bg-green-50');
+        inputNode.classList.remove('bg-gray-50');
+    } else {
+        inputNode.dataset.pid = "";
+        inputNode.classList.remove('bg-green-50');
+        inputNode.classList.add('bg-gray-50');
+    }
+}
+
+let inputProveedorObjetivo = null;
+
+function abrirModalNuevoProveedorRapido(btnNode) {
+    // Buscar el input hermano
+    const div = btnNode.closest('div');
+    inputProveedorObjetivo = div.querySelector('.row-proveedor');
+
+    document.getElementById('formProveedorRapido').reset();
+    document.getElementById('modalFormularioProveedorRapido').classList.remove('hidden');
+    document.getElementById('modalFormularioProveedorRapido').classList.add('flex');
+}
+
+function cerrarModalNuevoProveedorRapido() {
+    document.getElementById('modalFormularioProveedorRapido').classList.add('hidden');
+    document.getElementById('modalFormularioProveedorRapido').classList.remove('flex');
+    inputProveedorObjetivo = null;
+}
+
+async function guardarProveedorRapido(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnGuardarProvRapido');
+    btn.disabled = true; btn.innerHTML = 'Guardando...';
+
+    const data = {
+        nombre: document.getElementById('formProvRapidoNombre').value.trim().toUpperCase(),
+        telefono: document.getElementById('formProvRapidoTelefono').value.trim(),
+        rfc: document.getElementById('formProvRapidoRfc').value.trim().toUpperCase(),
+        regimen_fiscal: document.getElementById('formProvRapidoRegimen').value.trim(),
+        direccion: document.getElementById('formProvRapidoDireccion').value.trim(),
+        codigo_postal: document.getElementById('formProvRapidoCP').value.trim()
+    };
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/proveedores?select=id,nombre,rfc`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error('Error al guardar proveedor');
+        const nuevoprov = await res.json();
+
+        // Agregar al cache local y al datalist
+        proveedoresCargados.push(nuevoprov[0]);
+        const dlist = document.getElementById('datalistProveedores');
+        if (dlist) dlist.innerHTML += `<option value="${nuevoprov[0].nombre}"></option>`;
+
+        // Auto-asignar en el front
+        if (inputProveedorObjetivo) {
+            inputProveedorObjetivo.value = nuevoprov[0].nombre;
+            inputProveedorObjetivo.dataset.pid = nuevoprov[0].id;
+            inputProveedorObjetivo.classList.add('bg-green-50');
+        }
+
+        cerrarModalNuevoProveedorRapido();
+        alert('Proveedor registrado exitosamente.');
+    } catch (err) {
+        console.error(err);
+        alert('Error registrando proveedor.');
+    } finally {
+        btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-sm">save</span> Guardar';
+    }
+}
+
+// ==========================================
+// TABLA DINAMICA MERCANCIA
+// ==========================================
+function verificarMercanciaToggle(rId) {
+    const tr = document.getElementById(rId);
+    const cat = tr.querySelector('.row-categoria').value;
+    const sub = tr.querySelector('.row-subcat').value;
+    const rowItems = document.getElementById(`${rId}-items-row`);
+    const inputMonto = tr.querySelector('.row-monto');
+
+    if (cat === 'Costo' && sub === 'Mercancia') {
+        rowItems.classList.remove('hidden');
+        inputMonto.readOnly = true;
+        inputMonto.classList.add('opacity-50', 'bg-gray-100', 'cursor-not-allowed');
+        // Si el body está vacío, agregar primera fila
+        const tbd = document.getElementById(`${rId}-items-body`);
+        if (tbd.children.length === 0) agregarFilaMercancia(rId);
+    } else {
+        rowItems.classList.add('hidden');
+        inputMonto.readOnly = false;
+        inputMonto.classList.remove('opacity-50', 'bg-gray-100', 'cursor-not-allowed');
+    }
+    calcularTotalMercancia(rId);
+}
+
+function agregarFilaMercancia(gastoRowId) {
+    const tbody = document.getElementById(`${gastoRowId}-items-body`);
+    const mid = `merc-${Date.now()}-${Math.floor(Math.random() * 100)}`;
+    const tr = document.createElement('tr');
+    tr.id = mid;
+    tr.className = "mercancia-item group border-b border-blue-50/50";
+
+    // Generar datalist options
+    const dlId = `dl-${mid}`;
+
+    tr.innerHTML = `
+        <td class="p-1">
+            <input type="text" list="${dlId}" class="w-full bg-white border border-gray-200 rounded px-2 py-1.5 text-xs item-sku" placeholder="SKU o Nombre" onchange="autocompletarProducto('${mid}')">
+            <datalist id="${dlId}">
+                ${productosVentaCache.map(p => `<option value="${p.sku || p.nombre}">${p.nombre}</option>`).join('')}
+            </datalist>
+        </td>
+        <td class="p-1"><input type="number" min="1" step="0.01" class="w-full bg-white border border-gray-200 rounded px-2 py-1.5 text-xs text-center item-qty" placeholder="0" value="1" oninput="calcularSubtotalMercancia('${mid}', '${gastoRowId}')"></td>
+        <td class="p-1"><input type="text" class="w-full bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-xs text-gray-600 item-desc" placeholder="Descripción extraida del SKU" readonly></td>
+        <td class="p-1"><input type="number" min="0" step="0.01" class="w-full bg-white border border-gray-200 rounded px-2 py-1.5 text-xs text-right font-bold item-costo" placeholder="0.00" oninput="calcularSubtotalMercancia('${mid}', '${gastoRowId}')"></td>
+        <td class="p-1"><input type="number" class="w-full bg-blue-50/30 border-none font-black text-right text-blue-700 px-2 py-1.5 text-xs item-subtotal" readonly value="0.00"></td>
+        <td class="p-1 text-center"><button onclick="document.getElementById('${mid}').remove(); calcularTotalMercancia('${gastoRowId}')" class="text-gray-300 hover:text-red-500"><span class="material-symbols-outlined text-sm pt-1">close</span></button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function autocompletarProducto(mid) {
+    const tr = document.getElementById(mid);
+    const inputStr = tr.querySelector('.item-sku').value;
+    // Buscar en cache ya sea por SKU exacto o por nombre (el autocompletar puede rellenar el value)
+    const prod = productosVentaCache.find(p => p.sku === inputStr || p.nombre === inputStr);
+
+    if (prod) {
+        tr.querySelector('.item-desc').value = prod.nombre || '';
+        tr.querySelector('.item-costo').value = prod.costo_promedio || 0;
+        // Guardar el SKU real aunque haya escrito el nombre
+        if (prod.sku) tr.querySelector('.item-sku').value = prod.sku;
+    } else {
+        tr.querySelector('.item-desc').value = '';
+    }
+    // Re-calcular el subtotal de esa fila 
+    // y para propagar a la tabla madre
+    // necesitamos pasarle también el gastoRowId 
+    // (buscamos su ancestro)
+    const tbody = tr.parentElement;
+    const gastoRowId = tbody.id.replace('-items-body', '');
+    calcularSubtotalMercancia(mid, gastoRowId);
+}
+
+function calcularSubtotalMercancia(mid, gastoRowId) {
+    const tr = document.getElementById(mid);
+    if (!tr) return;
+    const qty = parseFloat(tr.querySelector('.item-qty').value) || 0;
+    const cost = parseFloat(tr.querySelector('.item-costo').value) || 0;
+    tr.querySelector('.item-subtotal').value = (qty * cost).toFixed(2);
+
+    calcularTotalMercancia(gastoRowId);
+}
+
+function calcularTotalMercancia(gastoRowId) {
+    const tbody = document.getElementById(`${gastoRowId}-items-body`);
+    if (!tbody) return;
+    let suma = 0;
+    tbody.querySelectorAll('.item-subtotal').forEach(inp => {
+        suma += parseFloat(inp.value) || 0;
+    });
+
+    const inputMontoGasto = document.querySelector(`#${gastoRowId} .row-monto`);
+    if (inputMontoGasto) {
+        inputMontoGasto.value = suma.toFixed(2);
+    }
+    actualizarTotalesGastos();
+}
+
+
 
 function actualizarTotalesGastos() {
     const filas = document.querySelectorAll('#filasCapturaGastos .capture-row');
@@ -394,36 +660,149 @@ function actualizarTotalesGastos() {
 async function guardarLoteGastos() {
     const filas = document.querySelectorAll('#filasCapturaGastos .capture-row');
     const datosParaEnviar = [];
+    const mercanciaParaEnviar = []; // Tabla anidada
+
     filas.forEach(fila => {
         const monto = parseFloat(fila.querySelector('.row-monto').value) || 0;
         const metodoBase = fila.querySelector('.row-metodo').value;
-        const metodoOtro = fila.querySelector('.row-metodo-otro').value;
-        const metodoFinal = metodoBase === 'Otros' ? metodoOtro.toUpperCase() : metodoBase;
         const subcatBase = fila.querySelector('.row-subcat').value;
         const subcatExtra = fila.querySelector('.row-subcat-extra').value;
-        datosParaEnviar.push({
+        const metodoOtro = fila.querySelector('.row-metodo-otro').value;
+
+        const cat = fila.querySelector('.row-categoria').value;
+        const subcategoria = subcatBase === 'otros:' ? subcatExtra.toUpperCase() : subcatBase;
+        const sucursalSel = fila.querySelector('.row-sucursal').value;
+        const proveedorInput = fila.querySelector('.row-proveedor');
+
+        // Extraer temporalmente un ID interno único si es mercancia para luego enlazar foreign key
+        const internalId = `gasto_${Date.now()}_${Math.random()}`;
+
+        const gastoNuevo = {
+            id_referencia_temp: internalId, // Atributo inventado para cruzar localmente si aplica
             created_at: fila.querySelector('.row-fecha').value + 'T12:00:00',
-            proveedor: fila.querySelector('.row-proveedor').value.toUpperCase(),
-            categoria: fila.querySelector('.row-categoria').value,
-            subcategoria: subcatBase === 'otros:' ? subcatExtra.toUpperCase() : subcatBase,
-            metodo_pago: metodoFinal,
+            proveedor: proveedorInput.value.toUpperCase(),
+            proveedor_id: proveedorInput.dataset.pid ? parseInt(proveedorInput.dataset.pid) : null,
+            categoria: cat,
+            subcategoria: subcategoria,
+            metodo_pago: metodoBase === 'Otros' ? metodoOtro.toUpperCase() : metodoBase,
             monto_total: monto,
-            sucursal: fila.querySelector('.row-sucursal').value,
+            sucursal: sucursalSel,
             notas: fila.querySelector('.row-nota').value.toUpperCase(),
             dias_credito: metodoBase === 'Crédito' ? parseInt(fila.querySelector('.row-dias-credito').value) || 0 : null,
             estado_pago: metodoBase === 'Crédito' ? 'Pendiente' : 'Pagado',
             saldo_pendiente: metodoBase === 'Crédito' ? monto : 0
-        });
+        };
+
+        datosParaEnviar.push(gastoNuevo);
+
+        // Si es mercancia, recopilar items
+        if (cat === 'Costo' && subcategoria === 'Mercancia') {
+            const tbodyItems = document.getElementById(`${fila.id}-items-body`);
+            if (tbodyItems) {
+                tbodyItems.querySelectorAll('.mercancia-item').forEach(trItem => {
+                    const sku = trItem.querySelector('.item-sku').value;
+                    const qty = parseFloat(trItem.querySelector('.item-qty').value) || 0;
+                    const costoUnit = parseFloat(trItem.querySelector('.item-costo').value) || 0;
+                    if (sku && qty > 0) {
+                        mercanciaParaEnviar.push({
+                            gasto_ref: internalId,
+                            sku: sku,
+                            cantidad: qty,
+                            costo_unitario: costoUnit,
+                            total: qty * costoUnit,
+                            sucursal_destino: sucursalSel
+                        });
+                    }
+                });
+            }
+        }
     });
+
     if (datosParaEnviar.length === 0) return alert("Agrega al menos un gasto para guardar.");
+
+    // Validar mercancias huerfanas (Costos sin articulos declarados)
+    const costosMercancia = datosParaEnviar.filter(g => g.categoria === 'Costo' && g.subcategoria === 'Mercancia');
+    if (costosMercancia.length > 0 && mercanciaParaEnviar.length === 0) {
+        return alert("Has especificado gastos de Mercancía, pero no has añadido ningún artículo. Por favor, especifica el SKU y cantidad en el detalle o cambia la subcategoría.");
+    }
+
     try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/gastos`, {
+        const btn = document.querySelector('button[onclick="guardarLoteGastos()"]');
+        if (btn) { btn.disabled = true; btn.innerHTML = 'Guardando...'; }
+
+        // Mapear gastos reales despues de insert
+        // Para poder hacer los inserts correspondientes a compras_items, tenemos que guardar 1 a 1 los gastos que llevan mercancia,
+        // o guardar todos los gastos, que nos devuelvan el ID (requires `Prefer: return=representation`), y luego insertar la mercancía.
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/gastos?select=id,categoria,subcategoria`, {
             method: 'POST',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify(datosParaEnviar)
+            // OJO: no se usan campos inventados, asi que lo borro temporalmente. Modificar map:
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify(datosParaEnviar.map(g => { const raw = { ...g }; delete raw.id_referencia_temp; return raw; }))
         });
-        if (response.ok) { alert("¡Gastos guardados correctamente!"); window.location.href = "gastos.html"; }
-    } catch (error) { console.error("Error:", error); }
+
+        if (!res.ok) throw new Error("Fallo la creación de gastos.");
+        const gastosDB = await res.json();
+
+        // Match them back. Assumption: The array comes back in exactly the same order based on the POST array. 
+        // We will insert items now
+        const itemsInsert = [];
+        gastosDB.forEach((gDB, i) => {
+            const gLocal = datosParaEnviar[i];
+            const items = mercanciaParaEnviar.filter(itm => itm.gasto_ref === gLocal.id_referencia_temp);
+            items.forEach(itm => {
+                itemsInsert.push({
+                    gasto_id: gDB.id, // el uuid db
+                    sku: itm.sku,
+                    cantidad: itm.cantidad,
+                    costo_unitario: itm.costo_unitario,
+                    total: itm.total,
+                    sucursal_destino: itm.sucursal_destino
+                });
+            });
+        });
+
+        // Push items a compras_items en un batch
+        if (itemsInsert.length > 0) {
+            const resItems = await fetch(`${SUPABASE_URL}/rest/v1/compras_items`, {
+                method: 'POST',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify(itemsInsert)
+            });
+            if (!resItems.ok) throw new Error("Error creando items de mercancía.");
+
+            // Logica de actualizacion de STOCK en base a items comprados (llamada tipo batch a rpc o iterada)
+            // Ya que compras_items tiene trigger? No, dijimos "Implementar lógica para sumar inventario en destino".
+            // Para simplificar, llamo a supabase para que por cada sku le sume a stock_sucursal_X.
+            for (const itm of itemsInsert) {
+                const stockCol = itm.sucursal_destino === 'Norte' ? 'stock_norte' : (itm.sucursal_destino === 'Sur' ? 'stock_sur' : 'stock_matriz');
+                // Supabase doesn't easily allow + math in pure REST without RPC, but since user didn't mention an RPC we created,
+                // First Fetch the product `id` and current stock
+                const prRes = await fetch(`${SUPABASE_URL}/rest/v1/productos?sku=eq.${itm.sku}&select=id,${stockCol}`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                const prList = await prRes.json();
+                if (prList && prList.length > 0) {
+                    const currentStock = prList[0][stockCol] || 0;
+                    const bdy = {};
+                    bdy[stockCol] = currentStock + itm.cantidad;
+                    // Promediar costo (Opción simplificada o no)
+
+                    await fetch(`${SUPABASE_URL}/rest/v1/productos?id=eq.${prList[0].id}`, {
+                        method: 'PATCH',
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(bdy)
+                    });
+                }
+            }
+        }
+
+        alert("¡Gastos guardados correctamente!");
+        window.location.href = "gastos.html";
+
+    } catch (error) {
+        console.error("Error al guardar lote:", error);
+        alert("Ocurrió un error general guardando. Verifica conexión. " + error.message);
+    }
 }
 
 function abrirModalEdicion(gasto) {
@@ -486,11 +865,101 @@ async function eliminarGasto(id, notas) {
         }
     }
 
-    if (!confirm("¿Deseas eliminar este gasto individual?")) return;
+    if (!confirm("¿Deseas eliminar este registro de gasto? Si contiene mercancía, se restará del inventario de su sucursal.")) return;
     try {
+        // Verificar si existen compras_items vinculados a este gasto
+        const resItems = await fetch(`${SUPABASE_URL}/rest/v1/compras_items?gasto_id=eq.${id}&select=*`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const items = await resItems.json();
+
+        if (items && items.length > 0) {
+            // Revertir el inventario 
+            for (const itm of items) {
+                const stockCol = itm.sucursal_destino === 'Norte' ? 'stock_norte' : (itm.sucursal_destino === 'Sur' ? 'stock_sur' : 'stock_matriz');
+
+                const prRes = await fetch(`${SUPABASE_URL}/rest/v1/productos?sku=eq.${itm.sku}&select=id,${stockCol}`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                const prList = await prRes.json();
+
+                if (prList && prList.length > 0) {
+                    const currentStock = prList[0][stockCol] || 0;
+                    const bdy = {};
+                    bdy[stockCol] = Math.max(0, currentStock - itm.cantidad); // Restar
+
+                    await fetch(`${SUPABASE_URL}/rest/v1/productos?id=eq.${prList[0].id}`, {
+                        method: 'PATCH',
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(bdy)
+                    });
+                }
+            }
+        }
+
+        // Eliminar el Gasto principal (la mercancía conectada por llave foránea cascade debería eliminarse,
+        // pero de cualquier manera supabase la elimina en cascada si está configurado así, sino borrarla también)
+        if (items && items.length > 0) {
+            await fetch(`${SUPABASE_URL}/rest/v1/compras_items?gasto_id=eq.${id}`, {
+                method: 'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+            });
+        }
+
         const res = await fetch(`${SUPABASE_URL}/rest/v1/gastos?id=eq.${id}`, {
             method: 'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
+
         if (res.ok) cargarGastos();
     } catch (e) { console.error(e); }
+}
+
+async function verDetalleCompra(gasto_id) {
+    const modal = document.getElementById('modalDetalleCompra');
+    const tbody = document.getElementById('tbodyDetalleCompra');
+    if (!modal || !tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">Cargando detalles...</td></tr>';
+    modal.classList.remove('hidden');
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/compras_items?gasto_id=eq.${gasto_id}&select=*,productos(nombre)`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const items = await res.json();
+
+        if (!items || items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs italic">No hay artículos registrados para esta compra.</td></tr>';
+            return;
+        }
+
+        let total = 0;
+        tbody.innerHTML = items.map(itm => {
+            total += (itm.total || 0);
+            return `
+                <tr class="border-b border-gray-50">
+                    <td class="px-2 py-2 text-xs font-bold text-gray-700">${itm.sku} - ${itm.productos?.nombre || ''}</td>
+                    <td class="px-2 py-2 text-xs text-center">${itm.cantidad}</td>
+                    <td class="px-2 py-2 text-xs text-right font-medium">${formatMoney(itm.costo_unitario)}</td>
+                    <td class="px-2 py-2 text-xs text-right font-black text-emerald-600">${formatMoney(itm.total)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // Fila de total
+        tbody.innerHTML += `
+            <tr class="bg-gray-50/50">
+                <td colspan="3" class="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-gray-500">Total Importe Artículos:</td>
+                <td class="px-2 py-3 text-right text-sm font-black text-red-500">${formatMoney(total)}</td>
+            </tr>
+        `;
+
+    } catch (e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-red-400 text-xs">Error cargando información.</td></tr>';
+    }
+}
+
+function cerrarModalDetalleCompra() {
+    const modal = document.getElementById('modalDetalleCompra');
+    if (modal) modal.classList.add('hidden');
 }

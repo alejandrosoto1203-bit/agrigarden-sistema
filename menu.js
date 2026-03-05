@@ -36,6 +36,7 @@ function inyectarMenu(paginaActiva) {
             ]
         },
         { id: 'clientes', nombre: 'Clientes', icon: 'people', link: 'clientes.html' },
+        { id: 'proveedores', nombre: 'Proveedores', icon: 'storefront', link: 'proveedores.html' },
         {
             id: 'taller',
             nombre: 'Taller',

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Proveedores - Agrigarden CRM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "var(--theme-color)", background: "#f8fafc" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .slide-over {
+            position: fixed;
+            right: -100%;
+            top: 0;
+            width: 100%;
+            max-width: 480px;
+            height: 100%;
+            background: white;
+            transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+            box-shadow: -15px 0 50px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slide-over.active {
+            right: 0;
+        }
+
+        .input-filter {
+            border: none;
+            border-radius: 0.75rem;
+            background: #f3f4f6;
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#1e293b] flex">
+    <div id="sidebar-container"></div>
+
+    <main class="pt-20 lg:pt-0 flex-1 p-4 lg:p-10 space-y-8 min-w-0">
+        <!-- HEADER -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
+            <div>
+                <nav class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">CRM › Proveedores</nav>
+                <h1 class="text-3xl lg:text-4xl font-extrabold tracking-tight italic uppercase">Proveedores</h1>
+                <p class="text-slate-500 font-medium text-sm mt-1">Directorio de proveedores y registro de compras</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="abrirModalNuevoProveedor()"
+                    class="bg-primary text-white border border-primary px-5 py-3 rounded-2xl font-bold flex items-center gap-2 text-sm hover:opacity-90 transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-lg">add</span> Nuevo Proveedor
+                </button>
+            </div>
+        </header>
+
+        <!-- KPIs -->
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Total Proveedores</p>
+                <p id="kpiTotal" class="text-3xl font-black text-slate-800 mt-1">0</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Compras Registradas</p>
+                <p id="kpiComprasTotal" class="text-3xl font-black text-primary mt-1">0</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Gasto Histórico</p>
+                <p id="kpiGastoTotal" class="text-3xl font-black text-slate-800 mt-1">$0</p>
+            </div>
+        </div>
+
+        <!-- FILTROS -->
+        <div
+            class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 items-stretch lg:items-center">
+            <div class="flex-1 relative">
+                <span class="material-symbols-outlined absolute left-4 top-3 text-slate-300">search</span>
+                <input type="text" id="busquedaProveedor" oninput="filtrarProveedores()"
+                    placeholder="Buscar por nombre, RFC o teléfono..."
+                    class="w-full pl-12 pr-5 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary text-sm font-bold text-slate-700">
+            </div>
+            <select id="filtroOrden" onchange="filtrarProveedores()" class="input-filter lg:w-48">
+                <option value="nombre_asc">Ordenar: A-Z</option>
+                <option value="nombre_desc">Ordenar: Z-A</option>
+                <option value="mayor_gasto">Mayor Gasto Histórico</option>
+                <option value="mas_compras">Mayor Vol. Compras</option>
+            </select>
+        </div>
+
+        <!-- TABLA PROVEEDORES -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50/80 border-b border-slate-100 sticky top-0 z-10">
+                        <tr class="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                            <th class="px-5 py-4 text-left">Proveedor</th>
+                            <th class="px-5 py-4 text-left">RFC / Régimen</th>
+                            <th class="px-5 py-4 text-center">Teléfono</th>
+                            <th class="px-5 py-4 text-center"># Compras</th>
+                            <th class="px-5 py-4 text-right">Gasto Histórico</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaProveedores">
+                        <tr>
+                            <td colspan="5" class="py-16 text-center text-slate-300 italic font-bold">Cargando
+                                proveedores...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="emptyStateProveedores" class="hidden py-16 text-center">
+                <span class="material-symbols-outlined text-6xl text-slate-200">storefront</span>
+                <p class="text-slate-400 font-bold mt-4">No hay proveedores registrados</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- SLIDE-OVER DETALLE PROVEEDOR -->
+    <div id="slideDetalleProveedor" class="slide-over z-[100]">
+        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h2 class="text-xl font-black uppercase italic text-slate-900">Perfil del Proveedor</h2>
+            <button onclick="cerrarDetalleProveedor()"
+                class="size-10 rounded-full hover:bg-slate-100 flex items-center justify-center">
+                <span class="material-symbols-outlined text-slate-400">close</span>
+            </button>
+        </div>
+        <div id="contenidoDetalleProveedor" class="flex-1 overflow-y-auto p-6 space-y-5"></div>
+    </div>
+    <div id="overlayProveedor" class="hidden fixed inset-0 bg-black/20 z-[99]" onclick="cerrarDetalleProveedor()"></div>
+
+    <!-- MODAL NUEVO PROVEEDOR -->
+    <div class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-[110] backdrop-blur-sm"
+        id="modalFormularioProveedor">
+        <div class="bg-white p-6 rounded-3xl w-full max-w-lg shadow-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-black italic tracking-tight uppercase" id="modalProveedorTitulo">Nuevo
+                    Proveedor</h3>
+                <button onclick="cerrarModalNuevoProveedor()"
+                    class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-red-500">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form id="formProveedor" onsubmit="guardarProveedor(event)" class="space-y-4">
+                <input type="hidden" id="formProveedorId">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Nombre
+                            Comercial *</label>
+                        <input type="text" id="formProveedorNombre" required
+                            class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-primary">
+                    </div>
+
+                    <div>
+                        <label
+                            class="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Teléfono
+                            *</label>
+                        <input type="tel" id="formProveedorTelefono" required
+                            class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-primary">
+                    </div>
+
+                    <div>
+                        <label
+                            class="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">RFC</label>
+                        <input type="text" id="formProveedorRfc"
+                            class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-primary uppercase">
+                    </div>
+
+                    <div class="col-span-1 md:col-span-2">
+                        <label
+                            class="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Régimen
+                            Fiscal</label>
+                        <input type="text" id="formProveedorRegimen" placeholder="Ej. Régimen Simplificado de Confianza"
+                            class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-primary">
+                    </div>
+
+                    <div class="col-span-1 md:col-span-2">
+                        <label
+                            class="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Dirección</label>
+                        <input type="text" id="formProveedorDireccion"
+                            class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-primary">
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Código
+                            Postal</label>
+                        <input type="text" id="formProveedorCP"
+                            class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-primary">
+                    </div>
+                </div>
+
+                <div class="pt-4 mt-2 border-t border-slate-100 flex justify-end gap-3">
+                    <button type="button" onclick="cerrarModalNuevoProveedor()"
+                        class="px-5 py-3 rounded-2xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 text-sm transition-colors">Cancelar</button>
+                    <button type="submit"
+                        class="px-5 py-3 rounded-2xl bg-primary text-white font-bold hover:opacity-90 flex items-center gap-2 text-sm shadow-sm transition-all"
+                        id="btnGuardarProveedor">
+                        <span class="material-symbols-outlined text-sm">save</span> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="auth.js"></script>
+    <script src="menu.js"></script>
+    <script src="proveedores.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof inyectarMenu === 'function') inyectarMenu('proveedores');
+            if (typeof cargarProveedores === 'function') cargarProveedores();
+        });
+    </script>
+</body>
+
+</html>
