@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Órdenes Pendientes - Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: "var(--theme-color)", background: "#f8fafc" },
+                    fontFamily: { sans: ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .input-form {
+            background: #f1f5f9;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 1rem;
+            padding: 0.8rem 1rem;
+            font-weight: 600;
+            width: 100%;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            color: #1f2937;
+        }
+
+        .input-form:focus {
+            background: #ffffff;
+            border-color: #19e66b;
+            outline: none;
+        }
+
+        .label-form {
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: #6b7280;
+            margin-left: 0.5rem;
+            margin-bottom: 0.3rem;
+            display: block;
+        }
+
+        .estatus-badge {
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 50;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .autocomplete-item {
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .autocomplete-item:hover {
+            background: #f0fdf4;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-[#1e293b] flex">
+    <div id="sidebar-container"></div>
+
+    <main class="pt-20 lg:pt-0 flex-1 p-4 lg:p-10 space-y-8 min-w-0">
+        <!-- HEADER -->
+        <header>
+            <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 italic uppercase">Órdenes Pendientes</h1>
+            <p class="text-slate-500 font-medium text-lg mt-1">Atender, cotizar y aceptar órdenes de reparación.</p>
+        </header>
+
+        <!-- LISTA DE ÓRDENES -->
+        <div id="listaOrdenes" class="space-y-4">
+            <p class="text-slate-300 italic text-sm text-center py-12">Cargando...</p>
+        </div>
+
+        <!-- DETALLE DE ORDEN (oculto hasta que se selecciona) -->
+        <div id="detalleOrden" class="hidden space-y-6">
+            <button onclick="volverALista()"
+                class="text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-all">
+                <span class="material-symbols-outlined text-sm">arrow_back</span> Volver a la lista
+            </button>
+
+            <!-- Info resumida -->
+            <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                <div class="flex flex-col lg:flex-row justify-between items-start gap-4">
+                    <div>
+                        <p class="text-xs font-black uppercase text-slate-400 tracking-widest mb-2">Orden de Reparación
+                        </p>
+                        <h2 class="text-3xl font-black text-primary" id="detFolio"></h2>
+                        <p class="text-sm text-slate-500 mt-1"><span class="font-bold" id="detCliente"></span> — <span
+                                id="detTelefono"></span></p>
+                        <p class="text-xs text-slate-400 mt-1"><span id="detEquipo"></span> | <span
+                                id="detMecanico"></span></p>
+                    </div>
+                    <div class="text-right">
+                        <span id="detEstatus" class="estatus-badge"></span>
+                        <p class="text-xs text-slate-400 mt-2" id="detFecha"></p>
+                    </div>
+                </div>
+                <div class="mt-4 bg-slate-50 rounded-xl p-4">
+                    <p class="text-[10px] font-black uppercase text-slate-400 mb-1">Observaciones</p>
+                    <p class="text-sm text-slate-600" id="detObservaciones"></p>
+                </div>
+            </div>
+
+            <!-- Tabla de piezas -->
+            <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+                <div class="flex justify-between items-center">
+                    <p class="text-xs font-black uppercase text-slate-400 tracking-widest">Piezas / Refacciones</p>
+                    <button onclick="agregarFila()"
+                        class="px-4 py-2 bg-primary text-black rounded-xl text-xs font-black uppercase flex items-center gap-1 hover:scale-[1.02] transition-all">
+                        <span class="material-symbols-outlined text-sm">add</span> Agregar Renglón
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm" id="tablaItems">
+                        <thead class="bg-slate-50/80 border-b border-slate-100">
+                            <tr class="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                <th class="px-3 py-3 text-center w-16">Cant.</th>
+                                <th class="px-3 py-3 text-left w-36">Código (SKU)</th>
+                                <th class="px-3 py-3 text-left">Descripción</th>
+                                <th class="px-3 py-3 text-right w-28">Precio s/IVA</th>
+                                <th class="px-3 py-3 text-right w-28">Precio c/IVA</th>
+                                <th class="px-3 py-3 w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="bodyItems"></tbody>
+                        <tfoot>
+                            <tr class="border-t-2 border-slate-200">
+                                <td colspan="4"
+                                    class="px-3 py-4 text-right font-black text-sm uppercase text-slate-500">Total</td>
+                                <td class="px-3 py-4 text-right font-black text-xl text-primary" id="totalGeneral">$0.00
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Notas de revisión -->
+            <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                <label class="label-form">Notas de Revisión</label>
+                <textarea id="inputNotasRevision" class="input-form" rows="3"
+                    placeholder="Diagnóstico, observaciones técnicas..."></textarea>
+            </div>
+
+            <!-- Acciones -->
+            <div class="flex flex-col lg:flex-row gap-4">
+                <button onclick="descargarPDFCotizacion()"
+                    class="flex-1 bg-slate-100 text-slate-700 py-4 rounded-2xl font-black uppercase text-sm flex items-center justify-center gap-2 hover:bg-slate-200 transition-all">
+                    <span class="material-symbols-outlined">picture_as_pdf</span> Descargar PDF Cotización
+                </button>
+                <button onclick="guardarCotizacion()" id="btnGuardarCotizacion"
+                    class="flex-1 bg-blue-500 text-white py-4 rounded-2xl font-black uppercase text-sm flex items-center justify-center gap-2 hover:bg-blue-600 transition-all shadow-xl shadow-blue-500/20">
+                    <span class="material-symbols-outlined">save</span> Guardar Cotización
+                </button>
+                <button onclick="aceptadaPorCliente()" id="btnAceptada"
+                    class="flex-1 bg-primary text-black py-4 rounded-2xl font-black uppercase text-sm flex items-center justify-center gap-2 hover:scale-[1.01] transition-all shadow-xl shadow-primary/20">
+                    <span class="material-symbols-outlined">check_circle</span> Aceptada por Cliente
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script src="api.js?v=3"></script>
+    <script src="auth.js"></script>
+    <script src="menu.js?v=4"></script>
+    <script src="ordenes_pendientes.js?v=1"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            inyectarMenu('ordenes_pendientes');
+            inicializarPendientes();
+        });
+    </script>
+</body>
+
+</html>
