@@ -631,10 +631,9 @@ async function confirmarVenta() {
 
     try {
         // 1. Crear transacción en tabla transacciones (para que aparezca en Ingresos)
-        const transaccionId = crypto.randomUUID();
         const esVentaRep = !!ventaDesdeReparacion;
         const transaccionData = {
-            id: transaccionId,
+            // El ID lo genera Supabase de forma incremental (BIGINT)
             created_at: new Date().toISOString(),
             monto: total,
             comision_bancaria: 0,
@@ -658,7 +657,7 @@ async function confirmarVenta() {
                 'apikey': window.SUPABASE_KEY,
                 'Authorization': `Bearer ${window.SUPABASE_KEY}`,
                 'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
+                'Prefer': 'return=representation'
             },
             body: JSON.stringify(transaccionData)
         });
@@ -667,9 +666,12 @@ async function confirmarVenta() {
             throw new Error('Error creando transacción');
         }
 
+        const transaccionesG = await resTransaccion.json();
+        const bdTransaccionId = transaccionesG[0].id;
+
         // 2. Crear items de venta
         const ventaItems = carrito.map(item => ({
-            transaccion_id: transaccionId,
+            transaccion_id: bdTransaccionId,
             sesion_caja_id: sesionCajaActual.id,
             producto_id: item.producto_id,
             producto_nombre: item.producto_nombre,
@@ -741,7 +743,7 @@ async function confirmarVenta() {
                     stock_nuevo: stockNuevo,
                     referencia: esVentaReparacion
                         ? `Venta Reparación ${ventaDesdeReparacion.folio}`
-                        : `Venta POS - ${transaccionId.slice(0, 8)}`
+                        : `Venta POS - TXN${bdTransaccionId}`
                 })
             });
 
