@@ -729,7 +729,7 @@ function descargarPDFCotizacion() {
 
         doc.autoTable({
             startY: y + 2,
-            head: [['Cant.', 'SKU', 'Descripción', 'Precio s/IVA', 'Precio c/IVA']],
+            head: [['Cant.', 'SKU', 'Descripción', 'Precio Unit.', 'Importe']],
             body: tableData,
             styles: { fontSize: 9 },
             headStyles: { fillColor: [25, 230, 107], textColor: 0, fontStyle: 'bold' },
