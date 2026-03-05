@@ -6,3 +6,10 @@ ALTER TABLE transacciones ADD COLUMN IF NOT EXISTS orden_reparacion_id BIGINT RE
 
 -- Índice para búsqueda rápida
 CREATE INDEX IF NOT EXISTS idx_transacciones_orden_reparacion ON transacciones(orden_reparacion_id) WHERE orden_reparacion_id IS NOT NULL;
+
+-- Actualizar el constraint de estatus para agregar 'COBRADA / ENTREGADA'
+ALTER TABLE ordenes_reparacion DROP CONSTRAINT IF EXISTS ordenes_reparacion_estatus_check;
+ALTER TABLE ordenes_reparacion ADD CONSTRAINT ordenes_reparacion_estatus_check 
+  CHECK (estatus IN ('PENDIENTE', 'COTIZACION_ENVIADA', 'EN_PROCESO', 'TERMINADA', 'ENTREGADA', 'COBRADA / ENTREGADA'));
+
+-- FIN DEL SCRIPT

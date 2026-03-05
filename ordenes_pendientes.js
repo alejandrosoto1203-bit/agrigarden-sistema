@@ -774,8 +774,8 @@ async function eliminarOrdenDesdeModulo(ordenId, folio, estatus) {
     try {
         const usuario = sessionStorage.getItem('userName') || 'Admin';
 
-        // Si ENTREGADA: eliminar transacción vinculada
-        if (estatus === 'ENTREGADA') {
+        // Si COBRADA / ENTREGADA: eliminar transacción vinculada
+        if (estatus === 'COBRADA / ENTREGADA') {
             const resTx = await fetch(
                 `${window.SUPABASE_URL}/rest/v1/transacciones?orden_reparacion_id=eq.${ordenId}&select=id`,
                 { headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` } }

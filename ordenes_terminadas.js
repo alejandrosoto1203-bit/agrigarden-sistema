@@ -28,7 +28,7 @@ async function cargarOrdenesTerminadas() {
     if (filtro) {
         query = `estatus=eq.${filtro}`;
     } else {
-        query = 'estatus=in.(TERMINADA,ENTREGADA)';
+        query = 'estatus=in.(TERMINADA,COBRADA / ENTREGADA)';
     }
 
     try {
@@ -56,9 +56,9 @@ function renderizarListaTerminadas() {
         const estilos = {
             'EN_PROCESO': 'bg-orange-100 text-orange-700',
             'TERMINADA': 'bg-green-100 text-green-700',
-            'ENTREGADA': 'bg-slate-100 text-slate-500'
+            'COBRADA / ENTREGADA': 'bg-slate-100 text-slate-500'
         };
-        const labels = { 'EN_PROCESO': 'En Proceso', 'TERMINADA': 'Terminada', 'ENTREGADA': 'Entregada' };
+        const labels = { 'EN_PROCESO': 'En Proceso', 'TERMINADA': 'Terminada', 'COBRADA / ENTREGADA': 'Cobrada / Entregada' };
 
         let accionBtn = '';
         if (o.estatus === 'TERMINADA') {
@@ -153,8 +153,8 @@ async function abrirDetalleTerminada(id) {
     document.getElementById('detTFechas').textContent = fechasStr;
 
     // Estatus
-    const estilos = { 'EN_PROCESO': 'bg-orange-100 text-orange-700', 'TERMINADA': 'bg-green-100 text-green-700', 'ENTREGADA': 'bg-slate-100 text-slate-500' };
-    const labels = { 'EN_PROCESO': 'En Proceso', 'TERMINADA': 'Terminada', 'ENTREGADA': 'Entregada' };
+    const estilos = { 'EN_PROCESO': 'bg-orange-100 text-orange-700', 'TERMINADA': 'bg-green-100 text-green-700', 'COBRADA / ENTREGADA': 'bg-slate-100 text-slate-500' };
+    const labels = { 'EN_PROCESO': 'En Proceso', 'TERMINADA': 'Terminada', 'COBRADA / ENTREGADA': 'Cobrada / Entregada' };
     const det = document.getElementById('detTEstatus');
     det.className = `estatus-badge ${estilos[ordenTerminadaActual.estatus] || ''}`;
     det.textContent = labels[ordenTerminadaActual.estatus] || ordenTerminadaActual.estatus;
@@ -198,14 +198,14 @@ async function abrirDetalleTerminada(id) {
                 <span class="material-symbols-outlined">point_of_sale</span> Cobrar Venta
             </button>
         `;
-    } else if (ordenTerminadaActual.estatus === 'ENTREGADA') {
+    } else if (ordenTerminadaActual.estatus === 'COBRADA / ENTREGADA') {
         acciones.innerHTML = `
             <button onclick="descargarPDFFinal()"
                 class="flex-1 bg-slate-100 text-slate-700 py-4 rounded-2xl font-black uppercase text-sm flex items-center justify-center gap-2 hover:bg-slate-200">
                 <span class="material-symbols-outlined">picture_as_pdf</span> Descargar PDF
             </button>
             <div class="flex-1 bg-green-50 text-green-700 py-4 rounded-2xl font-black uppercase text-sm flex items-center justify-center gap-2">
-                <span class="material-symbols-outlined">check_circle</span> Entregada — ${new Date(ordenTerminadaActual.fecha_entrega).toLocaleDateString('es-MX')}
+                <span class="material-symbols-outlined">check_circle</span> Cobrada / Entregada — ${new Date(ordenTerminadaActual.fecha_entrega).toLocaleDateString('es-MX')}
             </div>
         `;
     }

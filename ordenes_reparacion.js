@@ -92,14 +92,14 @@ function badgeEstatus(estatus) {
         'COTIZACION_ENVIADA': 'bg-blue-100 text-blue-700',
         'EN_PROCESO': 'bg-orange-100 text-orange-700',
         'TERMINADA': 'bg-green-100 text-green-700',
-        'ENTREGADA': 'bg-slate-100 text-slate-500'
+        'COBRADA / ENTREGADA': 'bg-slate-100 text-slate-500'
     };
     const labels = {
         'PENDIENTE': 'Pendiente',
         'COTIZACION_ENVIADA': 'Cotización',
         'EN_PROCESO': 'En Proceso',
         'TERMINADA': 'Terminada',
-        'ENTREGADA': 'Entregada'
+        'COBRADA / ENTREGADA': 'Cobrada / Entregada'
     };
     return `<span class="estatus-badge ${estilos[estatus] || 'bg-slate-100 text-slate-500'}">${labels[estatus] || estatus}</span>`;
 }
@@ -427,8 +427,8 @@ async function guardarOrden() {
 // ELIMINAR ORDEN (SOLO ADMIN)
 // =====================================================
 async function eliminarOrdenReparacion(ordenId, folio, estatus) {
-    const msg = estatus === 'ENTREGADA'
-        ? `¿Eliminar la orden ${folio}? \n\nEsta orden ya fue ENTREGADA. Se eliminará también el ingreso registrado en Ingresos.`
+    const msg = estatus === 'COBRADA / ENTREGADA'
+        ? `¿Eliminar la orden ${folio}? \n\nEsta orden ya fue COBRADA / ENTREGADA. Se eliminará también el ingreso registrado en Ingresos.`
         : `¿Eliminar la orden ${folio} permanentemente?\n\nTodas las piezas asociadas se revertirán.`;
 
     if (!confirm(msg)) return;
@@ -438,7 +438,7 @@ async function eliminarOrdenReparacion(ordenId, folio, estatus) {
         const usuario = sessionStorage.getItem('userName') || 'Admin';
 
         // 1. Si ENTREGADA: eliminar transacción/ingreso vinculado
-        if (estatus === 'ENTREGADA') {
+        if (estatus === 'COBRADA / ENTREGADA') {
             // Buscar transacción por orden_reparacion_id
             const resTx = await fetch(
                 `${window.SUPABASE_URL}/rest/v1/transacciones?orden_reparacion_id=eq.${ordenId}&select=id`,

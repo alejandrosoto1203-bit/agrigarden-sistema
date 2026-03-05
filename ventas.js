@@ -630,6 +630,31 @@ async function confirmarVenta() {
     btn.innerHTML = '<span class="animate-spin material-symbols-outlined">sync</span> Procesando...';
 
     try {
+        // 0. Obtener el último número de transacción (TXN#)
+        let proximoTxnNum = 1;
+        try {
+            const resUltimoTxn = await fetch(
+                `${window.SUPABASE_URL}/rest/v1/transacciones?categoria=like.*TXN*&select=categoria&order=created_at.desc&limit=1`,
+                {
+                    headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+                }
+            );
+            if (resUltimoTxn.ok) {
+                const dataTxn = await resUltimoTxn.json();
+                if (dataTxn && dataTxn.length > 0 && dataTxn[0].categoria) {
+                    // Extraer los números de la cadena (ej. "#TXN-9484" o "##9484")
+                    const matchNumeric = dataTxn[0].categoria.match(/\d+/);
+                    if (matchNumeric && matchNumeric[0]) {
+                        proximoTxnNum = parseInt(matchNumeric[0], 10) + 1;
+                    }
+                }
+            }
+        } catch (errorTxn) {
+            console.warn("No se pudo obtener el último TXN, iniciando en 1", errorTxn);
+        }
+
+        const folioTxn = `#TXN-${proximoTxnNum}`;
+
         // 1. Crear transacción en tabla transacciones (para que aparezca en Ingresos)
         const esVentaRep = !!ventaDesdeReparacion;
         const transaccionData = {
@@ -638,7 +663,7 @@ async function confirmarVenta() {
             monto: total,
             comision_bancaria: 0,
             monto_neto: total,
-            categoria: 'VENTA POS',
+            categoria: folioTxn,   // <-- Usando el contador TXN# dinámico
             tipo: 'Venta Directa',
             metodo_pago: metodoPagoSeleccionado,
             nombre_cliente: cliente,
@@ -761,7 +786,7 @@ async function confirmarVenta() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    estatus: 'ENTREGADA',
+                    estatus: 'COBRADA / ENTREGADA',
                     fecha_entrega: new Date().toISOString()
                 })
             });
