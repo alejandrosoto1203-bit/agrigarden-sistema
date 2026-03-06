@@ -12,7 +12,8 @@ function inyectarMenu(paginaActiva) {
             link: '#',
             subItems: [
                 { id: 'pos_terminal', nombre: 'Terminal POS', link: 'ventas.html' },
-                { id: 'pos_cortes', nombre: 'Historial de Cortes', link: 'cortes_caja.html' }
+                { id: 'pos_cortes', nombre: 'Historial de Cortes', link: 'cortes_caja.html' },
+                { id: 'ventas_analytics', nombre: 'Análisis de Ventas', link: 'ventas_analytics.html' }
             ]
         },
         { id: 'ingresos', nombre: 'Ingresos', icon: 'payments', link: 'ingresos.html' },

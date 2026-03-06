@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <script src="config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis de Ventas | Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #FAFAFA; color: #1e293b; }
+        h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; }
+        .card { background-color: white; border-radius: 16px; border: 1px solid #F1F5F9; }
+        .kpi-card { transition: transform 0.2s; }
+        .kpi-card:hover { transform: translateY(-2px); }
+        .tab-btn { transition: all 0.15s; }
+        .tab-btn.active { background: #19e66b15; color: #19e66b; border-color: #19e66b30; font-weight: 800; }
+        select, input { outline: none; }
+        select:focus, input:focus { box-shadow: 0 0 0 3px #19e66b20; border-color: #19e66b; }
+        .badge-pagada { background: #dcfce7; color: #16a34a; }
+        .badge-pendiente { background: #fef9c3; color: #ca8a04; }
+        .badge-reparacion { background: #ede9fe; color: #7c3aed; }
+        .badge-venta { background: #e0f2fe; color: #0369a1; }
+        tr.expand-row td { background: #f8fafc; }
+        .detail-table thead { position: sticky; top: 0; background: white; z-index: 5; }
+        .loading-spinner { border: 3px solid #f1f5f9; border-top-color: #19e66b; border-radius: 50%; width: 28px; height: 28px; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .section-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: #94a3b8; }
+        #filtros-panel input, #filtros-panel select { font-size: 13px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px; width: 100%; background: white; }
+        .row-expanded { background: #f0fdf4 !important; }
+        .product-row { background: #f8fafc; font-size: 12px; }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { primary: '#19e66b' } } }
+        }
+    </script>
+</head>
+
+<body class="min-h-screen">
+    <div id="sidebar-container"></div>
+
+    <div class="lg:pl-64 flex flex-col min-h-screen">
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-100 sticky top-0 z-30 px-6 lg:px-8 h-16 flex items-center justify-between shadow-sm">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary">analytics</span>
+                <h1 class="text-xl font-black tracking-tight">Análisis de Ventas</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="exportarCSV()" class="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">
+                    <span class="material-symbols-outlined text-base">download</span> Exportar CSV
+                </button>
+                <button onclick="cargarDatos()" id="btn-reload" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-black text-sm font-bold hover:bg-green-400 transition-all">
+                    <span class="material-symbols-outlined text-base" id="reload-icon">refresh</span> Actualizar
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 p-6 lg:p-8 space-y-6">
+
+            <!-- FILTROS -->
+            <div class="card p-5" id="filtros-panel">
+                <div class="flex items-center justify-between mb-4">
+                    <p class="section-label">Filtros</p>
+                    <button onclick="limpiarFiltros()" class="text-xs font-bold text-gray-400 hover:text-gray-600 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">filter_alt_off</span> Limpiar
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div>
+                        <label class="section-label block mb-1">Mes</label>
+                        <select id="filtro-mes">
+                            <option value="1">Enero</option><option value="2">Febrero</option>
+                            <option value="3">Marzo</option><option value="4">Abril</option>
+                            <option value="5">Mayo</option><option value="6">Junio</option>
+                            <option value="7">Julio</option><option value="8">Agosto</option>
+                            <option value="9">Septiembre</option><option value="10">Octubre</option>
+                            <option value="11">Noviembre</option><option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="section-label block mb-1">Año</label>
+                        <select id="filtro-anio"></select>
+                    </div>
+                    <div>
+                        <label class="section-label block mb-1">Sucursal</label>
+                        <select id="filtro-sucursal">
+                            <option value="">Todas</option>
+                            <option value="Norte">Norte</option>
+                            <option value="Sur">Sur</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="section-label block mb-1">Vendedor</label>
+                        <select id="filtro-vendedor">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="section-label block mb-1">Tipo</label>
+                        <select id="filtro-tipo">
+                            <option value="">Todos</option>
+                            <option value="venta">Solo Ventas</option>
+                            <option value="reparacion">Solo Reparaciones</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="section-label block mb-1">Estado</label>
+                        <select id="filtro-estado">
+                            <option value="">Todos</option>
+                            <option value="Pagada">Pagadas</option>
+                            <option value="Pendiente">Pendientes</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2 md:col-span-3">
+                        <label class="section-label block mb-1">Buscar Cliente</label>
+                        <input type="text" id="filtro-cliente" placeholder="Nombre del cliente..." oninput="aplicarFiltros()">
+                    </div>
+                    <div class="col-span-2 md:col-span-3">
+                        <label class="section-label block mb-1">Buscar Producto</label>
+                        <input type="text" id="filtro-producto" placeholder="Nombre o SKU del producto..." oninput="aplicarFiltros()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI CARDS -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-grid">
+                <div class="card kpi-card p-5">
+                    <p class="section-label mb-1">Transacciones</p>
+                    <p class="text-3xl font-black" id="kpi-total-tx">—</p>
+                    <p class="text-xs text-gray-400 mt-1" id="kpi-rep-tx"></p>
+                </div>
+                <div class="card kpi-card p-5">
+                    <p class="section-label mb-1">Total Facturado</p>
+                    <p class="text-3xl font-black text-blue-600" id="kpi-total-monto">—</p>
+                    <p class="text-xs text-gray-400 mt-1" id="kpi-promedio"></p>
+                </div>
+                <div class="card kpi-card p-5">
+                    <p class="section-label mb-1">Cobrado</p>
+                    <p class="text-3xl font-black text-green-600" id="kpi-pagado">—</p>
+                    <p class="text-xs text-gray-400 mt-1" id="kpi-pagado-pct"></p>
+                </div>
+                <div class="card kpi-card p-5">
+                    <p class="section-label mb-1">Por Cobrar</p>
+                    <p class="text-3xl font-black text-amber-500" id="kpi-pendiente">—</p>
+                    <p class="text-xs text-gray-400 mt-1" id="kpi-pendiente-pct"></p>
+                </div>
+            </div>
+
+            <!-- TABS RESUMEN -->
+            <div class="card">
+                <div class="flex items-center border-b border-gray-100 px-6 pt-4 gap-2 overflow-x-auto">
+                    <button onclick="switchTab('vendedores')" id="tab-vendedores" class="tab-btn active px-4 py-2.5 text-sm font-bold rounded-t-xl border border-transparent mr-1">
+                        Por Vendedor
+                    </button>
+                    <button onclick="switchTab('clientes')" id="tab-clientes" class="tab-btn px-4 py-2.5 text-sm font-bold rounded-t-xl border border-transparent mr-1">
+                        Por Cliente
+                    </button>
+                    <button onclick="switchTab('productos')" id="tab-productos" class="tab-btn px-4 py-2.5 text-sm font-bold rounded-t-xl border border-transparent">
+                        Por Producto
+                    </button>
+                </div>
+                <div class="p-6" id="tab-content">
+                    <div class="flex justify-center py-8">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DETALLE TRANSACCIONES -->
+            <div class="card">
+                <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-base font-black">Detalle de Transacciones</h2>
+                        <p class="text-xs text-gray-400 mt-0.5" id="detalle-count">—</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="buscar-transaccion" placeholder="# de transacción..." oninput="filtrarDetalle(this.value)"
+                            class="text-sm border border-gray-200 rounded-xl px-3 py-2 w-44" style="font-size:13px">
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm detail-table" id="tabla-detalle">
+                        <thead>
+                            <tr class="border-b border-gray-100">
+                                <th class="text-left px-4 py-3 section-label w-8"></th>
+                                <th class="text-left px-4 py-3 section-label">Fecha</th>
+                                <th class="text-left px-4 py-3 section-label"># / Ticket</th>
+                                <th class="text-left px-4 py-3 section-label">Cliente</th>
+                                <th class="text-left px-4 py-3 section-label">Vendedor</th>
+                                <th class="text-left px-4 py-3 section-label">Sucursal</th>
+                                <th class="text-left px-4 py-3 section-label">Tipo</th>
+                                <th class="text-right px-4 py-3 section-label">Total</th>
+                                <th class="text-left px-4 py-3 section-label">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-detalle">
+                            <tr><td colspan="9" class="text-center py-12 text-gray-400 text-sm">Selecciona un período y haz clic en Actualizar</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-4 flex items-center justify-between border-t border-gray-100" id="detalle-paginacion">
+                    <span class="text-xs text-gray-400" id="pag-info"></span>
+                    <button onclick="cargarMasDetalle()" id="btn-cargar-mas" class="hidden text-sm font-bold text-primary hover:underline">
+                        Cargar más →
+                    </button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="api.js"></script>
+    <script src="menu.js"></script>
+    <script src="ventas_analytics.js"></script>
+</body>
+
+</html>
