@@ -97,8 +97,9 @@
     <script src="auth.js"></script>
     <script src="ingresos.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            if(typeof agregarFila === 'function') agregarFila();
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (typeof cargarConfiguracionSistema === 'function') await cargarConfiguracionSistema();
+            if (typeof agregarFila === 'function') agregarFila();
         });
     </script>
 </body>

@@ -12,6 +12,18 @@ if (typeof formatMoney === 'undefined') {
 
 let datosCacheIngresos = [];
 
+// Genera <option> tags desde CONFIG_NEGOCIO.metodosPago (activos)
+// Fallback a lista básica si la config aún no cargó
+function generarOpcionesMetodoPago() {
+    const metodos = (window.CONFIG_NEGOCIO?.metodosPago || []).filter(m => m.activo);
+    if (metodos.length > 0) {
+        return metodos.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('');
+    }
+    // Fallback mientras carga la configuración
+    return ['Efectivo','Transferencia','Tarjeta','Crédito','Cheque','Otros']
+        .map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
 // 1. CARGA DE TABLA PRINCIPAL CON LÓGICA DE FILTROS
 async function cargarIngresos() {
     const tablaSur = document.getElementById('tablaIngresosSur');
@@ -446,16 +458,7 @@ function agregarFila() {
         <td class="p-1"><select class="input-capture row-tipo"><option value="Venta Directa">Venta Directa</option><option value="Servicio">Servicio</option><option value="ABONO">Abono</option></select></td>
         <td class="p-1">
             <select class="input-capture row-metodo" onchange="verificarMetodoIngreso(this); actualizarCalculosTotales()">
-                <option value="Efectivo">Efectivo</option>
-                <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
-                <option value="Transferencia BBVA">Transferencia BBVA</option>
-                <option value="Tarjeta Hey Banco">Tarjeta Hey Banco</option>
-                <option value="Tarjeta BBVA">Tarjeta BBVA</option>
-                <option value="Tarjeta Mercado Pago Fiscal Norte">Tarjeta Mercado Pago Fiscal Norte</option>
-                <option value="Tarjeta Mercado Pago No Fiscal Norte">Tarjeta Mercado Pago No Fiscal Norte</option>
-                <option value="Crédito">Crédito</option>
-                <option value="Cheque">Cheque</option>
-                <option value="Otros">Otros</option>
+                ${generarOpcionesMetodoPago()}
             </select>
             <input type="text" class="input-capture row-metodo-otro hidden mt-2 border-primary" placeholder="¿Cuál método?">
         </td>

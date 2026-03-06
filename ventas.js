@@ -530,7 +530,7 @@ function cerrarModalStockInsuficiente() {
 // =====================================================
 // MODAL COBRAR
 // =====================================================
-function abrirModalCobrar() {
+async function abrirModalCobrar() {
     if (carrito.length === 0) return;
 
     const total = carrito.reduce((sum, i) => sum + i.total, 0);
@@ -539,12 +539,12 @@ function abrirModalCobrar() {
     document.getElementById('cambioCalculado').textContent = '$0.00';
     document.getElementById('inputNotasVenta').value = '';
 
-    // Reset método de pago y renderizar botones dinámicos
-    metodoPagoSeleccionado = null;
-    renderMetodosPagoVentas();
-    document.getElementById('seccionEfectivo').classList.remove('hidden');
-
     document.getElementById('modalCobrar').classList.remove('hidden');
+
+    // Reset método de pago y renderizar botones dinámicos (await para asegurar config cargada)
+    metodoPagoSeleccionado = null;
+    await renderMetodosPagoVentas();
+    document.getElementById('seccionEfectivo').classList.remove('hidden');
 }
 
 function cerrarModalCobrar() {
@@ -561,9 +561,15 @@ function getIconoMetodo(nombre) {
     return '💰';
 }
 
-function renderMetodosPagoVentas() {
+async function renderMetodosPagoVentas() {
     const grid = document.getElementById('metodosPagoGrid');
     if (!grid) return;
+
+    // Si la config aún no cargó, esperarla
+    if ((window.CONFIG_NEGOCIO?.metodosPago || []).length === 0) {
+        grid.innerHTML = '<p class="col-span-2 text-gray-400 italic text-xs">Cargando métodos...</p>';
+        if (window.cargarConfiguracionSistema) await window.cargarConfiguracionSistema();
+    }
 
     const metodos = (window.CONFIG_NEGOCIO?.metodosPago || []).filter(m => m.activo);
     if (metodos.length === 0) {
