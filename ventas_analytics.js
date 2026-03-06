@@ -80,11 +80,12 @@ async function cargarDatos() {
     offsetDetalle = 0;
 
     try {
-        // 1. Cargar transacciones del período
+        // 1. Cargar transacciones del período (solo ventas POS)
         rawTransacciones = await fetchPaginated(
             `${SB_URL_ANA}/rest/v1/transacciones` +
-            `?select=id,created_at,tipo,nombre_cliente,vendedor_nombre,sucursal,estado_cobro,total,orden_reparacion_id,numero_ticket` +
-            `&created_at=gte.${inicio}&created_at=lte.${fin}` +
+            `?select=id,created_at,tipo,nombre_cliente,vendedor_nombre,sucursal,estado_cobro,monto,orden_reparacion_id` +
+            `&tipo=eq.Venta%20Directa` +
+            `&created_at=gte.${encodeURIComponent(inicio)}&created_at=lte.${encodeURIComponent(fin)}` +
             `&order=created_at.desc`
         );
 
@@ -183,8 +184,8 @@ function limpiarFiltros() {
 function renderKPIs() {
     const total = transaccionesFiltradas.length;
     const reps = transaccionesFiltradas.filter(tx => tx.orden_reparacion_id).length;
-    const monto = transaccionesFiltradas.reduce((s, tx) => s + (tx.total || 0), 0);
-    const pagado = transaccionesFiltradas.filter(tx => tx.estado_cobro === 'Pagada').reduce((s, tx) => s + (tx.total || 0), 0);
+    const monto = transaccionesFiltradas.reduce((s, tx) => s + (tx.monto || 0), 0);
+    const pagado = transaccionesFiltradas.filter(tx => tx.estado_cobro === 'Pagada').reduce((s, tx) => s + (tx.monto || 0), 0);
     const pendiente = monto - pagado;
     const pctPag = monto > 0 ? ((pagado / monto) * 100).toFixed(1) : '0';
     const pctPen = monto > 0 ? ((pendiente / monto) * 100).toFixed(1) : '0';
@@ -223,9 +224,9 @@ function renderTabVendedores() {
         const key = tx.vendedor_nombre || 'Sin Vendedor';
         if (!grupos[key]) grupos[key] = { count: 0, total: 0, pagado: 0, pendiente: 0, reps: 0 };
         grupos[key].count++;
-        grupos[key].total += tx.total || 0;
-        if (tx.estado_cobro === 'Pagada') grupos[key].pagado += tx.total || 0;
-        else grupos[key].pendiente += tx.total || 0;
+        grupos[key].total += tx.monto || 0;
+        if (tx.estado_cobro === 'Pagada') grupos[key].pagado += tx.monto || 0;
+        else grupos[key].pendiente += tx.monto || 0;
         if (tx.orden_reparacion_id) grupos[key].reps++;
     });
 
@@ -285,9 +286,9 @@ function renderTabClientes() {
         const key = tx.nombre_cliente || 'Cliente General';
         if (!grupos[key]) grupos[key] = { count: 0, total: 0, pagado: 0, pendiente: 0, productos: {} };
         grupos[key].count++;
-        grupos[key].total += tx.total || 0;
-        if (tx.estado_cobro === 'Pagada') grupos[key].pagado += tx.total || 0;
-        else grupos[key].pendiente += tx.total || 0;
+        grupos[key].total += tx.monto || 0;
+        if (tx.estado_cobro === 'Pagada') grupos[key].pagado += tx.monto || 0;
+        else grupos[key].pendiente += tx.monto || 0;
         // Acumular productos por cliente
         (itemsPorTransaccion[tx.id] || []).forEach(it => {
             const pk = it.producto_nombre || it.producto_sku || 'Desconocido';
@@ -396,8 +397,7 @@ function filtrarDetalle(q) {
 function getTransaccionesFiltradas() {
     if (!filtroBusquedaDetalle) return transaccionesFiltradas;
     return transaccionesFiltradas.filter(tx =>
-        (tx.numero_ticket || '').toLowerCase().includes(filtroBusquedaDetalle) ||
-        String(tx.id || '').toLowerCase().includes(filtroBusquedaDetalle)
+        String(tx.id || '').includes(filtroBusquedaDetalle)
     );
 }
 
@@ -433,18 +433,18 @@ function renderDetalleTransacciones() {
 
 function renderFilaTx(tx) {
     const esRep = !!tx.orden_reparacion_id;
-    const expanded = expandidos.has(tx.id);
+    const txIdStr = String(tx.id);
+    const expanded = expandidos.has(txIdStr);
     const fecha = tx.created_at ? new Date(tx.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
     const items = itemsPorTransaccion[tx.id] || [];
-    const ticketLabel = tx.numero_ticket || (tx.id ? String(tx.id).slice(0, 8) + '…' : '—');
 
     let filas = `
-        <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${expanded ? 'row-expanded' : ''}" onclick="toggleExpand('${tx.id}')">
+        <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${expanded ? 'row-expanded' : ''}" onclick="toggleExpand('${txIdStr}')">
             <td class="px-4 py-3 text-gray-400">
                 <span class="material-symbols-outlined text-base transition-transform ${expanded ? 'rotate-90' : ''}" style="font-size:16px">chevron_right</span>
             </td>
             <td class="px-4 py-3 text-gray-600 text-xs">${fecha}</td>
-            <td class="px-4 py-3 font-mono text-xs text-gray-500" title="${tx.id}">${esc(ticketLabel)}</td>
+            <td class="px-4 py-3 font-mono text-xs text-gray-500">#${txIdStr}</td>
             <td class="px-4 py-3 font-bold text-gray-800">${esc(tx.nombre_cliente || 'General')}</td>
             <td class="px-4 py-3 text-gray-600">${esc(tx.vendedor_nombre || '—')}</td>
             <td class="px-4 py-3">
@@ -453,7 +453,7 @@ function renderFilaTx(tx) {
             <td class="px-4 py-3">
                 <span class="text-xs font-bold px-2 py-0.5 rounded-full ${esRep ? 'badge-reparacion' : 'badge-venta'}">${esRep ? 'Reparación' : 'Venta'}</span>
             </td>
-            <td class="px-4 py-3 text-right font-bold">${fmt(tx.total)}</td>
+            <td class="px-4 py-3 text-right font-bold">${fmt(tx.monto)}</td>
             <td class="px-4 py-3">
                 <span class="text-xs font-bold px-2 py-0.5 rounded-full ${tx.estado_cobro === 'Pagada' ? 'badge-pagada' : 'badge-pendiente'}">${esc(tx.estado_cobro || 'Pendiente')}</span>
             </td>
@@ -526,8 +526,8 @@ function exportarCSV() {
     const filas = [];
     // Encabezado
     filas.push([
-        'Fecha', 'Ticket', 'ID Transaccion', 'Cliente', 'Vendedor', 'Sucursal',
-        'Tipo', 'Estado', 'Total Transaccion',
+        'Fecha', 'ID Transaccion', 'Cliente', 'Vendedor', 'Sucursal',
+        'Tipo', 'Estado', 'Monto Transaccion',
         'SKU Producto', 'Producto', 'Cantidad', 'Precio Unit.', 'Subtotal Producto'
     ]);
 
@@ -539,28 +539,26 @@ function exportarCSV() {
         if (items.length === 0) {
             filas.push([
                 fecha,
-                tx.numero_ticket || '',
-                tx.id || '',
+                `#${tx.id}`,
                 tx.nombre_cliente || 'General',
                 tx.vendedor_nombre || '',
                 tx.sucursal || '',
                 esRep ? 'Reparación' : 'Venta Directa',
                 tx.estado_cobro || 'Pendiente',
-                tx.total || 0,
+                tx.monto || 0,
                 '', '', '', '', ''
             ]);
         } else {
             items.forEach((it, idx) => {
                 filas.push([
                     idx === 0 ? fecha : '',
-                    idx === 0 ? (tx.numero_ticket || '') : '',
-                    idx === 0 ? (tx.id || '') : '',
+                    idx === 0 ? `#${tx.id}` : '',
                     idx === 0 ? (tx.nombre_cliente || 'General') : '',
                     idx === 0 ? (tx.vendedor_nombre || '') : '',
                     idx === 0 ? (tx.sucursal || '') : '',
                     idx === 0 ? (esRep ? 'Reparación' : 'Venta Directa') : '',
                     idx === 0 ? (tx.estado_cobro || 'Pendiente') : '',
-                    idx === 0 ? (tx.total || 0) : '',
+                    idx === 0 ? (tx.monto || 0) : '',
                     it.producto_sku || '',
                     it.producto_nombre || '',
                     it.cantidad || '',
