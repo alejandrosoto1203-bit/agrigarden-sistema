@@ -233,12 +233,8 @@
                         Entrada</label>
                     <select id="metodoPagoCobro" onchange="checkMetodoCobro(this.value)"
                         class="w-full bg-gray-50 border-none rounded-2xl py-4 text-sm font-bold focus:ring-2 focus:ring-primary">
+                        <!-- Opciones generadas dinámicamente por poblarSelectoresMetodoPago() -->
                         <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
-                        <option value="Transferencia BBVA">Transferencia BBVA</option>
-                        <option value="Tarjeta de credito Hey Banco">Tarjeta de credito Hey Banco</option>
-                        <option value="Tarjeta de credito BBVA">Tarjeta de credito BBVA</option>
-                        <option value="Otros">Otros (Escribir)</option>
                     </select>
                 </div>
 
@@ -307,8 +303,12 @@
     <script src="export_helper.js"></script>
     <script src="cobranza.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             inyectarMenu('cobrar');
+            if (typeof cargarConfiguracionSistema === 'function') await cargarConfiguracionSistema();
+            if (typeof poblarSelectoresMetodoPago === 'function') {
+                poblarSelectoresMetodoPago(['metodoPagoCobro'], {});
+            }
             if (typeof cargarCuentasPorCobrar === 'function') cargarCuentasPorCobrar();
             const inputBusq = document.getElementById('busquedaCobros');
             if (inputBusq) inputBusq.addEventListener('input', aplicarFiltrosCobros);

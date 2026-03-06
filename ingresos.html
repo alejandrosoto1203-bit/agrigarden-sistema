@@ -141,15 +141,7 @@
                 <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-2">Método de Pago</label>
                 <select id="filtroMetodo" onchange="aplicarFiltrosIngresos()" class="input-filter">
                     <option value="Todos">Todos</option>
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
-                    <option value="Transferencia BBVA">Transferencia BBVA</option>
-                    <option value="Tarjeta Hey Banco">Tarjeta Hey Banco</option>
-                    <option value="Tarjeta BBVA">Tarjeta BBVA</option>
-                    <option value="Tarjeta Mercado Pago Fiscal Norte">Tarjeta Mercado Pago Fiscal Norte</option>
-                    <option value="Tarjeta Mercado Pago No Fiscal Norte">Tarjeta Mercado Pago No Fiscal Norte</option>
-                    <option value="Crédito">Crédito</option>
-                    <option value="Cheque">Cheque</option>
+                    <!-- Opciones generadas dinámicamente por poblarSelectoresMetodoPago() -->
                 </select>
             </div>
             <div class="flex flex-col gap-2">
@@ -359,16 +351,7 @@
                     <label class="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2">Método de
                         Pago</label>
                     <select id="editMetodo" class="input-edit">
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
-                        <option value="Transferencia BBVA">Transferencia BBVA</option>
-                        <option value="Tarjeta Hey Banco">Tarjeta Hey Banco</option>
-                        <option value="Tarjeta BBVA">Tarjeta BBVA</option>
-                        <option value="Tarjeta Mercado Pago Fiscal Norte">Tarjeta Mercado Pago Fiscal Norte</option>
-                        <option value="Tarjeta Mercado Pago No Fiscal Norte">Tarjeta Mercado Pago No Fiscal Norte
-                        </option>
-                        <option value="Crédito">Crédito</option>
-                        <option value="Cheque">Cheque</option>
+                        <!-- Opciones generadas dinámicamente por poblarSelectoresMetodoPago() -->
                     </select>
                 </div>
                 <div class="space-y-2">
@@ -406,8 +389,13 @@
     <script src="export_helper.js"></script>
     <script src="ingresos.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             inyectarMenu('ingresos');
+            if (typeof cargarConfiguracionSistema === 'function') await cargarConfiguracionSistema();
+            if (typeof poblarSelectoresMetodoPago === 'function') {
+                poblarSelectoresMetodoPago(['filtroMetodo'], { incluirTodos: true });
+                poblarSelectoresMetodoPago(['editMetodo'], {});
+            }
             if (typeof cargarIngresos === 'function') cargarIngresos();
         });
         function cerrarModalEditarIngreso() {

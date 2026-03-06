@@ -539,9 +539,9 @@ function abrirModalCobrar() {
     document.getElementById('cambioCalculado').textContent = '$0.00';
     document.getElementById('inputNotasVenta').value = '';
 
-    // Reset método de pago
-    metodoPagoSeleccionado = 'Efectivo';
-    actualizarBotonesMetodoPago();
+    // Reset método de pago y renderizar botones dinámicos
+    metodoPagoSeleccionado = null;
+    renderMetodosPagoVentas();
     document.getElementById('seccionEfectivo').classList.remove('hidden');
 
     document.getElementById('modalCobrar').classList.remove('hidden');
@@ -549,6 +549,45 @@ function abrirModalCobrar() {
 
 function cerrarModalCobrar() {
     document.getElementById('modalCobrar').classList.add('hidden');
+}
+
+function getIconoMetodo(nombre) {
+    const n = nombre.toLowerCase();
+    if (n.includes('efectivo')) return '💵';
+    if (n.includes('tarjeta') || n.includes('mercado') || n.includes('visa')) return '💳';
+    if (n.includes('transferencia')) return '🏦';
+    if (n.includes('crédito') || n.includes('credito') || n.includes('fiado')) return '📝';
+    if (n.includes('cheque')) return '🧾';
+    return '💰';
+}
+
+function renderMetodosPagoVentas() {
+    const grid = document.getElementById('metodosPagoGrid');
+    if (!grid) return;
+
+    const metodos = (window.CONFIG_NEGOCIO?.metodosPago || []).filter(m => m.activo);
+    if (metodos.length === 0) {
+        grid.innerHTML = '<p class="col-span-2 text-gray-400 italic text-xs">No hay métodos activos.</p>';
+        return;
+    }
+
+    grid.innerHTML = metodos.map(m => {
+        const esCreditoOFiado = m.nombre.toLowerCase().includes('crédito') || m.nombre.toLowerCase().includes('credito');
+        const spanClass = esCreditoOFiado ? 'col-span-2' : '';
+        const nombreCorto = m.nombre.length > 18 ? m.nombre.substring(0, 16) + '…' : m.nombre;
+        return `<button onclick="seleccionarMetodoPago('${m.nombre.replace(/'/g, "\\'")}')"
+            class="metodo-btn px-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-sm text-gray-600 hover:border-gray-300 ${spanClass}"
+            data-metodo="${m.nombre}">
+            ${getIconoMetodo(m.nombre)} ${nombreCorto}
+        </button>`;
+    }).join('');
+
+    // Seleccionar el primero por defecto
+    if (!metodoPagoSeleccionado && metodos.length > 0) {
+        seleccionarMetodoPago(metodos[0].nombre);
+    } else {
+        actualizarBotonesMetodoPago();
+    }
 }
 
 function seleccionarMetodoPago(metodo) {
@@ -683,12 +722,15 @@ async function confirmarVenta() {
 
         // 1. Crear transacción en tabla transacciones (para que aparezca en Ingresos)
         const esVentaRep = !!ventaDesdeReparacion;
+        // Calcular comisión real según el método de pago seleccionado
+        const tasaEfectivaPOS = (window.CONFIG_NEGOCIO?.tasasComision?.[metodoPagoSeleccionado] || 0);
+        const comisionPOS = Math.round(total * tasaEfectivaPOS * 100) / 100;
         const transaccionData = {
             // El ID lo genera Supabase de forma incremental (BIGINT)
             created_at: new Date().toISOString(),
             monto: total,
-            comision_bancaria: 0,
-            monto_neto: total,
+            comision_bancaria: comisionPOS,
+            monto_neto: total - comisionPOS,
             categoria: folioTxn,   // <-- Usando el contador TXN# dinámico
             tipo: 'Venta Directa',
             metodo_pago: metodoPagoSeleccionado,

@@ -28,24 +28,10 @@ if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
 }
 
 // Default fallback configuration
-// NOTE: These are fallback values. The actual rates are loaded from sys_config table.
-// Setting to 0 ensures database values take priority.
 const DEFAULT_CONFIG = {
     metaMensual: 300000,
-    tasasComision: {
-        "Efectivo": 0,
-        "Transferencia": 0,
-        "Transferencia Hey Banco": 0,
-        "Transferencia BBVA": 0,
-        "Tarjeta Mercado Pago": 0,
-        "Tarjeta Mercado Pago Fiscal Norte": 0,
-        "Tarjeta Mercado Pago No Fiscal Norte": 0,
-        "Tarjeta Hey Banco": 0,
-        "Tarjeta BBVA": 0,
-        "Cheque": 0,
-        "Otro": 0,
-        "Crédito": 0
-    }
+    metodosPago: [],  // Array {id, nombre, tasa_base, aplica_iva, activo, orden}
+    tasasComision: {} // Mapa {nombre: tasa_efectiva} — incluye IVA si aplica
 };
 
 // Global Config Object (Mutable)
@@ -56,16 +42,21 @@ window.cargarConfiguracionSistema = async function () {
     if (!supabase) return;
 
     try {
-        // 1. Load Commissions
-        const { data: configData } = await supabase
-            .from('sys_config')
-            .select('value')
-            .eq('key', 'tasas_comision')
-            .maybeSingle();
+        // 1. Cargar métodos de pago desde sys_metodos_pago
+        const { data: metodosData } = await supabase
+            .from('sys_metodos_pago')
+            .select('id, nombre, tasa_base, aplica_iva, activo, orden')
+            .order('orden');
 
-        if (configData && configData.value) {
-            window.CONFIG_NEGOCIO.tasasComision = { ...DEFAULT_CONFIG.tasasComision, ...configData.value };
-            console.log("Sistema: Comisiones actualizadas desde BD (Merged)");
+        if (metodosData && metodosData.length > 0) {
+            window.CONFIG_NEGOCIO.metodosPago = metodosData;
+            // Construir mapa con tasa efectiva (base + IVA si aplica)
+            const tasas = {};
+            metodosData.forEach(m => {
+                tasas[m.nombre] = m.aplica_iva ? m.tasa_base * 1.16 : m.tasa_base;
+            });
+            window.CONFIG_NEGOCIO.tasasComision = tasas;
+            console.log("Sistema: Métodos de pago cargados:", metodosData.length);
         }
 
         // 2. Load Monthly Goal
@@ -89,3 +80,26 @@ window.cargarConfiguracionSistema = async function () {
 
 // Trigger load immediately
 cargarConfiguracionSistema();
+
+// Función utilitaria para poblar selectores <select> con métodos activos
+// Uso: poblarSelectoresMetodoPago(['filtroMetodo', 'editMetodo'], { incluirTodos: true })
+window.poblarSelectoresMetodoPago = function (selectorIds = [], opciones = {}) {
+    const metodos = (window.CONFIG_NEGOCIO?.metodosPago || []).filter(m => m.activo);
+    if (metodos.length === 0) return;
+
+    selectorIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+
+        const valorActual = el.value;
+        const opcionesPrevias = opciones.incluirTodos ? '<option value="Todos">Todos</option>' : '';
+        el.innerHTML = opcionesPrevias + metodos.map(m =>
+            `<option value="${m.nombre}">${m.nombre}</option>`
+        ).join('');
+
+        // Restaurar valor previo si sigue existiendo
+        if (valorActual && [...el.options].some(o => o.value === valorActual)) {
+            el.value = valorActual;
+        }
+    });
+}

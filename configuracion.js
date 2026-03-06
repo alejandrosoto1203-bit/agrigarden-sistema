@@ -2,7 +2,7 @@
 const SBC_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
 const SBC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
 
-let currentComisiones = {};
+let currentMetodosPago = [];
 let currentUsers = [];
 let rrhhEmployeesCache = []; // Global cache for employee data
 
@@ -16,101 +16,231 @@ function getClient() {
 }
 
 // ---------------------------
-// 1. COMISIONES
+// 1. MÉTODOS DE PAGO Y COMISIONES
 // ---------------------------
 async function cargarComisionesUI() {
     const contenedor = document.getElementById('gridComisiones');
     if (!contenedor) return;
-    contenedor.innerHTML = '<p class="text-gray-400 italic">Actualizando...</p>';
+    contenedor.innerHTML = '<p class="text-gray-400 italic col-span-full">Cargando métodos de pago...</p>';
 
     try {
         const client = getClient();
         if (!client) throw new Error("Librería Supabase no cargada");
 
         const { data, error } = await client
-            .from('sys_config')
-            .select('value')
-            .eq('key', 'tasas_comision')
-            .maybeSingle();
+            .from('sys_metodos_pago')
+            .select('*')
+            .order('orden');
 
-        if (error) {
-            // 42P01 is PostgreSQL error for "undefined table"
-            if (error.code === '42P01' || error.message.includes('relation "sys_config" does not exist')) {
-                throw new Error("Faltan Tablas del Sistema. Ejecuta el SQL.");
-            }
-            throw error;
-        }
+        if (error) throw error;
 
-        if (data && data.value) {
-            currentComisiones = data.value;
-            renderComisiones(currentComisiones);
-        } else {
-            // Fallback default from global config if available
-            if (window.CONFIG_NEGOCIO && window.CONFIG_NEGOCIO.tasasComision) {
-                renderComisiones(window.CONFIG_NEGOCIO.tasasComision);
-            } else {
-                throw new Error("No hay configuración predeterminada cargada.");
-            }
-        }
+        currentMetodosPago = data || [];
+        renderMetodosPago(currentMetodosPago);
     } catch (e) {
         console.error(e);
         contenedor.innerHTML = `
             <div class="col-span-full bg-red-50 p-4 rounded-xl border border-red-100">
                 <p class="text-red-800 font-bold text-sm mb-1">Error de Sistema:</p>
-                <p class="text-red-500 text-xs font-mono break-all">${e.message || JSON.stringify(e)}</p>
-                <p class="text-[10px] text-gray-500 mt-2">¿Ejecutaste el script SQL de configuración?</p>
+                <p class="text-red-500 text-xs font-mono break-all">${e.message}</p>
             </div>`;
     }
 }
 
-function renderComisiones(tasas) {
+function renderMetodosPago(metodos) {
     const contenedor = document.getElementById('gridComisiones');
-    const methods = Object.keys(tasas);
 
-    contenedor.innerHTML = methods.map(m => {
-        const val = (tasas[m] || 0) * 100; // Convert 0.035 -> 3.5
+    contenedor.innerHTML = metodos.map(m => {
+        const tasaBase = (m.tasa_base || 0) * 100;
+        const tasaEfectiva = m.aplica_iva ? (m.tasa_base || 0) * 1.16 * 100 : tasaBase;
+        const etiquetaIva = m.aplica_iva
+            ? `<span class="text-blue-500 font-bold text-[10px]">+ IVA = ${tasaEfectiva.toFixed(2)}% efectivo</span>`
+            : `<span class="text-gray-400 text-[10px]">sin IVA</span>`;
+
         return `
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
-                <span class="text-sm font-bold uppercase text-gray-600">${m}</span>
-                <div class="flex items-center gap-2">
-                    <input type="number" step="0.1" class="input-comision w-20 text-right font-bold p-2 rounded-lg border border-gray-200" 
-                        data-method="${m}" value="${val.toFixed(1)}">
-                    <span class="text-xs font-black">%</span>
+        <div class="flex items-start justify-between p-4 rounded-xl border border-gray-100 ${m.activo ? 'bg-white' : 'bg-gray-50 opacity-60'}" id="metodo-row-${m.id}">
+            <div class="flex items-center gap-3 flex-1 min-w-0">
+                <div class="size-8 rounded-full ${m.activo ? 'bg-black text-white' : 'bg-gray-300 text-gray-500'} flex items-center justify-center text-xs font-black flex-shrink-0">
+                    ${m.nombre.charAt(0).toUpperCase()}
+                </div>
+                <div class="min-w-0">
+                    <p class="text-sm font-bold truncate">${m.nombre}</p>
+                    <p class="text-[10px] font-bold uppercase ${m.activo ? 'text-green-600' : 'text-gray-400'}">${m.activo ? 'Activo' : 'Inactivo'}</p>
                 </div>
             </div>
-        `;
+            <div class="flex items-center gap-3 flex-shrink-0">
+                <div class="text-right">
+                    <div class="flex items-center gap-1">
+                        <input type="number" step="0.01" min="0" max="100"
+                            class="input-comision w-16 text-right font-bold p-1.5 rounded-lg border border-gray-200 text-sm"
+                            data-id="${m.id}" data-nombre="${m.nombre}" data-aplica-iva="${m.aplica_iva}"
+                            value="${tasaBase.toFixed(2)}"
+                            oninput="actualizarEfectiva(this)">
+                        <span class="text-xs font-black text-gray-500">%</span>
+                    </div>
+                    <div id="efectiva-${m.id}" class="mt-0.5 text-right">${etiquetaIva}</div>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <button onclick="guardarMetodo(${m.id})"
+                        class="px-3 py-1.5 bg-black text-white rounded-lg text-[10px] font-bold uppercase hover:bg-gray-700 transition-colors">
+                        Guardar
+                    </button>
+                    <button onclick="toggleMetodo(${m.id}, ${m.activo})"
+                        class="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors ${m.activo
+                            ? 'text-red-500 hover:bg-red-50 border border-red-100'
+                            : 'text-green-600 hover:bg-green-50 border border-green-100'}">
+                        ${m.activo ? 'Desact.' : 'Activar'}
+                    </button>
+                </div>
+            </div>
+        </div>`;
     }).join('');
 }
 
-window.guardarComisiones = async function () {
+// Actualiza el label de tasa efectiva en tiempo real mientras escribe
+window.actualizarEfectiva = function (input) {
+    const id = input.dataset.id;
+    const aplicaIva = input.dataset.aplicaIva === 'true';
+    const base = parseFloat(input.value) || 0;
+    const efectiva = aplicaIva ? base * 1.16 : base;
+    const el = document.getElementById(`efectiva-${id}`);
+    if (el) {
+        el.innerHTML = aplicaIva
+            ? `<span class="text-blue-500 font-bold text-[10px]">+ IVA = ${efectiva.toFixed(2)}% efectivo</span>`
+            : `<span class="text-gray-400 text-[10px]">sin IVA</span>`;
+    }
+}
+
+window.guardarMetodo = async function (id) {
     const client = getClient();
     if (!client) return alert("Error de conexión");
 
-    const inputs = document.querySelectorAll('.input-comision');
-    const newTasas = {};
+    const input = document.querySelector(`.input-comision[data-id="${id}"]`);
+    if (!input) return;
 
-    inputs.forEach(inp => {
-        const m = inp.dataset.method;
-        const v = parseFloat(inp.value) || 0;
-        newTasas[m] = v / 100; // Convert 3.5 -> 0.035
-    });
+    const nombre = input.dataset.nombre;
+    const nuevaBase = (parseFloat(input.value) || 0) / 100;
+
+    // Buscar el valor anterior
+    const anterior = currentMetodosPago.find(m => m.id === id);
+    const anteriorBase = anterior?.tasa_base || 0;
+    const cambioEnTasa = Math.abs(nuevaBase - anteriorBase) > 0.000001;
+
+    let retroactivo = false;
+    if (cambioEnTasa && anteriorBase > 0) {
+        const respuesta = confirm(
+            `¿Deseas aplicar el nuevo porcentaje (${(nuevaBase * 100).toFixed(2)}%) también a las transacciones ANTERIORES de "${nombre}"?\n\n` +
+            `• Aceptar = Actualizar todo el historial\n` +
+            `• Cancelar = Solo ventas futuras`
+        );
+        retroactivo = respuesta;
+    }
 
     try {
         const { error } = await client
-            .from('sys_config')
-            .upsert({ key: 'tasas_comision', value: newTasas });
-
+            .from('sys_metodos_pago')
+            .update({ tasa_base: nuevaBase })
+            .eq('id', id);
         if (error) throw error;
 
-        // Update local helper
-        currentComisiones = newTasas;
-        if (window.CONFIG_NEGOCIO) window.CONFIG_NEGOCIO.tasasComision = newTasas;
+        // Actualizar cache local y CONFIG_NEGOCIO
+        if (anterior) anterior.tasa_base = nuevaBase;
+        if (window.CONFIG_NEGOCIO) {
+            const aplicaIva = anterior?.aplica_iva;
+            window.CONFIG_NEGOCIO.tasasComision[nombre] = aplicaIva ? nuevaBase * 1.16 : nuevaBase;
+        }
 
-        alert("Comisiones actualizadas correctamente.");
+        // Si retroactivo, recalcular transacciones anteriores
+        if (retroactivo) {
+            await aplicarComisionRetroactiva(client, nombre, anterior?.aplica_iva, nuevaBase);
+        }
 
+        cargarComisionesUI();
+        alert(`"${nombre}" actualizado correctamente.${retroactivo ? '\nHistorial recalculado.' : ''}`);
     } catch (e) {
         console.error(e);
         alert("Error al guardar: " + e.message);
+    }
+}
+
+async function aplicarComisionRetroactiva(client, nombreMetodo, aplicaIva, nuevaBase) {
+    const tasaEfectiva = aplicaIva ? nuevaBase * 1.16 : nuevaBase;
+
+    // Traer transacciones de ese método de pago
+    const { data: txns, error } = await client
+        .from('transacciones')
+        .select('id, monto')
+        .eq('metodo_pago', nombreMetodo);
+
+    if (error || !txns || txns.length === 0) return;
+
+    // Actualizar en lotes de 50
+    const lotes = [];
+    for (let i = 0; i < txns.length; i += 50) lotes.push(txns.slice(i, i + 50));
+
+    for (const lote of lotes) {
+        const updates = lote.map(t => ({
+            id: t.id,
+            comision_bancaria: t.monto * tasaEfectiva,
+            monto_neto: t.monto - (t.monto * tasaEfectiva)
+        }));
+        await client.from('transacciones').upsert(updates);
+    }
+}
+
+window.toggleMetodo = async function (id, estadoActual) {
+    const accion = estadoActual ? 'desactivar' : 'activar';
+    const metodo = currentMetodosPago.find(m => m.id === id);
+    if (!confirm(`¿${accion.charAt(0).toUpperCase() + accion.slice(1)} el método "${metodo?.nombre}"?`)) return;
+
+    try {
+        const client = getClient();
+        const { error } = await client
+            .from('sys_metodos_pago')
+            .update({ activo: !estadoActual })
+            .eq('id', id);
+        if (error) throw error;
+        cargarComisionesUI();
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+}
+
+window.mostrarFormNuevoMetodo = function () {
+    document.getElementById('formNuevoMetodo').classList.remove('hidden');
+    document.getElementById('inputNuevoMetodoNombre').focus();
+}
+
+window.cancelarNuevoMetodo = function () {
+    document.getElementById('formNuevoMetodo').classList.add('hidden');
+    document.getElementById('inputNuevoMetodoNombre').value = '';
+    document.getElementById('inputNuevoMetodoPct').value = '0';
+    document.getElementById('inputNuevoMetodoIva').checked = false;
+}
+
+window.guardarNuevoMetodo = async function () {
+    const client = getClient();
+    if (!client) return alert("Error de conexión");
+
+    const nombre = document.getElementById('inputNuevoMetodoNombre').value.trim();
+    const pct = parseFloat(document.getElementById('inputNuevoMetodoPct').value) || 0;
+    const aplicaIva = document.getElementById('inputNuevoMetodoIva').checked;
+
+    if (!nombre) return alert("Escribe el nombre del método de pago.");
+
+    const maxOrden = currentMetodosPago.reduce((max, m) => Math.max(max, m.orden || 0), 0);
+
+    try {
+        const { error } = await client
+            .from('sys_metodos_pago')
+            .insert([{ nombre, tasa_base: pct / 100, aplica_iva: aplicaIva, activo: true, orden: maxOrden + 1 }]);
+        if (error) throw error;
+
+        cancelarNuevoMetodo();
+        cargarComisionesUI();
+        alert(`Método "${nombre}" agregado correctamente.`);
+    } catch (e) {
+        console.error(e);
+        alert("Error: " + e.message);
     }
 }
 

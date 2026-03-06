@@ -37,7 +37,7 @@ async function calcularEstadoMes(mes, anio, sucursal) {
         // 1. INGRESOS - desde transacciones (excluyendo abonos y rentas)
         const { data: ingresos } = await sbClientER
             .from('transacciones')
-            .select('tipo, monto, categoria')
+            .select('tipo, monto, categoria, estado_cobro, comision_bancaria')
             .eq('sucursal', sucursal)
             .gte('created_at', primerDia.toISOString())
             .lte('created_at', ultimoDia.toISOString());
@@ -59,6 +59,19 @@ async function calcularEstadoMes(mes, anio, sucursal) {
             .reduce((sum, i) => sum + (parseFloat(i.monto) || 0), 0);
 
         const totalIngresos = ingresosVentas + ingresosServicios;
+
+        // Desglose cobrado vs por cobrar (informativo)
+        const ingresosCobrados = ingresosLimpios
+            .filter(i => i.estado_cobro === 'Pagado' || i.estado_cobro === 'pagado')
+            .reduce((sum, i) => sum + (parseFloat(i.monto) || 0), 0);
+
+        const ingresosPorCobrar = ingresosLimpios
+            .filter(i => i.estado_cobro === 'Pendiente' || i.estado_cobro === 'pendiente')
+            .reduce((sum, i) => sum + (parseFloat(i.monto) || 0), 0);
+
+        // Suma de comisiones bancarias registradas en transacciones
+        const comisionBancaria = ingresosLimpios
+            .reduce((sum, i) => sum + (parseFloat(i.comision_bancaria) || 0), 0);
 
         // 2. COSTO DE VENTAS - desde inventario + compras mercancía
         const { data: inventario } = await sbClientER
@@ -128,6 +141,9 @@ async function calcularEstadoMes(mes, anio, sucursal) {
             ingresosVentas,
             ingresosServicios,
             totalIngresos,
+            ingresosCobrados,
+            ingresosPorCobrar,
+            comisionBancaria,
             costoVentas,
             utilidadBruta,
             gastosOperacion,
@@ -170,6 +186,17 @@ function generarTarjetaEstado(estado, colorClass = 'border-gray-200') {
                         <span class="text-gray-600">Servicios</span>
                         <span class="font-bold">${formatMoney(estado.ingresosServicios)}</span>
                     </div>
+                    ${(estado.ingresosCobrados !== undefined) ? `
+                    <div class="ml-4 mt-1 space-y-0.5 border-l-2 border-gray-100 pl-3">
+                        <div class="flex justify-between text-[11px]">
+                            <span class="text-emerald-600">↳ Cobrado</span>
+                            <span class="font-bold text-emerald-600">${formatMoney(estado.ingresosCobrados)}</span>
+                        </div>
+                        <div class="flex justify-between text-[11px]">
+                            <span class="text-amber-500">↳ Por Cobrar (crédito)</span>
+                            <span class="font-bold text-amber-500">${formatMoney(estado.ingresosPorCobrar)}</span>
+                        </div>
+                    </div>` : ''}
                     <div class="statement-subtotal flex justify-between">
                         <span class="font-black text-gray-700">= TOTAL INGRESOS</span>
                         <span class="font-black text-emerald-600">${formatMoney(estado.totalIngresos)}</span>
@@ -206,6 +233,11 @@ function generarTarjetaEstado(estado, colorClass = 'border-gray-200') {
                         <span class="text-gray-600">(-) Gastos Financieros</span>
                         <span class="font-bold text-orange-500">${formatMoney(-estado.gastosFinancieros)}</span>
                     </div>
+                    ${(estado.comisionBancaria > 0) ? `
+                    <div class="flex justify-between py-1 ml-4 border-l-2 border-orange-100 pl-3 text-[11px]">
+                        <span class="text-orange-400">↳ Comisiones Bancarias</span>
+                        <span class="font-bold text-orange-400">${formatMoney(-estado.comisionBancaria)}</span>
+                    </div>` : ''}
                     <div class="statement-row">
                         <span class="text-gray-600">(-) Gastos Contables</span>
                         <span class="font-bold text-purple-500">${formatMoney(-estado.gastosContables)}</span>
@@ -359,6 +391,19 @@ async function cargarEstadoMes(mes) {
     // Calcular en tiempo real si no está cerrado
     if (!estadoSur) estadoSur = await calcularEstadoMes(mes, anioSeleccionado, 'Sur');
     if (!estadoNorte) estadoNorte = await calcularEstadoMes(mes, anioSeleccionado, 'Norte');
+
+    // Para meses cerrados: enriquecer con comisiones y cobrado/por cobrar desde transacciones
+    const enriquecerCerrado = async (estado) => {
+        if (!estado) return;
+        const extra = await calcularEstadoMes(mes, anioSeleccionado, estado.sucursal);
+        if (extra) {
+            estado.ingresosCobrados = extra.ingresosCobrados;
+            estado.ingresosPorCobrar = extra.ingresosPorCobrar;
+            estado.comisionBancaria = extra.comisionBancaria;
+        }
+    };
+    if (cerradoSur) await enriquecerCerrado(estadoSur);
+    if (cerradoNorte) await enriquecerCerrado(estadoNorte);
 
     // Renderizar
     container.innerHTML = `
