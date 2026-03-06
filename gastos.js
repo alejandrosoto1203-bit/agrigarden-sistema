@@ -370,7 +370,7 @@ async function initGastosRegistro() {
 
     // Cargar productos para SKU typeahead y autocompletar descripcion/costo
     try {
-        const resProd = await fetch(`${SUPABASE_URL}/rest/v1/productos?select=id,sku,nombre,costo_promedio&order=nombre.asc`, {
+        const resProd = await fetch(`${SUPABASE_URL}/rest/v1/productos?select=id,sku,nombre,costo&order=nombre.asc`, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
         const dataProd = await resProd.json();
@@ -640,7 +640,7 @@ function autocompletarProducto(mid) {
 
     if (prod) {
         tr.querySelector('.item-desc').value = prod.nombre || '';
-        tr.querySelector('.item-costo').value = prod.costo_promedio || 0;
+        tr.querySelector('.item-costo').value = prod.costo || 0;
         // Guardar el SKU real aunque haya escrito el nombre
         if (prod.sku) tr.querySelector('.item-sku').value = prod.sku;
     } else {
