@@ -1098,7 +1098,7 @@ async function cargarVendedoresPOS() {
     if (!select) return;
 
     try {
-        const res = await fetch(`${window.SUPABASE_URL}/rest/v1/sys_vendedores?select=id,nombre&activo=eq.true&order=nombre.asc`, {
+        const res = await fetch(`${window.SUPABASE_URL}/rest/v1/sys_vendedores?select=id,nombre&or=(activo.eq.true,activo.is.null)&order=nombre.asc`, {
             headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
         });
         if (!res.ok) throw new Error("No hay vendedores o tabla no existe.");
@@ -1116,12 +1116,23 @@ async function cargarVendedoresPOS() {
 
 async function cargarClientesPOS() {
     try {
-        const res = await fetch(`${window.SUPABASE_URL}/rest/v1/clientes?select=id,nombre,telefono&order=nombre.asc`, {
-            headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
-        });
-        if (res.ok) {
-            clientesCache = await res.json();
+        let all = [];
+        let offset = 0;
+        const limit = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+            const res = await fetch(`${window.SUPABASE_URL}/rest/v1/clientes?select=id,nombre,telefono&order=nombre.asc&limit=${limit}&offset=${offset}`, {
+                headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+            });
+            if (!res.ok) break;
+            const batch = await res.json();
+            all = all.concat(batch);
+            if (batch.length < limit) hasMore = false;
+            else offset += limit;
         }
+
+        clientesCache = all;
     } catch (e) {
         console.error("Error cargando clientes POS:", e);
     }
