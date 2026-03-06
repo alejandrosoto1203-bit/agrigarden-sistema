@@ -565,10 +565,23 @@ async function renderMetodosPagoVentas() {
     const grid = document.getElementById('metodosPagoGrid');
     if (!grid) return;
 
-    // Si la config aún no cargó, hacer fetch directo
+    // Fetch directo con credenciales hardcodeadas (igual que configuracion.js)
     if ((window.CONFIG_NEGOCIO?.metodosPago || []).length === 0) {
         grid.innerHTML = '<p class="col-span-2 text-gray-400 italic text-xs">Cargando métodos...</p>';
-        if (window._fetchMetodosPago) await window._fetchMetodosPago();
+        try {
+            const _U = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+            const _K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+            const r = await fetch(`${_U}/rest/v1/sys_metodos_pago?select=id,nombre,tasa_base,aplica_iva,activo,orden&order=orden.asc`, {
+                headers: { 'apikey': _K, 'Authorization': `Bearer ${_K}` }
+            });
+            if (r.ok) {
+                const d = await r.json();
+                if (d && d.length > 0) {
+                    if (!window.CONFIG_NEGOCIO) window.CONFIG_NEGOCIO = {};
+                    window.CONFIG_NEGOCIO.metodosPago = d;
+                }
+            }
+        } catch(e) { console.error('renderMetodosPagoVentas:', e); }
     }
 
     const metodos = (window.CONFIG_NEGOCIO?.metodosPago || []).filter(m => m.activo);
