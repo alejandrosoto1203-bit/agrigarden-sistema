@@ -39,38 +39,42 @@ window.CONFIG_NEGOCIO = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 
 // Function to load dynamic config from Supabase
 window.cargarConfiguracionSistema = async function () {
-    if (!supabase) return;
+    const url = window.SUPABASE_URL;
+    const key = window.SUPABASE_KEY;
+    if (!url || !key) return;
+
+    const headers = { 'apikey': key, 'Authorization': `Bearer ${key}` };
 
     try {
         // 1. Cargar métodos de pago desde sys_metodos_pago
-        const { data: metodosData } = await supabase
-            .from('sys_metodos_pago')
-            .select('id, nombre, tasa_base, aplica_iva, activo, orden')
-            .order('orden');
-
-        if (metodosData && metodosData.length > 0) {
-            window.CONFIG_NEGOCIO.metodosPago = metodosData;
-            // Construir mapa con tasa efectiva (base + IVA si aplica)
-            const tasas = {};
-            metodosData.forEach(m => {
-                tasas[m.nombre] = m.aplica_iva ? m.tasa_base * 1.16 : m.tasa_base;
-            });
-            window.CONFIG_NEGOCIO.tasasComision = tasas;
-            console.log("Sistema: Métodos de pago cargados:", metodosData.length);
+        const res = await fetch(`${url}/rest/v1/sys_metodos_pago?select=id,nombre,tasa_base,aplica_iva,activo,orden&order=orden.asc`, { headers });
+        if (res.ok) {
+            const metodosData = await res.json();
+            if (Array.isArray(metodosData) && metodosData.length > 0) {
+                window.CONFIG_NEGOCIO.metodosPago = metodosData;
+                const tasas = {};
+                metodosData.forEach(m => {
+                    tasas[m.nombre] = m.aplica_iva ? m.tasa_base * 1.16 : m.tasa_base;
+                });
+                window.CONFIG_NEGOCIO.tasasComision = tasas;
+                console.log("Sistema: Métodos de pago cargados:", metodosData.length);
+            }
+        } else {
+            console.warn("Error cargando métodos de pago:", res.status, await res.text());
         }
 
         // 2. Load Monthly Goal
         const date = new Date();
-        const { data: metaData } = await supabase
-            .from('sys_metas_ingresos')
-            .select('monto_meta')
-            .eq('anio', date.getFullYear())
-            .eq('mes', date.getMonth() + 1)
-            .maybeSingle();
-
-        if (metaData) {
-            window.CONFIG_NEGOCIO.metaMensual = metaData.monto_meta;
-            console.log("Sistema: Meta mensual actualizada:", metaData.monto_meta);
+        const resMeta = await fetch(
+            `${url}/rest/v1/sys_metas_ingresos?select=monto_meta&anio=eq.${date.getFullYear()}&mes=eq.${date.getMonth() + 1}&limit=1`,
+            { headers }
+        );
+        if (resMeta.ok) {
+            const metaArr = await resMeta.json();
+            if (metaArr && metaArr.length > 0) {
+                window.CONFIG_NEGOCIO.metaMensual = metaArr[0].monto_meta;
+                console.log("Sistema: Meta mensual actualizada:", metaArr[0].monto_meta);
+            }
         }
 
     } catch (e) {
