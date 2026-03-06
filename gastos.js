@@ -383,7 +383,13 @@ async function initGastosRegistro() {
 
 // Inicializar si estamos en la vista de registro
 if (window.location.pathname.includes('registro_gastos.html')) {
-    initGastosRegistro();
+    initGastosRegistro().then(() => {
+        // Remove the existing empty row that may have loaded sync
+        const tbody = document.getElementById('filasCapturaGastos');
+        if (tbody) tbody.innerHTML = '';
+        rowIdCounter = 0;
+        agregarFilaGasto();
+    });
 }
 
 let rowIdCounter = 0;
