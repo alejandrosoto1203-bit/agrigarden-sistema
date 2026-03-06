@@ -38,19 +38,26 @@ const DEFAULT_CONFIG = {
 window.CONFIG_NEGOCIO = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 
 // Shared helper: fetches sys_metodos_pago and populates CONFIG_NEGOCIO
+// Usa window.sb (SDK) igual que configuracion.js — probado funcionar en todos los entornos
 window._fetchMetodosPago = async function() {
-    const url = window.SUPABASE_URL;
-    const key = window.SUPABASE_KEY;
-    if (!url || !key) return [];
     try {
-        const res = await fetch(`${url}/rest/v1/sys_metodos_pago?select=id,nombre,tasa_base,aplica_iva,activo,orden&order=orden.asc`, {
-            headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
-        });
-        if (!res.ok) {
-            console.error(`❌ sys_metodos_pago HTTP ${res.status}:`, await res.text());
+        // Usar SDK igual que configuracion.js (que siempre funciona)
+        let client = window.sb;
+        if (!client && window.supabase) {
+            client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        }
+        if (!client) {
+            console.error("❌ _fetchMetodosPago: Supabase client no disponible");
             return [];
         }
-        const data = await res.json();
+        const { data, error } = await client
+            .from('sys_metodos_pago')
+            .select('id,nombre,tasa_base,aplica_iva,activo,orden')
+            .order('orden');
+        if (error) {
+            console.error("❌ _fetchMetodosPago error:", error.message);
+            return [];
+        }
         if (Array.isArray(data) && data.length > 0) {
             window.CONFIG_NEGOCIO.metodosPago = data;
             const tasas = {};
@@ -58,11 +65,11 @@ window._fetchMetodosPago = async function() {
             window.CONFIG_NEGOCIO.tasasComision = tasas;
             console.log("✅ Métodos de pago cargados:", data.length);
         } else {
-            console.warn("⚠️ sys_metodos_pago vacío. Proyecto Supabase:", url.split('.')[0].split('//')[1]);
+            console.warn("⚠️ sys_metodos_pago vacío o sin datos:", data);
         }
         return data || [];
     } catch(e) {
-        console.error("❌ Error fetching sys_metodos_pago:", e);
+        console.error("❌ Exception _fetchMetodosPago:", e);
         return [];
     }
 };
