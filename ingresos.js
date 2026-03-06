@@ -447,7 +447,11 @@ async function actualizarCalculosKPIsIngresos(datos) {
 }
 
 // 4. LÓGICA DE REGISTRO MÚLTIPLE
-function agregarFila() {
+async function agregarFila() {
+    // Asegurar que los métodos de pago estén cargados antes de crear la fila
+    if ((window.CONFIG_NEGOCIO?.metodosPago || []).length === 0) {
+        if (window._fetchMetodosPago) await window._fetchMetodosPago();
+    }
     const tbody = document.getElementById('filasCaptura');
     if (!tbody) return;
     const tr = document.createElement('tr');

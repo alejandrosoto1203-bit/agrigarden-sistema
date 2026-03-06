@@ -37,53 +37,63 @@ const DEFAULT_CONFIG = {
 // Global Config Object (Mutable)
 window.CONFIG_NEGOCIO = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 
-// Function to load dynamic config from Supabase
-window.cargarConfiguracionSistema = async function () {
+// Shared helper: fetches sys_metodos_pago and populates CONFIG_NEGOCIO
+window._fetchMetodosPago = async function() {
     const url = window.SUPABASE_URL;
     const key = window.SUPABASE_KEY;
-    if (!url || !key) return;
-
-    const headers = { 'apikey': key, 'Authorization': `Bearer ${key}` };
-
+    if (!url || !key) return [];
     try {
-        // 1. Cargar métodos de pago desde sys_metodos_pago
-        const res = await fetch(`${url}/rest/v1/sys_metodos_pago?select=id,nombre,tasa_base,aplica_iva,activo,orden&order=orden.asc`, { headers });
-        if (res.ok) {
-            const metodosData = await res.json();
-            if (Array.isArray(metodosData) && metodosData.length > 0) {
-                window.CONFIG_NEGOCIO.metodosPago = metodosData;
-                const tasas = {};
-                metodosData.forEach(m => {
-                    tasas[m.nombre] = m.aplica_iva ? m.tasa_base * 1.16 : m.tasa_base;
-                });
-                window.CONFIG_NEGOCIO.tasasComision = tasas;
-                console.log("Sistema: Métodos de pago cargados:", metodosData.length);
-            }
+        const res = await fetch(`${url}/rest/v1/sys_metodos_pago?select=id,nombre,tasa_base,aplica_iva,activo,orden&order=orden.asc`, {
+            headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
+        });
+        if (!res.ok) {
+            console.error(`❌ sys_metodos_pago HTTP ${res.status}:`, await res.text());
+            return [];
+        }
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+            window.CONFIG_NEGOCIO.metodosPago = data;
+            const tasas = {};
+            data.forEach(m => { tasas[m.nombre] = m.aplica_iva ? m.tasa_base * 1.16 : m.tasa_base; });
+            window.CONFIG_NEGOCIO.tasasComision = tasas;
+            console.log("✅ Métodos de pago cargados:", data.length);
         } else {
-            console.warn("Error cargando métodos de pago:", res.status, await res.text());
+            console.warn("⚠️ sys_metodos_pago vacío. Proyecto Supabase:", url.split('.')[0].split('//')[1]);
         }
-
-        // 2. Load Monthly Goal
-        const date = new Date();
-        const resMeta = await fetch(
-            `${url}/rest/v1/sys_metas_ingresos?select=monto_meta&anio=eq.${date.getFullYear()}&mes=eq.${date.getMonth() + 1}&limit=1`,
-            { headers }
-        );
-        if (resMeta.ok) {
-            const metaArr = await resMeta.json();
-            if (metaArr && metaArr.length > 0) {
-                window.CONFIG_NEGOCIO.metaMensual = metaArr[0].monto_meta;
-                console.log("Sistema: Meta mensual actualizada:", metaArr[0].monto_meta);
-            }
-        }
-
-    } catch (e) {
-        console.warn("Error cargando configuración:", e);
+        return data || [];
+    } catch(e) {
+        console.error("❌ Error fetching sys_metodos_pago:", e);
+        return [];
     }
-}
+};
+
+// Singleton promise — todos los callers esperan la misma petición
+let _configPromise = null;
+window.cargarConfiguracionSistema = function() {
+    if (_configPromise) return _configPromise;
+    const url = window.SUPABASE_URL;
+    const key = window.SUPABASE_KEY;
+    if (!url || !key) return Promise.resolve();
+    _configPromise = (async () => {
+        await window._fetchMetodosPago();
+        // Meta mensual
+        try {
+            const date = new Date();
+            const resMeta = await fetch(
+                `${url}/rest/v1/sys_metas_ingresos?select=monto_meta&anio=eq.${date.getFullYear()}&mes=eq.${date.getMonth() + 1}&limit=1`,
+                { headers: { 'apikey': key, 'Authorization': `Bearer ${key}` } }
+            );
+            if (resMeta.ok) {
+                const metaArr = await resMeta.json();
+                if (metaArr && metaArr.length > 0) window.CONFIG_NEGOCIO.metaMensual = metaArr[0].monto_meta;
+            }
+        } catch(e) {}
+    })();
+    return _configPromise;
+};
 
 // Trigger load immediately
-cargarConfiguracionSistema();
+window.cargarConfiguracionSistema();
 
 // Función utilitaria para poblar selectores <select> con métodos activos
 // Uso: poblarSelectoresMetodoPago(['filtroMetodo', 'editMetodo'], { incluirTodos: true })

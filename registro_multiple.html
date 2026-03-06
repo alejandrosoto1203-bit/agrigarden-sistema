@@ -93,13 +93,13 @@
         </div>
     </main>
 
-    <script src="api.js?v=2"></script>
+    <script src="api.js?v=3"></script>
     <script src="auth.js"></script>
     <script src="ingresos.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
-            if (typeof cargarConfiguracionSistema === 'function') await cargarConfiguracionSistema();
-            if (typeof agregarFila === 'function') agregarFila();
+            if (window._fetchMetodosPago) await window._fetchMetodosPago();
+            if (typeof agregarFila === 'function') await agregarFila();
         });
     </script>
 </body>

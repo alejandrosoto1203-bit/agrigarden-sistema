@@ -296,7 +296,7 @@
         </div>
     </div>
 
-    <script src="api.js?v=2"></script>
+    <script src="api.js?v=3"></script>
     <script src="auth.js"></script>
     <script src="menu.js"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
@@ -305,7 +305,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             inyectarMenu('cobrar');
-            if (typeof cargarConfiguracionSistema === 'function') await cargarConfiguracionSistema();
+            if (window._fetchMetodosPago) await window._fetchMetodosPago();
             if (typeof poblarSelectoresMetodoPago === 'function') {
                 poblarSelectoresMetodoPago(['metodoPagoCobro'], {});
             }

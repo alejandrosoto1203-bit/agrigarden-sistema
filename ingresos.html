@@ -383,7 +383,7 @@
         </div>
     </div>
 
-    <script src="api.js?v=2"></script>
+    <script src="api.js?v=3"></script>
     <script src="auth.js"></script>
     <script src="menu.js"></script>
     <script src="export_helper.js"></script>
@@ -391,7 +391,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             inyectarMenu('ingresos');
-            if (typeof cargarConfiguracionSistema === 'function') await cargarConfiguracionSistema();
+            if (window._fetchMetodosPago) await window._fetchMetodosPago();
             if (typeof poblarSelectoresMetodoPago === 'function') {
                 poblarSelectoresMetodoPago(['filtroMetodo'], { incluirTodos: true });
                 poblarSelectoresMetodoPago(['editMetodo'], {});

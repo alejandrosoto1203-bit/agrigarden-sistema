@@ -565,10 +565,10 @@ async function renderMetodosPagoVentas() {
     const grid = document.getElementById('metodosPagoGrid');
     if (!grid) return;
 
-    // Si la config aún no cargó, esperarla
+    // Si la config aún no cargó, hacer fetch directo
     if ((window.CONFIG_NEGOCIO?.metodosPago || []).length === 0) {
         grid.innerHTML = '<p class="col-span-2 text-gray-400 italic text-xs">Cargando métodos...</p>';
-        if (window.cargarConfiguracionSistema) await window.cargarConfiguracionSistema();
+        if (window._fetchMetodosPago) await window._fetchMetodosPago();
     }
 
     const metodos = (window.CONFIG_NEGOCIO?.metodosPago || []).filter(m => m.activo);
