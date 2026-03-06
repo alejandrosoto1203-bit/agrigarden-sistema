@@ -631,7 +631,7 @@ async function confirmarVenta() {
     // Obtener cliente (validado o texto libre)
     const inputCliente = document.getElementById('inputClienteVenta');
     const clienteTexto = inputCliente.value.trim().toUpperCase() || 'PÚBLICO GENERAL';
-    const cliente = clienteSeleccionado ? clienteSeleccionado.nombre_completo : clienteTexto;
+    const cliente = clienteSeleccionado ? clienteSeleccionado.nombre : clienteTexto;
 
     const notas = document.getElementById('inputNotasVenta').value.trim().toUpperCase();
 
@@ -1116,7 +1116,7 @@ async function cargarVendedoresPOS() {
 
 async function cargarClientesPOS() {
     try {
-        const res = await fetch(`${window.SUPABASE_URL}/rest/v1/clientes?select=id,nombre_completo,telefono&estado=eq.Activo&order=nombre_completo.asc`, {
+        const res = await fetch(`${window.SUPABASE_URL}/rest/v1/clientes?select=id,nombre,telefono&order=nombre.asc`, {
             headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
         });
         if (res.ok) {
@@ -1139,7 +1139,7 @@ function filtrarClientesDropdown() {
     }
 
     const filtrados = clientesCache.filter(c =>
-        (c.nombre_completo && c.nombre_completo.toLowerCase().includes(query)) ||
+        (c.nombre && c.nombre.toLowerCase().includes(query)) ||
         (c.telefono && c.telefono.includes(query))
     ).slice(0, 10); // Limitar a 10 sugerencias
 
@@ -1149,7 +1149,7 @@ function filtrarClientesDropdown() {
         dropdown.innerHTML = filtrados.map(c => `
             <div onclick="seleccionarClienteVenta('${c.id}')" 
                  class="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 flex flex-col transition-colors">
-                <span class="font-bold text-sm text-gray-800">${c.nombre_completo}</span>
+                <span class="font-bold text-sm text-gray-800">${c.nombre || 'Sin nombre'}</span>
                 <span class="text-[10px] text-gray-500 font-mono tracking-widest uppercase">${c.telefono || 'Sin teléfono'}</span>
             </div>
         `).join('');
@@ -1175,7 +1175,7 @@ function seleccionarClienteVenta(id) {
     if (!cliente) return;
 
     clienteSeleccionado = cliente;
-    document.getElementById('inputClienteVenta').value = cliente.nombre_completo;
+    document.getElementById('inputClienteVenta').value = cliente.nombre || 'Sin nombre';
     document.getElementById('dropdownClientes').classList.add('hidden');
 
     // SOLICITAR TELÉFONO OBLIGATORIO
@@ -1183,7 +1183,7 @@ function seleccionarClienteVenta(id) {
 }
 
 function abrirModalTelefonoCliente(cliente) {
-    document.getElementById('nombreClienteTelefono').textContent = cliente.nombre_completo;
+    document.getElementById('nombreClienteTelefono').textContent = cliente.nombre || 'Cliente';
     document.getElementById('inputTelefonoCliente').value = ''; // FORZAR AL CAJERO A PREGUNTAR!
     document.getElementById('modalTelefonoCliente').classList.remove('hidden');
 

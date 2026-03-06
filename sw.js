@@ -1,6 +1,6 @@
 // sw.js - Service Worker para Notificaciones Push Agrigarden
 
-const CACHE_NAME = 'agrigarden-cache-v1';
+const CACHE_NAME = 'agrigarden-cache-v2';
 
 self.addEventListener('install', event => {
     console.log('[Service Worker] Instalando...');
