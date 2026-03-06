@@ -38,38 +38,31 @@ const DEFAULT_CONFIG = {
 window.CONFIG_NEGOCIO = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 
 // Shared helper: fetches sys_metodos_pago and populates CONFIG_NEGOCIO
-// Usa window.sb (SDK) igual que configuracion.js — probado funcionar en todos los entornos
+// Usa credenciales PROD hardcodeadas igual que configuracion.js para garantizar acceso
 window._fetchMetodosPago = async function() {
+    const _URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+    const _KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
     try {
-        // Usar SDK igual que configuracion.js (que siempre funciona)
-        let client = window.sb;
-        if (!client && window.supabase) {
-            client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        }
-        if (!client) {
-            console.error("❌ _fetchMetodosPago: Supabase client no disponible");
+        const res = await fetch(`${_URL}/rest/v1/sys_metodos_pago?select=id,nombre,tasa_base,aplica_iva,activo,orden&order=orden.asc`, {
+            headers: { 'apikey': _KEY, 'Authorization': `Bearer ${_KEY}` }
+        });
+        if (!res.ok) {
+            console.error(`❌ sys_metodos_pago HTTP ${res.status}:`, await res.text());
             return [];
         }
-        const { data, error } = await client
-            .from('sys_metodos_pago')
-            .select('id,nombre,tasa_base,aplica_iva,activo,orden')
-            .order('orden');
-        if (error) {
-            console.error("❌ _fetchMetodosPago error:", error.message);
-            return [];
-        }
+        const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
             window.CONFIG_NEGOCIO.metodosPago = data;
             const tasas = {};
             data.forEach(m => { tasas[m.nombre] = m.aplica_iva ? m.tasa_base * 1.16 : m.tasa_base; });
             window.CONFIG_NEGOCIO.tasasComision = tasas;
-            console.log("✅ Métodos de pago cargados:", data.length);
+            console.log('✅ Métodos de pago cargados:', data.length);
         } else {
-            console.warn("⚠️ sys_metodos_pago vacío o sin datos:", data);
+            console.warn('⚠️ sys_metodos_pago vacío:', data);
         }
         return data || [];
     } catch(e) {
-        console.error("❌ Exception _fetchMetodosPago:", e);
+        console.error('❌ Error fetching sys_metodos_pago:', e);
         return [];
     }
 };
