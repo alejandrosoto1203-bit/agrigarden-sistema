@@ -12,8 +12,7 @@ function inyectarMenu(paginaActiva) {
             link: '#',
             subItems: [
                 { id: 'pos_terminal', nombre: 'Terminal POS', link: 'ventas.html' },
-                { id: 'pos_cortes', nombre: 'Historial de Cortes', link: 'cortes_caja.html' },
-                { id: 'ventas_analytics', nombre: 'Análisis de Ventas', link: 'ventas_analytics.html' }
+                { id: 'pos_cortes', nombre: 'Historial de Cortes', link: 'cortes_caja.html' }
             ]
         },
         { id: 'ingresos', nombre: 'Ingresos', icon: 'payments', link: 'ingresos.html' },
@@ -53,6 +52,7 @@ function inyectarMenu(paginaActiva) {
         { id: 'efectivo', nombre: 'Control de Efectivo', icon: 'local_atm', link: 'control_efectivo.html' },
         { id: 'estado_resultados', nombre: 'Estado de Resultados', icon: 'trending_up', link: 'estado_resultados.html' },
         { id: 'reportes', nombre: 'Reportes', icon: 'bar_chart', link: 'reportes.html' },
+        { id: 'ventas_analytics', nombre: 'Análisis de Ventas', icon: 'analytics', link: 'ventas_analytics.html' },
         { id: 'configuracion', nombre: 'Configuración', icon: 'settings', link: 'configuracion.html' },
         { id: 'pulpos_sync', nombre: 'Sync Pulpos', icon: 'sync', link: 'pulpos_sync.html' },
         // Solo admins
