@@ -62,9 +62,11 @@ function renderMetodosPago(metodos) {
                 <div class="size-8 rounded-full ${m.activo ? 'bg-black text-white' : 'bg-gray-300 text-gray-500'} flex items-center justify-center text-xs font-black flex-shrink-0">
                     ${m.nombre.charAt(0).toUpperCase()}
                 </div>
-                <div class="min-w-0">
-                    <p class="text-sm font-bold truncate">${m.nombre}</p>
-                    <p class="text-[10px] font-bold uppercase ${m.activo ? 'text-green-600' : 'text-gray-400'}">${m.activo ? 'Activo' : 'Inactivo'}</p>
+                <div class="min-w-0 flex-1">
+                    <input type="text"
+                        class="input-nombre w-full text-sm font-bold bg-transparent border border-transparent hover:border-gray-200 focus:border-gray-300 focus:bg-white rounded px-1 py-0.5 outline-none transition-all"
+                        data-id="${m.id}" data-nombre-original="${m.nombre}" value="${m.nombre}">
+                    <p class="text-[10px] font-bold uppercase ${m.activo ? 'text-green-600' : 'text-gray-400'} ml-1">${m.activo ? 'Activo' : 'Inactivo'}</p>
                 </div>
             </div>
             <div class="flex items-center gap-3 flex-shrink-0">
@@ -114,48 +116,75 @@ window.guardarMetodo = async function (id) {
     const client = getClient();
     if (!client) return alert("Error de conexión");
 
-    const input = document.querySelector(`.input-comision[data-id="${id}"]`);
-    if (!input) return;
+    const inputComision = document.querySelector(`.input-comision[data-id="${id}"]`);
+    const inputNombre = document.querySelector(`.input-nombre[data-id="${id}"]`);
+    if (!inputComision || !inputNombre) return;
 
-    const nombre = input.dataset.nombre;
-    const nuevaBase = (parseFloat(input.value) || 0) / 100;
+    const nombreOriginal = inputNombre.dataset.nombreOriginal;
+    const nuevoNombre = inputNombre.value.trim();
+    const nuevaBase = (parseFloat(inputComision.value) || 0) / 100;
+
+    if (!nuevoNombre) return alert("El nombre no puede estar vacío.");
 
     // Buscar el valor anterior
     const anterior = currentMetodosPago.find(m => m.id === id);
     const anteriorBase = anterior?.tasa_base || 0;
     const cambioEnTasa = Math.abs(nuevaBase - anteriorBase) > 0.000001;
+    const cambioEnNombre = nuevoNombre !== nombreOriginal;
 
     let retroactivo = false;
     if (cambioEnTasa && anteriorBase > 0) {
         const respuesta = confirm(
-            `¿Deseas aplicar el nuevo porcentaje (${(nuevaBase * 100).toFixed(2)}%) también a las transacciones ANTERIORES de "${nombre}"?\n\n` +
+            `¿Deseas aplicar el nuevo porcentaje (${(nuevaBase * 100).toFixed(2)}%) también a las transacciones ANTERIORES de "${nombreOriginal}"?\n\n` +
             `• Aceptar = Actualizar todo el historial\n` +
             `• Cancelar = Solo ventas futuras`
         );
         retroactivo = respuesta;
     }
 
+    // Advertencia si cambia el nombre (afecta historial de transacciones)
+    if (cambioEnNombre) {
+        const ok = confirm(
+            `¿Renombrar "${nombreOriginal}" a "${nuevoNombre}"?\n\n` +
+            `Las transacciones existentes con el nombre antiguo quedarán registradas con el nombre anterior en el historial.`
+        );
+        if (!ok) return;
+    }
+
     try {
+        const payload = { tasa_base: nuevaBase };
+        if (cambioEnNombre) payload.nombre = nuevoNombre;
+
         const { error } = await client
             .from('sys_metodos_pago')
-            .update({ tasa_base: nuevaBase })
+            .update(payload)
             .eq('id', id);
         if (error) throw error;
 
         // Actualizar cache local y CONFIG_NEGOCIO
-        if (anterior) anterior.tasa_base = nuevaBase;
-        if (window.CONFIG_NEGOCIO) {
-            const aplicaIva = anterior?.aplica_iva;
-            window.CONFIG_NEGOCIO.tasasComision[nombre] = aplicaIva ? nuevaBase * 1.16 : nuevaBase;
+        if (anterior) {
+            if (cambioEnNombre) {
+                delete window.CONFIG_NEGOCIO?.tasasComision?.[nombreOriginal];
+                anterior.nombre = nuevoNombre;
+            }
+            anterior.tasa_base = nuevaBase;
+            if (window.CONFIG_NEGOCIO) {
+                const aplicaIva = anterior?.aplica_iva;
+                window.CONFIG_NEGOCIO.tasasComision[nuevoNombre] = aplicaIva ? nuevaBase * 1.16 : nuevaBase;
+            }
         }
 
-        // Si retroactivo, recalcular transacciones anteriores
+        // Si retroactivo, recalcular comisiones en transacciones anteriores
         if (retroactivo) {
-            await aplicarComisionRetroactiva(client, nombre, anterior?.aplica_iva, nuevaBase);
+            await aplicarComisionRetroactiva(client, nombreOriginal, anterior?.aplica_iva, nuevaBase);
         }
 
         cargarComisionesUI();
-        alert(`"${nombre}" actualizado correctamente.${retroactivo ? '\nHistorial recalculado.' : ''}`);
+        const msgs = [];
+        if (cambioEnNombre) msgs.push(`Nombre actualizado a "${nuevoNombre}".`);
+        msgs.push(`Comisión guardada.`);
+        if (retroactivo) msgs.push(`Historial recalculado.`);
+        alert(msgs.join('\n'));
     } catch (e) {
         console.error(e);
         alert("Error al guardar: " + e.message);
