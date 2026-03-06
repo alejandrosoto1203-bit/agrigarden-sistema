@@ -649,3 +649,108 @@ window.toggleMecanico = async function (id, estadoActual) {
     }
 }
 
+// ---------------------------
+// 6. VENDEDORES POS
+// ---------------------------
+async function cargarVendedoresUI() {
+    const contenedor = document.getElementById('listaVendedores');
+    if (!contenedor) return;
+    contenedor.innerHTML = '<p class="text-gray-400 italic">Cargando...</p>';
+
+    try {
+        const client = getClient();
+        if (!client) throw new Error("Supabase no disponible");
+
+        const { data, error } = await client
+            .from('sys_vendedores')
+            .select('*')
+            .order('nombre');
+
+        if (error) {
+            if (error.code === '42P01' || error.message.includes('relation "sys_vendedores" does not exist')) {
+                contenedor.innerHTML = '<p class="text-red-500 text-sm font-bold">Falta ejecutar el script SQL para crear la tabla sys_vendedores en Supabase.</p>';
+                return;
+            }
+            throw error;
+        }
+
+        if (!data || data.length === 0) {
+            contenedor.innerHTML = '<p class="text-gray-400 italic text-sm text-center py-6">No hay vendedores registrados. Agrega uno para comenzar.</p>';
+            return;
+        }
+
+        contenedor.innerHTML = data.map(v => `
+            <div class="flex items-center justify-between p-4 rounded-xl border border-gray-100 ${v.activo ? 'bg-white' : 'bg-gray-50 opacity-60'}">
+                <div class="flex items-center gap-3">
+                    <div class="size-10 rounded-full ${v.activo ? 'bg-black text-white' : 'bg-gray-200 text-gray-400'} flex items-center justify-center font-bold text-lg">
+                        ${v.nombre.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <p class="font-bold text-sm">${v.nombre}</p>
+                        <p class="text-[10px] font-bold uppercase ${v.activo ? 'text-green-600' : 'text-gray-400'}">${v.activo ? 'Activo' : 'Inactivo'}</p>
+                    </div>
+                </div>
+                <button onclick="toggleVendedor(${v.id}, ${v.activo})"
+                    class="px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors ${v.activo
+                ? 'text-red-500 hover:bg-red-50 border border-red-100'
+                : 'text-green-600 hover:bg-green-50 border border-green-100'}">
+                    ${v.activo ? 'Desactivar' : 'Activar'}
+                </button>
+            </div>
+        `).join('');
+
+    } catch (e) {
+        console.error(e);
+        contenedor.innerHTML = `<p class="text-red-500 text-sm">${e.message}</p>`;
+    }
+}
+
+window.abrirFormVendedor = function () {
+    document.getElementById('formNuevoVendedor').classList.remove('hidden');
+    document.getElementById('inputNombreVendedor').focus();
+}
+
+window.cancelarFormVendedor = function () {
+    document.getElementById('formNuevoVendedor').classList.add('hidden');
+    document.getElementById('inputNombreVendedor').value = '';
+}
+
+window.guardarVendedor = async function () {
+    const nombre = document.getElementById('inputNombreVendedor').value.trim();
+    if (!nombre) return alert('Escribe el nombre del vendedor.');
+
+    try {
+        const client = getClient();
+        const { error } = await client
+            .from('sys_vendedores')
+            .insert([{ nombre, activo: true }]);
+
+        if (error) throw error;
+
+        cancelarFormVendedor();
+        cargarVendedoresUI();
+        alert('Vendedor agregado.');
+    } catch (e) {
+        console.error(e);
+        alert('Error: ' + e.message);
+    }
+}
+
+window.toggleVendedor = async function (id, estadoActual) {
+    const accion = estadoActual ? 'desactivar' : 'activar';
+    if (!confirm(`¿${accion.charAt(0).toUpperCase() + accion.slice(1)} este vendedor?`)) return;
+
+    try {
+        const client = getClient();
+        const { error } = await client
+            .from('sys_vendedores')
+            .update({ activo: !estadoActual })
+            .eq('id', id);
+
+        if (error) throw error;
+        cargarVendedoresUI();
+    } catch (e) {
+        console.error(e);
+        alert('Error: ' + e.message);
+    }
+}

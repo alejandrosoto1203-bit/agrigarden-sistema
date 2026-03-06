@@ -22,6 +22,11 @@ let metodoPagoSeleccionado = 'Efectivo';
 let tipoPrecioActivo = 'precio_publico';
 let ventaDesdeReparacion = null; // Datos de orden de reparación si viene del módulo de taller
 
+// CACHES NUEVOS
+let clientesCache = [];
+let vendedoresCache = [];
+let clienteSeleccionado = null; // Guardará el objeto del cliente validado
+
 // =====================================================
 // INICIALIZACIÓN
 // =====================================================
@@ -153,8 +158,10 @@ async function entrarPOS() {
         weekday: 'long', day: 'numeric', month: 'long'
     });
 
-    // Cargar productos
+    // Cargar Catálogos
     await cargarProductosPOS();
+    await cargarClientesPOS();
+    await cargarVendedoresPOS();
 
     // Verificar si viene de una orden de reparación
     const datosReparacion = sessionStorage.getItem('ordenReparacionPOS');
@@ -310,20 +317,23 @@ function renderizarProductosPOS(productos) {
     grid.innerHTML = productos.map(p => {
         const stock = p[stockKey] || 0;
         const sinStock = stock <= 0 && p.utiliza_stock !== false;
-        const imgUrl = p.imagen_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.nombre?.charAt(0) || 'P')}&background=f1f5f9&color=94a3b8&size=80`;
+        const imgUrl = p.imagen_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.nombre?.charAt(0) || 'P')}&background=f8fafc&color=94a3b8&size=80`;
 
         return `
             <div onclick="${sinStock ? `mostrarStockInsuficiente(${p.id}, 1)` : `agregarAlCarrito(${p.id})`}"
-                class="producto-card pos-card p-4 cursor-pointer transition-all ${sinStock ? 'opacity-50' : 'hover:border-primary/50'}">
+                class="producto-card pos-card p-4 cursor-pointer transition-all ${sinStock ? 'opacity-40 grayscale' : 'hover:border-black/20 hover:shadow-xl hover:-translate-y-1'}">
                 <div class="relative">
-                    <img src="${imgUrl}" class="w-full aspect-square object-cover rounded-xl mb-3" alt="${p.nombre}">
-                    ${sinStock ? '<div class="absolute inset-0 bg-white/60 rounded-xl flex items-center justify-center"><span class="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded">SIN STOCK</span></div>' : ''}
+                    <img src="${imgUrl}" class="w-full aspect-square object-cover rounded-2xl mb-4 bg-gray-50 border border-gray-100/50" alt="${p.nombre}">
+                    ${sinStock ? '<div class="absolute inset-0 bg-white/60 rounded-2xl flex items-center justify-center backdrop-blur-[1px]"><span class="text-[10px] font-black tracking-widest text-red-600 bg-red-50/90 px-3 py-1.5 rounded-lg uppercase">Agotado</span></div>' : ''}
                 </div>
-                <p class="font-bold text-sm text-gray-800 truncate">${p.nombre}</p>
-                <p class="text-xs text-gray-400">${p.sku || ''}</p>
-                <div class="flex justify-between items-end mt-2">
-                    <p class="text-lg font-black text-primary">${formatMoney(p.precio_publico || 0)}</p>
-                    <p class="text-xs ${stock <= (p.stock_minimo || 0) ? 'text-orange-500' : 'text-gray-400'}">${stock} disp.</p>
+                <p class="font-bold text-sm text-gray-800 line-clamp-2 leading-tight min-h-[2.5rem] tracking-tight">${p.nombre}</p>
+                <div class="flex justify-between items-center mt-1">
+                    <p class="text-[10px] text-gray-400 font-mono tracking-wider">${p.sku || 'N/A'}</p>
+                    <p class="text-[10px] font-bold ${stock <= (p.stock_minimo || 0) ? 'text-orange-500' : 'text-emerald-500'} bg-gray-50 px-2 py-0.5 rounded-md">${stock} disp.</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-gray-100 flex justify-between items-end">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5">Precio</p>
+                    <p class="text-lg font-black text-black tracking-tight">${formatMoney(p.precio_publico || 0)}</p>
                 </div>
             </div>
         `;
@@ -613,7 +623,16 @@ async function confirmarVenta() {
 
     const total = carrito.reduce((sum, i) => sum + i.total, 0);
     const subtotal = carrito.reduce((sum, i) => sum + i.subtotal, 0);
-    const cliente = document.getElementById('inputClienteVenta').value.trim().toUpperCase() || 'PÚBLICO GENERAL';
+
+    // Obtener vendedor
+    const selectVendedor = document.getElementById('selectVendedorPOS');
+    const vendedor_nombre = selectVendedor.options[selectVendedor.selectedIndex]?.text || null;
+
+    // Obtener cliente (validado o texto libre)
+    const inputCliente = document.getElementById('inputClienteVenta');
+    const clienteTexto = inputCliente.value.trim().toUpperCase() || 'PÚBLICO GENERAL';
+    const cliente = clienteSeleccionado ? clienteSeleccionado.nombre_completo : clienteTexto;
+
     const notas = document.getElementById('inputNotasVenta').value.trim().toUpperCase();
 
     // Validar efectivo si aplica
@@ -674,6 +693,7 @@ async function confirmarVenta() {
             tipo: 'Venta Directa',
             metodo_pago: metodoPagoSeleccionado,
             nombre_cliente: cliente,
+            vendedor_nombre: vendedor_nombre, // NUEVA COLUMNA VENDEDOR
             sucursal: cajaActual,
             estado_cobro: metodoPagoSeleccionado === 'Crédito' ? 'Pendiente' : 'Pagado',
             saldo_pendiente: metodoPagoSeleccionado === 'Crédito' ? total : 0,
@@ -716,7 +736,8 @@ async function confirmarVenta() {
             iva_monto: item.iva_monto,
             ieps_porcentaje: item.ieps_porcentaje,
             ieps_monto: item.ieps_monto,
-            total: item.total
+            total: item.total,
+            vendedor_nombre: vendedor_nombre // NUEVA COLUMNA VENDEDOR
         }));
 
         await fetch(`${window.SUPABASE_URL}/rest/v1/venta_items`, {
@@ -1067,4 +1088,153 @@ async function confirmarCorteCaja() {
 // =====================================================
 function formatMoney(amount) {
     return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount || 0);
+}
+
+// =====================================================
+// CLIENTES, VENDEDORES Y TELEFONO (NUEVA LOGICA OBLIGATORIA)
+// =====================================================
+async function cargarVendedoresPOS() {
+    const select = document.getElementById('selectVendedorPOS');
+    if (!select) return;
+
+    try {
+        const res = await fetch(`${window.SUPABASE_URL}/rest/v1/sys_vendedores?select=id,nombre&activo=eq.true&order=nombre.asc`, {
+            headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+        });
+        if (!res.ok) throw new Error("No hay vendedores o tabla no existe.");
+        vendedoresCache = await res.json();
+
+        select.innerHTML = '<option value="">Sin Vendedor Asignado</option>';
+        vendedoresCache.forEach(v => {
+            select.innerHTML += `<option value="${v.id}">${v.nombre}</option>`;
+        });
+    } catch (e) {
+        console.warn("Vendedores no cargados:", e);
+        select.innerHTML = '<option value="">Sin Vendedor Asignado</option>';
+    }
+}
+
+async function cargarClientesPOS() {
+    try {
+        const res = await fetch(`${window.SUPABASE_URL}/rest/v1/clientes?select=id,nombre_completo,telefono&estado=eq.Activo&order=nombre_completo.asc`, {
+            headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+        });
+        if (res.ok) {
+            clientesCache = await res.json();
+        }
+    } catch (e) {
+        console.error("Error cargando clientes POS:", e);
+    }
+}
+
+function filtrarClientesDropdown() {
+    const query = document.getElementById('inputClienteVenta').value.toLowerCase().trim();
+    const dropdown = document.getElementById('dropdownClientes');
+    clienteSeleccionado = null; // Reset al escribir manualmente
+
+    if (!query) {
+        dropdown.innerHTML = '';
+        dropdown.classList.add('hidden');
+        return;
+    }
+
+    const filtrados = clientesCache.filter(c =>
+        (c.nombre_completo && c.nombre_completo.toLowerCase().includes(query)) ||
+        (c.telefono && c.telefono.includes(query))
+    ).slice(0, 10); // Limitar a 10 sugerencias
+
+    if (filtrados.length === 0) {
+        dropdown.innerHTML = '<div class="p-3 text-xs text-gray-400 italic text-center">Sin resultados</div>';
+    } else {
+        dropdown.innerHTML = filtrados.map(c => `
+            <div onclick="seleccionarClienteVenta('${c.id}')" 
+                 class="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 flex flex-col transition-colors">
+                <span class="font-bold text-sm text-gray-800">${c.nombre_completo}</span>
+                <span class="text-[10px] text-gray-500 font-mono tracking-widest uppercase">${c.telefono || 'Sin teléfono'}</span>
+            </div>
+        `).join('');
+    }
+    dropdown.classList.remove('hidden');
+}
+
+function mostrarDropdownClientes() {
+    if (document.getElementById('inputClienteVenta').value.trim() && clientesCache.length > 0) {
+        document.getElementById('dropdownClientes').classList.remove('hidden');
+    }
+}
+
+function ocultarDropdownClientes() {
+    // Retrasar para permitir click en el dropdown antes de ocultar
+    setTimeout(() => {
+        document.getElementById('dropdownClientes').classList.add('hidden');
+    }, 200);
+}
+
+function seleccionarClienteVenta(id) {
+    const cliente = clientesCache.find(c => c.id == id);
+    if (!cliente) return;
+
+    clienteSeleccionado = cliente;
+    document.getElementById('inputClienteVenta').value = cliente.nombre_completo;
+    document.getElementById('dropdownClientes').classList.add('hidden');
+
+    // SOLICITAR TELÉFONO OBLIGATORIO
+    abrirModalTelefonoCliente(cliente);
+}
+
+function abrirModalTelefonoCliente(cliente) {
+    document.getElementById('nombreClienteTelefono').textContent = cliente.nombre_completo;
+    document.getElementById('inputTelefonoCliente').value = ''; // FORZAR AL CAJERO A PREGUNTAR!
+    document.getElementById('modalTelefonoCliente').classList.remove('hidden');
+
+    setTimeout(() => {
+        document.getElementById('inputTelefonoCliente').focus();
+    }, 100);
+}
+
+function cancelarActualizacionTelefono() {
+    // Si cancela, deshacemos la selección del cliente para no evadir la validación
+    clienteSeleccionado = null;
+    document.getElementById('inputClienteVenta').value = 'PÚBLICO GENERAL';
+    document.getElementById('modalTelefonoCliente').classList.add('hidden');
+}
+
+async function guardarTelefonoCliente() {
+    const telefonoNuevo = document.getElementById('inputTelefonoCliente').value.trim();
+
+    if (telefonoNuevo.length < 10) {
+        alert("Por favor ingresa un teléfono a 10 dígitos válido.");
+        return;
+    }
+
+    if (!clienteSeleccionado) return;
+
+    // Solo si ingresó algo distinto (o no lo tenía) procedemos a actualizar en Supabase
+    if (clienteSeleccionado.telefono !== telefonoNuevo) {
+        try {
+            const res = await fetch(`${window.SUPABASE_URL}/rest/v1/clientes?id=eq.${clienteSeleccionado.id}`, {
+                method: 'PATCH',
+                headers: {
+                    'apikey': window.SUPABASE_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ telefono: telefonoNuevo })
+            });
+
+            if (res.ok) {
+                // Actualizar cache local para no volver a consultarlo
+                clienteSeleccionado.telefono = telefonoNuevo;
+                const idx = clientesCache.findIndex(c => c.id === clienteSeleccionado.id);
+                if (idx > -1) clientesCache[idx].telefono = telefonoNuevo;
+            } else {
+                console.warn("No se pudo actualizar el teléfono del cliente en DB.");
+            }
+        } catch (e) {
+            console.error("Error guardando teléfono:", e);
+        }
+    }
+
+    // Cerramos el modal
+    document.getElementById('modalTelefonoCliente').classList.add('hidden');
 }

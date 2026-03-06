@@ -93,6 +93,10 @@
                 class="tab-btn px-6 py-2 rounded-lg text-sm font-bold text-gray-400 hover:text-black transition-all">
                 Mecánicos
             </button>
+            <button onclick="switchTab('vendedores')" id="tab-vendedores"
+                class="tab-btn px-6 py-2 rounded-lg text-sm font-bold text-gray-400 hover:text-black transition-all">
+                Vendedores
+            </button>
         </div>
 
         <!-- COMISIONES -->
@@ -257,6 +261,34 @@
             </div>
         </div>
 
+        <!-- VENDEDORES -->
+        <div id="content-vendedores" class="tab-content space-y-6 max-w-2xl">
+            <div class="bg-white p-4 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold">Vendedores POS</h3>
+                    <button onclick="abrirFormVendedor()"
+                        class="bg-black text-white px-6 py-3 rounded-xl text-xs font-bold uppercase hover:bg-gray-800 transition-colors flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">person_add</span> Agregar Vendedor
+                    </button>
+                </div>
+                <div id="formNuevoVendedor" class="hidden mb-6 flex gap-3">
+                    <input type="text" id="inputNombreVendedor" class="input-config flex-1"
+                        placeholder="Nombre del vendedor">
+                    <button onclick="guardarVendedor()"
+                        class="bg-green-600 text-white px-6 py-2 rounded-lg text-xs font-bold uppercase hover:bg-green-700">
+                        Guardar
+                    </button>
+                    <button onclick="cancelarFormVendedor()"
+                        class="text-gray-400 px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-100">
+                        Cancelar
+                    </button>
+                </div>
+                <div id="listaVendedores" class="space-y-2">
+                    <p class="text-gray-400 italic">Cargando vendedores...</p>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <!-- MODAL USUARIO -->
@@ -397,6 +429,7 @@
                 if (tabId === 'usuarios') cargarUsuariosUI();
                 if (tabId === 'efectivo') cargarConfigEfectivoUI();
                 if (tabId === 'mecanicos') cargarMecanicosUI();
+                if (tabId === 'vendedores') cargarVendedoresUI();
             }
 
             // Init Default
