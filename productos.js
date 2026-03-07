@@ -624,10 +624,14 @@ async function cargarMovimientosProducto(productoId) {
         const badgeColor = {
             'ENTRADA': 'bg-green-100 text-green-700',
             'SALIDA': 'bg-red-100 text-red-700',
+            'VENTA': 'bg-red-100 text-red-700',
+            'VENTA_REPARACION': 'bg-red-100 text-red-700',
             'AJUSTE': 'bg-yellow-100 text-yellow-700',
             'TRANSFERENCIA_IN': 'bg-blue-100 text-blue-700',
             'TRANSFERENCIA_OUT': 'bg-purple-100 text-purple-700'
         };
+        const tiposNegativos = new Set(['SALIDA', 'VENTA', 'VENTA_REPARACION', 'TRANSFERENCIA_OUT']);
+        const esAdmin = sessionStorage.getItem('userRole') === 'admin';
 
         seccionMov.innerHTML = `
             <div class="pt-2">
@@ -639,17 +643,21 @@ async function cargarMovimientosProducto(productoId) {
                     ${movimientos.map(m => {
             const fecha = new Date(m.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
             const tipoClass = badgeColor[m.tipo] || 'bg-slate-100 text-slate-600';
-            const cantSign = (m.tipo === 'SALIDA' || m.tipo === 'TRANSFERENCIA_OUT') ? '-' : '+';
+            const esNegativo = tiposNegativos.has(m.tipo);
+            const cantSign = esNegativo ? '-' : '+';
             return `
                         <div class="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl">
                             <div class="flex items-center gap-2">
                                 <span class="text-[9px] font-bold text-slate-400">${fecha}</span>
-                                <span class="px-1.5 py-0.5 rounded text-[8px] uppercase font-black ${tipoClass}">${m.tipo?.replace('_', ' ') || '—'}</span>
+                                <span class="px-1.5 py-0.5 rounded text-[8px] uppercase font-black ${tipoClass}">${m.tipo?.replace(/_/g, ' ') || '—'}</span>
                                 <span class="text-[9px] text-slate-500 font-bold truncate max-w-[80px]">${m.referencia || ''}</span>
                             </div>
-                            <div class="text-right">
-                                <p class="text-xs font-black ${cantSign === '-' ? 'text-red-500' : 'text-green-600'}">${cantSign}${m.cantidad}</p>
-                                <p class="text-[8px] text-slate-400">${m.sucursal || ''}</p>
+                            <div class="flex items-center gap-2">
+                                <div class="text-right">
+                                    <p class="text-xs font-black ${esNegativo ? 'text-red-500' : 'text-green-600'}">${cantSign}${m.cantidad}</p>
+                                    <p class="text-[8px] text-slate-400">${m.sucursal || ''}</p>
+                                </div>
+                                ${esAdmin ? `<button onclick="eliminarMovimiento('${m.id}', ${productoId})" class="p-1 text-slate-300 hover:text-red-500 transition-colors" title="Eliminar movimiento"><span class="material-symbols-outlined text-sm">delete</span></button>` : ''}
                             </div>
                         </div>`;
         }).join('')}
@@ -663,6 +671,17 @@ async function cargarMovimientosProducto(productoId) {
 function cerrarDetalleProducto() {
     document.getElementById('slideDetalleProducto').classList.remove('active');
     productoSeleccionado = null;
+}
+
+async function eliminarMovimiento(movimientoId, productoId) {
+    if (!confirm('¿Eliminar este movimiento del historial?')) return;
+    try {
+        const res = await fetch(`${window.SUPABASE_URL}/rest/v1/movimientos_stock?id=eq.${movimientoId}`, {
+            method: 'DELETE',
+            headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
+        });
+        if (res.ok) abrirDetalleProducto(productoId);
+    } catch(e) { console.error(e); }
 }
 
 // Mostrar/ocultar en qué órdenes de reparación están las piezas de taller

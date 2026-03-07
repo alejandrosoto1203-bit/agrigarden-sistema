@@ -852,7 +852,7 @@ async function confirmarVenta() {
                     producto_id: item.producto_id,
                     sucursal: esVentaReparacion ? 'Taller' : cajaActual,
                     tipo: esVentaReparacion ? 'VENTA_REPARACION' : 'VENTA',
-                    cantidad: -item.cantidad,
+                    cantidad: item.cantidad,
                     stock_anterior: stockAnterior,
                     stock_nuevo: stockNuevo,
                     referencia: esVentaReparacion
