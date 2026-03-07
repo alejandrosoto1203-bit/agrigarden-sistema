@@ -345,7 +345,7 @@ function agregarAlCarrito(productoId) {
             precio_unitario: precio,
             precio_tipo: tipoPrecioActivo.toUpperCase().replace('PRECIO_', ''),
             subtotal: precio,
-            iva_porcentaje: producto.aplica_impuestos ? (producto.iva_porcentaje || 16) : 0,
+            iva_porcentaje: producto.aplica_impuestos ? (producto.iva_porcentaje || 0.16) : 0,
             iva_monto: 0,
             ieps_porcentaje: producto.ieps_porcentaje || 0,
             ieps_monto: 0,
@@ -366,9 +366,10 @@ function agregarAlCarrito(productoId) {
 
 function calcularImpuestosItem(item, producto) {
     // Los precios del sistema ya incluyen IVA/IEPS → extraemos los impuestos del precio final
+    // iva_porcentaje se almacena como decimal en BD: 0.16 = 16% (NO dividir entre 100)
     if (producto.aplica_impuestos !== false && (item.iva_porcentaje > 0 || item.ieps_porcentaje > 0)) {
-        const ivaRate  = item.iva_porcentaje  / 100;
-        const iepsRate = item.ieps_porcentaje / 100;
+        const ivaRate  = item.iva_porcentaje;   // 0.16 = 16%
+        const iepsRate = item.ieps_porcentaje;  // 0.08 = 8%, etc.
         const divisor  = 1 + ivaRate + iepsRate;
         // Subtotal = base sin impuestos
         item.subtotal   = (item.cantidad * item.precio_unitario) / divisor;
