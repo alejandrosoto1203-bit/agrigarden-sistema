@@ -30,6 +30,7 @@ let clienteSeleccionado = null; // Guardará el objeto del cliente validado
 // Estado para menú contextual del carrito
 let menuItemAbierto = null;    // producto_id del item con dropdown abierto, o null
 let edicionItemActivo = null;  // { productoId, modo: 'precio'|'descuento' } o null
+let vendedorSeleccionadoPOS = null; // { id, nombre }
 
 // =====================================================
 // INICIALIZACIÓN
@@ -246,101 +247,67 @@ async function cargarProductosPOS() {
         }
 
         productosCache = allProducts;
-        cargarCategorias();
         filtrarProductosPOS();
     } catch (error) {
         console.error('Error cargando productos:', error);
     }
 }
 
-function cargarCategorias() {
-    const contenedor = document.getElementById('contenedorCategorias');
-    const categorias = [...new Set(productosCache.map(p => p.categoria).filter(c => c))];
-
-    contenedor.innerHTML = `
-        <button onclick="filtrarPorCategoria('Todos')" class="categoria-btn px-4 py-2 bg-primary text-white rounded-xl font-bold text-sm whitespace-nowrap" data-cat="Todos">
-            Todos
-        </button>
-        ${categorias.map(cat => `
-            <button onclick="filtrarPorCategoria('${cat}')" class="categoria-btn px-4 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold text-sm whitespace-nowrap hover:bg-gray-200" data-cat="${cat}">
-                ${cat}
-            </button>
-        `).join('')}
-    `;
-}
-
-function filtrarPorCategoria(categoria) {
-    categoriaActiva = categoria;
-
-    // Actualizar estilos de botones
-    document.querySelectorAll('.categoria-btn').forEach(btn => {
-        if (btn.dataset.cat === categoria) {
-            btn.classList.remove('bg-gray-100', 'text-gray-600');
-            btn.classList.add('bg-primary', 'text-white');
-        } else {
-            btn.classList.remove('bg-primary', 'text-white');
-            btn.classList.add('bg-gray-100', 'text-gray-600');
-        }
-    });
-
-    filtrarProductosPOS();
-}
-
 function filtrarProductosPOS() {
-    const busqueda = document.getElementById('busquedaProductoPOS')?.value.toLowerCase() || '';
+    const busqueda = document.getElementById('busquedaProductoPOS')?.value.trim() || '';
 
-    const filtrados = productosCache.filter(p => {
-        const coincideTexto =
-            p.nombre?.toLowerCase().includes(busqueda) ||
-            p.sku?.toLowerCase().includes(busqueda) ||
-            p.codigo_barras?.includes(busqueda);
-
-        const coincideCategoria = categoriaActiva === 'Todos' || p.categoria === categoriaActiva;
-
-        return coincideTexto && coincideCategoria;
-    });
-
-    renderizarProductosPOS(filtrados);
-}
-
-function renderizarProductosPOS(productos) {
-    const grid = document.getElementById('gridProductos');
-    const empty = document.getElementById('emptyProductos');
-
-    if (productos.length === 0) {
-        grid.innerHTML = '';
-        empty.classList.remove('hidden');
+    if (!busqueda) {
+        document.getElementById('estadoInicialPOS').classList.remove('hidden');
+        document.getElementById('resultadosBusquedaPOS').classList.add('hidden');
+        document.getElementById('resultadosBusquedaPOS').innerHTML = '';
         return;
     }
 
-    empty.classList.add('hidden');
+    document.getElementById('estadoInicialPOS').classList.add('hidden');
+    document.getElementById('resultadosBusquedaPOS').classList.remove('hidden');
 
-    // Campo de stock según la caja actual
+    const q = busqueda.toLowerCase();
+    const filtrados = productosCache.filter(p =>
+        p.nombre?.toLowerCase().includes(q) ||
+        p.sku?.toLowerCase().includes(q) ||
+        p.codigo_barras?.includes(q)
+    );
+
+    renderizarResultadosBusqueda(filtrados);
+}
+
+function renderizarResultadosBusqueda(productos) {
+    const contenedor = document.getElementById('resultadosBusquedaPOS');
     const stockKey = cajaActual === 'Norte' ? 'stock_norte' : 'stock_sur';
 
-    grid.innerHTML = productos.map(p => {
+    if (productos.length === 0) {
+        contenedor.innerHTML = `
+            <div class="text-center py-16 text-gray-300">
+                <span class="material-symbols-outlined text-5xl">search_off</span>
+                <p class="mt-3 text-sm font-bold text-gray-400">Sin resultados para esa búsqueda</p>
+            </div>`;
+        return;
+    }
+
+    contenedor.innerHTML = productos.map(p => {
         const stock = p[stockKey] || 0;
         const sinStock = stock <= 0 && p.utiliza_stock !== false;
+        const precio = p[tipoPrecioActivo] || p.precio_publico || 0;
         const imgUrl = p.imagen_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.nombre?.charAt(0) || 'P')}&background=f8fafc&color=94a3b8&size=80`;
 
         return `
-            <div onclick="${sinStock ? `mostrarStockInsuficiente(${p.id}, 1)` : `agregarAlCarrito(${p.id})`}"
-                class="producto-card pos-card p-4 cursor-pointer transition-all ${sinStock ? 'opacity-40 grayscale' : 'hover:border-black/20 hover:shadow-xl hover:-translate-y-1'}">
-                <div class="relative">
-                    <img src="${imgUrl}" class="w-full aspect-square object-cover rounded-2xl mb-4 bg-gray-50 border border-gray-100/50" alt="${p.nombre}">
-                    ${sinStock ? '<div class="absolute inset-0 bg-white/60 rounded-2xl flex items-center justify-center backdrop-blur-[1px]"><span class="text-[10px] font-black tracking-widest text-red-600 bg-red-50/90 px-3 py-1.5 rounded-lg uppercase">Agotado</span></div>' : ''}
-                </div>
-                <p class="font-bold text-sm text-gray-800 line-clamp-2 leading-tight min-h-[2.5rem] tracking-tight">${p.nombre}</p>
-                <div class="flex justify-between items-center mt-1">
-                    <p class="text-[10px] text-gray-400 font-mono tracking-wider">${p.sku || 'N/A'}</p>
-                    <p class="text-[10px] font-bold ${stock <= (p.stock_minimo || 0) ? 'text-orange-500' : 'text-emerald-500'} bg-gray-50 px-2 py-0.5 rounded-md">${stock} disp.</p>
-                </div>
-                <div class="mt-3 pt-3 border-t border-gray-100 flex justify-between items-end">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5">Precio</p>
-                    <p class="text-lg font-black text-black tracking-tight">${formatMoney(p.precio_publico || 0)}</p>
-                </div>
+        <div onclick="${sinStock ? `mostrarStockInsuficiente(${p.id}, 1)` : `agregarAlCarrito(${p.id})`}"
+            class="flex items-center gap-3 bg-white rounded-2xl p-3 cursor-pointer border border-gray-100 transition-all ${sinStock ? 'opacity-50 grayscale' : 'hover:shadow-md hover:border-gray-300'}">
+            <img src="${imgUrl}" class="w-12 h-12 rounded-xl object-cover bg-gray-50 shrink-0" alt="${p.nombre}">
+            <div class="flex-1 min-w-0">
+                <p class="font-bold text-sm text-gray-800 truncate">${p.nombre}</p>
+                <p class="text-[10px] text-gray-400 font-mono tracking-wider">${p.sku || 'N/A'}</p>
             </div>
-        `;
+            <div class="text-right shrink-0">
+                <p class="font-black text-sm text-gray-800">${formatMoney(precio)}</p>
+                <p class="text-[10px] font-bold ${sinStock ? 'text-red-500' : stock <= (p.stock_minimo || 0) ? 'text-orange-500' : 'text-emerald-500'}">${sinStock ? 'Agotado' : `${stock} disp.`}</p>
+            </div>
+        </div>`;
     }).join('');
 }
 
@@ -387,7 +354,8 @@ function agregarAlCarrito(productoId) {
             precio_personalizado: false,
             descuento_aplicado: false,
             descuento_tipo: 'pesos',
-            descuento_valor: 0
+            descuento_valor: 0,
+            imagen_url: producto.imagen_url || null
         };
         calcularImpuestosItem(nuevoItem, producto);
         carrito.push(nuevoItem);
@@ -470,6 +438,7 @@ function renderizarCarrito() {
         const menuAbierto = menuItemAbierto === item.producto_id;
         const modoEdicion = edicionItemActivo?.productoId === item.producto_id ? edicionItemActivo.modo : null;
         const tipDesc = item.descuento_tipo || 'pesos';
+        const imgUrlCarrito = item.imagen_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.producto_nombre?.charAt(0) || 'P')}&background=f8fafc&color=94a3b8&size=80`;
 
         const dropdownHTML = menuAbierto ? `
             <div class="absolute right-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[160px]">
@@ -523,36 +492,41 @@ function renderizarCarrito() {
 
         return `
         <div class="carrito-item bg-gray-50 rounded-xl p-3">
-            <div class="flex items-center justify-between mb-2">
-                <p class="font-bold text-sm text-gray-800 truncate flex-1">${item.producto_nombre}</p>
-                <button onclick="eliminarDelCarrito(${item.producto_id})" class="text-red-400 hover:text-red-600 ml-2">
-                    <span class="material-symbols-outlined text-sm">close</span>
-                </button>
-            </div>
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <button onclick="cambiarCantidadCarrito(${item.producto_id}, -1)" class="size-8 bg-white border border-gray-200 rounded-lg font-bold hover:bg-gray-100">-</button>
-                    <span class="font-bold text-gray-800 w-8 text-center">${item.cantidad}</span>
-                    <button onclick="cambiarCantidadCarrito(${item.producto_id}, 1)" class="size-8 bg-white border border-gray-200 rounded-lg font-bold hover:bg-gray-100">+</button>
-                </div>
-                <div class="text-right">
-                    <div class="flex items-center gap-1 justify-end">
-                        <p class="text-xs text-gray-400">${formatMoney(item.precio_unitario)} c/u</p>
-                        <div class="relative">
-                            <button onclick="toggleMenuItemCarrito(${item.producto_id})"
-                                class="text-gray-400 hover:text-gray-700 w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200">
-                                <span class="material-symbols-outlined text-base">more_vert</span>
-                            </button>
-                            ${dropdownHTML}
+            <div class="flex gap-3">
+                <img src="${imgUrlCarrito}" class="w-10 h-10 rounded-xl object-cover bg-gray-100 shrink-0 mt-0.5" alt="${item.producto_nombre}">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <p class="font-bold text-sm text-gray-800 truncate flex-1 pr-1">${item.producto_nombre}</p>
+                        <button onclick="eliminarDelCarrito(${item.producto_id})" class="text-red-400 hover:text-red-600 shrink-0">
+                            <span class="material-symbols-outlined text-sm">close</span>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="cambiarCantidadCarrito(${item.producto_id}, -1)" class="size-7 bg-white border border-gray-200 rounded-lg font-bold hover:bg-gray-100 text-sm">-</button>
+                            <span class="font-bold text-gray-800 w-6 text-center text-sm">${item.cantidad}</span>
+                            <button onclick="cambiarCantidadCarrito(${item.producto_id}, 1)" class="size-7 bg-white border border-gray-200 rounded-lg font-bold hover:bg-gray-100 text-sm">+</button>
+                        </div>
+                        <div class="text-right">
+                            <div class="flex items-center gap-1 justify-end">
+                                <p class="text-xs text-gray-400">${formatMoney(item.precio_unitario)} c/u</p>
+                                <div class="relative">
+                                    <button onclick="toggleMenuItemCarrito(${item.producto_id})"
+                                        class="text-gray-400 hover:text-gray-700 w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200">
+                                        <span class="material-symbols-outlined text-base">more_vert</span>
+                                    </button>
+                                    ${dropdownHTML}
+                                </div>
+                            </div>
+                            <p class="font-black text-primary">${formatMoney(item.subtotal)}</p>
+                            ${item.precio_personalizado ? `<p class="text-[10px] text-orange-500 font-bold">(Precio Personalizado)</p>` : ''}
+                            ${item.descuento_aplicado ? `<p class="text-[10px] text-emerald-600 font-bold">(Descuento)</p>` : ''}
                         </div>
                     </div>
-                    <p class="font-black text-primary">${formatMoney(item.subtotal)}</p>
-                    ${item.precio_personalizado ? `<p class="text-[10px] text-orange-500 font-bold">(Precio Personalizado)</p>` : ''}
-                    ${item.descuento_aplicado ? `<p class="text-[10px] text-emerald-600 font-bold">(Descuento)</p>` : ''}
+                    ${edicionPrecioHTML}
+                    ${edicionDescuentoHTML}
                 </div>
             </div>
-            ${edicionPrecioHTML}
-            ${edicionDescuentoHTML}
         </div>`;
     }).join('');
 
@@ -870,14 +844,9 @@ async function confirmarVenta() {
     const total = carrito.reduce((sum, i) => sum + i.total, 0);
     const subtotal = carrito.reduce((sum, i) => sum + i.subtotal, 0);
 
-    // Obtener vendedor
-    const selectVendedor = document.getElementById('selectVendedorPOS');
-    const vendedor_nombre = selectVendedor.options[selectVendedor.selectedIndex]?.text || null;
-
-    // Obtener cliente (validado o texto libre)
-    const inputCliente = document.getElementById('inputClienteVenta');
-    const clienteTexto = inputCliente.value.trim().toUpperCase() || 'PÚBLICO GENERAL';
-    const cliente = clienteSeleccionado ? clienteSeleccionado.nombre : clienteTexto;
+    // Obtener vendedor y cliente desde selecciones en modal
+    const vendedor_nombre = vendedorSeleccionadoPOS?.nombre || null;
+    const cliente = clienteSeleccionado?.nombre || 'PÚBLICO GENERAL';
 
     const notas = document.getElementById('inputNotasVenta').value.trim().toUpperCase();
 
@@ -1343,23 +1312,14 @@ function formatMoney(amount) {
 // CLIENTES, VENDEDORES Y TELEFONO (NUEVA LOGICA OBLIGATORIA)
 // =====================================================
 async function cargarVendedoresPOS() {
-    const select = document.getElementById('selectVendedorPOS');
-    if (!select) return;
-
     try {
         const res = await fetch(`${window.SUPABASE_URL}/rest/v1/sys_vendedores?select=id,nombre&or=(activo.eq.true,activo.is.null)&order=nombre.asc`, {
             headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}` }
         });
         if (!res.ok) throw new Error("No hay vendedores o tabla no existe.");
         vendedoresCache = await res.json();
-
-        select.innerHTML = '<option value="">Sin Vendedor Asignado</option>';
-        vendedoresCache.forEach(v => {
-            select.innerHTML += `<option value="${v.id}">${v.nombre}</option>`;
-        });
     } catch (e) {
         console.warn("Vendedores no cargados:", e);
-        select.innerHTML = '<option value="">Sin Vendedor Asignado</option>';
     }
 }
 
@@ -1435,8 +1395,7 @@ function seleccionarClienteVenta(id) {
     if (!cliente) return;
 
     clienteSeleccionado = cliente;
-    document.getElementById('inputClienteVenta').value = cliente.nombre || 'Sin nombre';
-    document.getElementById('dropdownClientes').classList.add('hidden');
+    cerrarModalClientePOS();
 
     // SOLICITAR TELÉFONO OBLIGATORIO
     abrirModalTelefonoCliente(cliente);
@@ -1455,8 +1414,9 @@ function abrirModalTelefonoCliente(cliente) {
 function cancelarActualizacionTelefono() {
     // Si cancela, deshacemos la selección del cliente para no evadir la validación
     clienteSeleccionado = null;
-    document.getElementById('inputClienteVenta').value = 'PÚBLICO GENERAL';
     document.getElementById('modalTelefonoCliente').classList.add('hidden');
+    actualizarLabelesPOS();
+    actualizarChipsCarrito();
 }
 
 async function guardarTelefonoCliente() {
@@ -1495,6 +1455,166 @@ async function guardarTelefonoCliente() {
         }
     }
 
-    // Cerramos el modal
+    // Cerramos el modal y actualizamos labels/chips
     document.getElementById('modalTelefonoCliente').classList.add('hidden');
+    actualizarLabelesPOS();
+    actualizarChipsCarrito();
+}
+
+// =====================================================
+// SELECCIÓN DE CLIENTE Y VENDEDOR (nuevos modales)
+// =====================================================
+
+function actualizarLabelesPOS() {
+    const lblCliente = document.getElementById('labelClientePOS');
+    const lblVendedor = document.getElementById('labelVendedorPOS');
+    const btnCliente = document.getElementById('btnClientePOS');
+    const btnVendedor = document.getElementById('btnVendedorPOS');
+
+    if (lblCliente) lblCliente.textContent = clienteSeleccionado?.nombre || 'Público General';
+    if (lblVendedor) lblVendedor.textContent = vendedorSeleccionadoPOS?.nombre || 'Sin asignar';
+
+    if (btnCliente) {
+        btnCliente.classList.toggle('border-blue-400', !!clienteSeleccionado);
+        btnCliente.classList.toggle('border-gray-200', !clienteSeleccionado);
+    }
+    if (btnVendedor) {
+        btnVendedor.classList.toggle('border-emerald-400', !!vendedorSeleccionadoPOS);
+        btnVendedor.classList.toggle('border-gray-200', !vendedorSeleccionadoPOS);
+    }
+}
+
+function actualizarChipsCarrito() {
+    const contenedor = document.getElementById('chipsClienteVendedor');
+    const chipCliente = document.getElementById('chipCliente');
+    const chipVendedor = document.getElementById('chipVendedor');
+
+    if (clienteSeleccionado) {
+        document.getElementById('chipClienteNombre').textContent = clienteSeleccionado.nombre;
+        chipCliente?.classList.remove('hidden');
+    } else {
+        chipCliente?.classList.add('hidden');
+    }
+
+    if (vendedorSeleccionadoPOS) {
+        document.getElementById('chipVendedorNombre').textContent = vendedorSeleccionadoPOS.nombre;
+        chipVendedor?.classList.remove('hidden');
+    } else {
+        chipVendedor?.classList.add('hidden');
+    }
+
+    if (clienteSeleccionado || vendedorSeleccionadoPOS) {
+        contenedor?.classList.remove('hidden');
+    } else {
+        contenedor?.classList.add('hidden');
+    }
+}
+
+// --- Modal Cliente ---
+function abrirModalClientePOS() {
+    document.getElementById('busquedaClienteModal').value = '';
+    renderizarListaClientesModal(clientesCache.slice(0, 50));
+    document.getElementById('modalClientePOS').classList.remove('hidden');
+    setTimeout(() => document.getElementById('busquedaClienteModal').focus(), 50);
+}
+
+function cerrarModalClientePOS() {
+    document.getElementById('modalClientePOS').classList.add('hidden');
+}
+
+function filtrarClientesModal() {
+    const q = document.getElementById('busquedaClienteModal').value.toLowerCase().trim();
+    const filtrados = q
+        ? clientesCache.filter(c =>
+            c.nombre?.toLowerCase().includes(q) ||
+            c.telefono?.includes(q)
+        ).slice(0, 30)
+        : clientesCache.slice(0, 50);
+    renderizarListaClientesModal(filtrados);
+}
+
+function renderizarListaClientesModal(lista) {
+    const contenedor = document.getElementById('listaClientesModal');
+    const publicoRow = `
+        <div onclick="seleccionarPublicoGeneral()"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-gray-50 border border-dashed border-gray-200 mb-2">
+            <span class="material-symbols-outlined text-gray-400 text-sm">person_off</span>
+            <span class="text-sm font-bold text-gray-500">Público General</span>
+        </div>`;
+
+    if (lista.length === 0) {
+        contenedor.innerHTML = publicoRow + '<p class="text-center text-sm text-gray-400 py-4">Sin resultados</p>';
+        return;
+    }
+
+    contenedor.innerHTML = publicoRow + lista.map(c => `
+        <div onclick="seleccionarClienteVenta('${c.id}')"
+            class="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+            <div>
+                <p class="text-sm font-bold text-gray-800">${c.nombre || 'Sin nombre'}</p>
+                <p class="text-[10px] text-gray-400 font-mono">${c.telefono || 'Sin teléfono'}</p>
+            </div>
+            <span class="material-symbols-outlined text-gray-300 text-sm">chevron_right</span>
+        </div>`).join('');
+}
+
+function seleccionarPublicoGeneral() {
+    clienteSeleccionado = null;
+    cerrarModalClientePOS();
+    actualizarLabelesPOS();
+    actualizarChipsCarrito();
+}
+
+function limpiarClientePOS() {
+    clienteSeleccionado = null;
+    actualizarLabelesPOS();
+    actualizarChipsCarrito();
+}
+
+// --- Modal Vendedor ---
+function abrirModalVendedorPOS() {
+    renderizarListaVendedoresModal();
+    document.getElementById('modalVendedorPOS').classList.remove('hidden');
+}
+
+function cerrarModalVendedorPOS() {
+    document.getElementById('modalVendedorPOS').classList.add('hidden');
+}
+
+function renderizarListaVendedoresModal() {
+    const contenedor = document.getElementById('listaVendedoresModal');
+    const sinAsignarRow = `
+        <div onclick="seleccionarVendedorPOS(null)"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-gray-50 border border-dashed border-gray-200 mb-2">
+            <span class="material-symbols-outlined text-gray-400 text-sm">badge</span>
+            <span class="text-sm font-bold text-gray-500">Sin asignar</span>
+        </div>`;
+
+    if (vendedoresCache.length === 0) {
+        contenedor.innerHTML = sinAsignarRow + '<p class="text-center text-sm text-gray-400 py-4">No hay vendedores registrados</p>';
+        return;
+    }
+
+    contenedor.innerHTML = sinAsignarRow + vendedoresCache.map(v => {
+        const seleccionado = vendedorSeleccionadoPOS?.id === v.id;
+        return `
+        <div onclick="seleccionarVendedorPOS('${v.id}')"
+            class="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${seleccionado ? 'bg-emerald-50' : 'hover:bg-gray-50'}">
+            <p class="text-sm font-bold ${seleccionado ? 'text-emerald-700' : 'text-gray-800'}">${v.nombre}</p>
+            ${seleccionado ? '<span class="material-symbols-outlined text-emerald-500 text-sm">check_circle</span>' : '<span class="material-symbols-outlined text-gray-300 text-sm">chevron_right</span>'}
+        </div>`;
+    }).join('');
+}
+
+function seleccionarVendedorPOS(id) {
+    vendedorSeleccionadoPOS = id ? (vendedoresCache.find(v => v.id == id) || null) : null;
+    cerrarModalVendedorPOS();
+    actualizarLabelesPOS();
+    actualizarChipsCarrito();
+}
+
+function limpiarVendedorPOS() {
+    vendedorSeleccionadoPOS = null;
+    actualizarLabelesPOS();
+    actualizarChipsCarrito();
 }

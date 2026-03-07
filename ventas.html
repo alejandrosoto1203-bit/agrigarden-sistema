@@ -166,43 +166,53 @@
     </header>
 
     <div class="flex h-[calc(100vh-73px)]">
-        <!-- Panel Izquierdo: Productos -->
-        <div class="flex-1 p-6 overflow-y-auto">
+        <!-- Panel Izquierdo: Búsqueda + Resultados -->
+        <div class="flex-1 p-6 overflow-y-auto flex flex-col gap-4">
             <!-- Buscador -->
-            <div class="mb-6">
-                <div class="relative">
-                    <span
-                        class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
-                    <input type="text" id="busquedaProductoPOS"
-                        placeholder="Buscar por nombre, SKU o código de barras..."
-                        class="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl text-lg focus:border-primary focus:outline-none"
-                        oninput="filtrarProductosPOS()" autofocus>
+            <div class="relative">
+                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+                <input type="text" id="busquedaProductoPOS"
+                    placeholder="Buscar por nombre, SKU o código de barras..."
+                    class="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl text-lg focus:border-primary focus:outline-none"
+                    oninput="filtrarProductosPOS()" autofocus>
+            </div>
+
+            <!-- Estado inicial (sin búsqueda activa) -->
+            <div id="estadoInicialPOS">
+                <!-- Botones Cliente / Vendedor -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <button onclick="abrirModalClientePOS()" id="btnClientePOS"
+                        class="flex items-center gap-3 p-4 bg-white border-2 border-gray-200 rounded-2xl hover:border-black/30 transition-all text-left w-full">
+                        <span class="material-symbols-outlined text-gray-400 shrink-0">person</span>
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Cliente</p>
+                            <p id="labelClientePOS" class="text-sm font-bold text-gray-800 truncate">Público General</p>
+                        </div>
+                    </button>
+                    <button onclick="abrirModalVendedorPOS()" id="btnVendedorPOS"
+                        class="flex items-center gap-3 p-4 bg-white border-2 border-gray-200 rounded-2xl hover:border-black/30 transition-all text-left w-full">
+                        <span class="material-symbols-outlined text-gray-400 shrink-0">badge</span>
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Vendedor</p>
+                            <p id="labelVendedorPOS" class="text-sm font-bold text-gray-800 truncate">Sin asignar</p>
+                        </div>
+                    </button>
+                </div>
+                <!-- Prompt búsqueda -->
+                <div class="text-center py-16 text-gray-300">
+                    <span class="material-symbols-outlined text-6xl">search</span>
+                    <p class="mt-3 text-sm font-bold text-gray-400">Busca un producto por nombre, SKU o código de barras</p>
                 </div>
             </div>
 
-            <!-- Categorías -->
-            <div class="flex gap-2 mb-6 overflow-x-auto pb-2" id="contenedorCategorias">
-                <button onclick="filtrarPorCategoria('Todos')"
-                    class="categoria-btn px-4 py-2 bg-primary text-white rounded-xl font-bold text-sm whitespace-nowrap"
-                    data-cat="Todos">
-                    Todos
-                </button>
-            </div>
-
-            <!-- Grid de Productos -->
-            <div id="gridProductos" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                <!-- Se llena dinámicamente -->
-            </div>
-
-            <!-- Empty State -->
-            <div id="emptyProductos" class="hidden text-center py-16">
-                <span class="material-symbols-outlined text-6xl text-gray-200">inventory_2</span>
-                <p class="text-gray-400 mt-4">No se encontraron productos</p>
+            <!-- Resultados de búsqueda -->
+            <div id="resultadosBusquedaPOS" class="hidden space-y-2">
+                <!-- Llenado dinámicamente -->
             </div>
         </div>
 
         <!-- Panel Derecho: Carrito -->
-        <div class="w-[450px] bg-white border-l border-gray-200/60 flex flex-col h-full shadow-2xl relative z-30">
+        <div class="w-[520px] bg-white border-l border-gray-200/60 flex flex-col h-full shadow-2xl relative z-30">
             <!-- Header Carrito -->
             <div class="p-6 border-b border-gray-100 shrink-0">
                 <div class="flex items-center justify-between">
@@ -215,6 +225,27 @@
                 </div>
                 <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1"><span
                         id="itemsCarritoCount">0</span> artículos seleccionados</p>
+                <!-- Chips cliente/vendedor -->
+                <div id="chipsClienteVendedor" class="mt-3 space-y-1.5 hidden">
+                    <div id="chipCliente" class="hidden flex items-center justify-between bg-blue-50 rounded-xl px-3 py-2">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="material-symbols-outlined text-blue-400 text-sm shrink-0">person</span>
+                            <span id="chipClienteNombre" class="text-xs font-bold text-blue-700 truncate"></span>
+                        </div>
+                        <button onclick="limpiarClientePOS()" class="text-blue-300 hover:text-blue-600 shrink-0 ml-2">
+                            <span class="material-symbols-outlined text-sm">close</span>
+                        </button>
+                    </div>
+                    <div id="chipVendedor" class="hidden flex items-center justify-between bg-emerald-50 rounded-xl px-3 py-2">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="material-symbols-outlined text-emerald-400 text-sm shrink-0">badge</span>
+                            <span id="chipVendedorNombre" class="text-xs font-bold text-emerald-700 truncate"></span>
+                        </div>
+                        <button onclick="limpiarVendedorPOS()" class="text-emerald-300 hover:text-emerald-600 shrink-0 ml-2">
+                            <span class="material-symbols-outlined text-sm">close</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Lista de Items -->
@@ -223,39 +254,6 @@
                     <span class="material-symbols-outlined text-6xl opacity-50">shopping_bag</span>
                     <p class="mt-4 text-xs font-bold uppercase tracking-widest text-gray-400">La cesta está vacía
                     </p>
-                </div>
-            </div>
-
-            <!-- Cliente (Autocompletado) -->
-            <div class="px-6 py-4 border-t border-gray-100 relative z-10 bg-slate-50/50">
-                <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">Cargar a
-                    Cliente</label>
-                <div class="relative">
-                    <input type="text" id="inputClienteVenta" placeholder="PÚBLICO GENERAL" autocomplete="off"
-                        class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:border-black focus:ring-2 focus:ring-black/5 focus:outline-none uppercase font-bold text-gray-700 transition-all shadow-sm"
-                        oninput="filtrarClientesDropdown()" onfocus="mostrarDropdownClientes()"
-                        onblur="ocultarDropdownClientes()">
-                    <span
-                        class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">expand_more</span>
-                    <!-- Dropdown de Clientes -->
-                    <div id="dropdownClientes"
-                        class="hidden absolute left-0 right-0 top-full mt-2 bg-white border border-gray-100 rounded-xl shadow-2xl max-h-48 overflow-y-auto z-50 overflow-hidden">
-                        <!-- Llenado dinámicamente -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Vendedor -->
-            <div class="px-6 py-3 border-t border-gray-100 relative z-0 bg-slate-50/50">
-                <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">Vendedor
-                    Asignado</label>
-                <div class="relative">
-                    <select id="selectVendedorPOS"
-                        class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:border-black focus:ring-2 focus:ring-black/5 focus:outline-none font-bold text-gray-700 transition-all shadow-sm appearance-none">
-                        <option value="">Cargando vendedores...</option>
-                    </select>
-                    <span
-                        class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">expand_more</span>
                 </div>
             </div>
 
@@ -660,12 +658,52 @@
         </div>
     </div>
 
+<!-- ============================================= -->
+<!-- MODAL: SELECCIONAR CLIENTE                   -->
+<!-- ============================================= -->
+<div id="modalClientePOS" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl w-full max-w-md p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-black text-gray-800">Seleccionar Cliente</h3>
+            <button onclick="cerrarModalClientePOS()" class="text-gray-400 hover:text-gray-700">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="relative mb-3">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+            <input type="text" id="busquedaClienteModal" placeholder="Buscar por nombre o teléfono..."
+                oninput="filtrarClientesModal()"
+                class="w-full pl-9 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:border-black focus:outline-none">
+        </div>
+        <div id="listaClientesModal" class="max-h-72 overflow-y-auto space-y-1">
+            <!-- llenado dinámicamente -->
+        </div>
+    </div>
+</div>
+
+<!-- ============================================= -->
+<!-- MODAL: SELECCIONAR VENDEDOR                  -->
+<!-- ============================================= -->
+<div id="modalVendedorPOS" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl w-full max-w-sm p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-black text-gray-800">Seleccionar Vendedor</h3>
+            <button onclick="cerrarModalVendedorPOS()" class="text-gray-400 hover:text-gray-700">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div id="listaVendedoresModal" class="max-h-72 overflow-y-auto space-y-1">
+            <!-- llenado dinámicamente -->
+        </div>
+    </div>
+</div>
+
     <!-- Scripts -->
     <script src="config.js?v=3"></script>
     <script src="api.js?v=5"></script>
     <script src="auth.js"></script>
     <script src="menu.js"></script>
-    <script src="ventas.js?v=5"></script>
+    <script src="ventas.js?v=6"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             inyectarMenu('ventas');
