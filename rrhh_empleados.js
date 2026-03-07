@@ -204,22 +204,9 @@ async function renderizarModuloEmpleo(emp, container) {
 
     const diasPorLey = calcularDiasCorrespondientes(añosNum);
 
-    // Obtener historial de vacaciones usadas
-    let diasUsados = 0;
-    const sbUrl = window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co';
-    const sbKey = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
-
-    try {
-        const resVacs = await fetch(`${sbUrl}/rest/v1/rrhh_vacaciones?select=dias_tomados&empleado_id=eq.${emp.id}`, {
-            headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
-        });
-        if (resVacs.ok) {
-            const vacs = await resVacs.json();
-            diasUsados = vacs.reduce((s, v) => s + v.dias_tomados, 0);
-        }
-    } catch (e) { console.error("Error vacs", e); }
-
-    const diasDisponibles = diasPorLey - diasUsados;
+    // Usar el campo controlado por el cron job (descontado automáticamente al pasar fecha_fin)
+    // Si nunca se ha inicializado, usar diasPorLey como punto de partida
+    const diasDisponibles = emp.dias_disponibles_vacaciones ?? diasPorLey;
 
     container.innerHTML = `
         <div class="space-y-8 animate-in fade-in duration-300">
