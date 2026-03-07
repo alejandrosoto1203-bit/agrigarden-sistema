@@ -27,6 +27,10 @@ let clientesCache = [];
 let vendedoresCache = [];
 let clienteSeleccionado = null; // Guardará el objeto del cliente validado
 
+// Estado para menú contextual del carrito
+let menuItemAbierto = null;    // producto_id del item con dropdown abierto, o null
+let edicionItemActivo = null;  // { productoId, modo: 'precio'|'descuento' } o null
+
 // =====================================================
 // INICIALIZACIÓN
 // =====================================================
@@ -378,7 +382,12 @@ function agregarAlCarrito(productoId) {
             iva_monto: 0,
             ieps_porcentaje: producto.ieps_porcentaje || 0,
             ieps_monto: 0,
-            total: 0
+            total: 0,
+            precio_original: precio,
+            precio_personalizado: false,
+            descuento_aplicado: false,
+            descuento_tipo: 'pesos',
+            descuento_valor: 0
         };
         calcularImpuestosItem(nuevoItem, producto);
         carrito.push(nuevoItem);
@@ -457,7 +466,62 @@ function renderizarCarrito() {
     btnVaciar.classList.remove('hidden');
     btnCobrar.disabled = false;
 
-    lista.innerHTML = carrito.map(item => `
+    lista.innerHTML = carrito.map(item => {
+        const menuAbierto = menuItemAbierto === item.producto_id;
+        const modoEdicion = edicionItemActivo?.productoId === item.producto_id ? edicionItemActivo.modo : null;
+        const tipDesc = item.descuento_tipo || 'pesos';
+
+        const dropdownHTML = menuAbierto ? `
+            <div class="absolute right-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[160px]">
+                <button onclick="iniciarEdicionPrecio(${item.producto_id})"
+                    class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">edit</span> Cambiar precio
+                </button>
+                <button onclick="iniciarDescuentoItem(${item.producto_id})"
+                    class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">percent</span> Añadir descuento
+                </button>
+            </div>` : '';
+
+        const edicionPrecioHTML = modoEdicion === 'precio' ? `
+            <div class="mt-2 pt-2 border-t border-gray-200">
+                <p class="text-xs text-gray-500 mb-1">Nuevo precio unitario:</p>
+                <div class="flex gap-2">
+                    <input id="inputPrecioItem_${item.producto_id}" type="number" min="0" step="0.01"
+                        value="${item.precio_unitario}"
+                        class="flex-1 border border-gray-300 rounded-lg px-2 py-1 text-sm">
+                    <button onclick="aplicarPrecioPersonalizado(${item.producto_id})"
+                        class="bg-primary text-white px-3 py-1 rounded-lg text-sm font-bold">OK</button>
+                    <button onclick="cancelarEdicionItem()"
+                        class="bg-gray-100 text-gray-600 px-2 py-1 rounded-lg text-sm">✕</button>
+                </div>
+            </div>` : '';
+
+        const edicionDescuentoHTML = modoEdicion === 'descuento' ? `
+            <div class="mt-2 pt-2 border-t border-gray-200">
+                <p class="text-xs text-gray-500 mb-1">Descuento:</p>
+                <div class="flex gap-1 mb-2">
+                    <button id="btnDescPesos_${item.producto_id}" onclick="setTipoDescuento(${item.producto_id}, 'pesos')"
+                        class="flex-1 text-xs py-1 rounded-lg border font-bold ${tipDesc === 'pesos' ? 'bg-primary text-white border-primary' : 'bg-gray-50 text-gray-600 border-gray-200'}">
+                        $ Pesos
+                    </button>
+                    <button id="btnDescPct_${item.producto_id}" onclick="setTipoDescuento(${item.producto_id}, 'porcentaje')"
+                        class="flex-1 text-xs py-1 rounded-lg border font-bold ${tipDesc === 'porcentaje' ? 'bg-primary text-white border-primary' : 'bg-gray-50 text-gray-600 border-gray-200'}">
+                        % Porcentaje
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <input id="inputDescItem_${item.producto_id}" type="number" min="0" step="0.01"
+                        placeholder="${tipDesc === 'porcentaje' ? '0 – 100' : '0.00'}"
+                        class="flex-1 border border-gray-300 rounded-lg px-2 py-1 text-sm">
+                    <button onclick="aplicarDescuentoItem(${item.producto_id})"
+                        class="bg-primary text-white px-3 py-1 rounded-lg text-sm font-bold">OK</button>
+                    <button onclick="cancelarEdicionItem()"
+                        class="bg-gray-100 text-gray-600 px-2 py-1 rounded-lg text-sm">✕</button>
+                </div>
+            </div>` : '';
+
+        return `
         <div class="carrito-item bg-gray-50 rounded-xl p-3">
             <div class="flex items-center justify-between mb-2">
                 <p class="font-bold text-sm text-gray-800 truncate flex-1">${item.producto_nombre}</p>
@@ -472,12 +536,25 @@ function renderizarCarrito() {
                     <button onclick="cambiarCantidadCarrito(${item.producto_id}, 1)" class="size-8 bg-white border border-gray-200 rounded-lg font-bold hover:bg-gray-100">+</button>
                 </div>
                 <div class="text-right">
-                    <p class="text-xs text-gray-400">${formatMoney(item.precio_unitario)} c/u</p>
+                    <div class="flex items-center gap-1 justify-end">
+                        <p class="text-xs text-gray-400">${formatMoney(item.precio_unitario)} c/u</p>
+                        <div class="relative">
+                            <button onclick="toggleMenuItemCarrito(${item.producto_id})"
+                                class="text-gray-400 hover:text-gray-700 w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200">
+                                <span class="material-symbols-outlined text-base">more_vert</span>
+                            </button>
+                            ${dropdownHTML}
+                        </div>
+                    </div>
                     <p class="font-black text-primary">${formatMoney(item.subtotal)}</p>
+                    ${item.precio_personalizado ? `<p class="text-[10px] text-orange-500 font-bold">(Precio Personalizado)</p>` : ''}
+                    ${item.descuento_aplicado ? `<p class="text-[10px] text-emerald-600 font-bold">(Descuento)</p>` : ''}
                 </div>
             </div>
-        </div>
-    `).join('');
+            ${edicionPrecioHTML}
+            ${edicionDescuentoHTML}
+        </div>`;
+    }).join('');
 
     document.getElementById('itemsCarritoCount').textContent = carrito.reduce((sum, i) => sum + i.cantidad, 0);
     actualizarTotalesCarrito();
@@ -494,6 +571,117 @@ function actualizarTotalesCarrito() {
     document.getElementById('iepsCarrito').textContent = formatMoney(ieps);
     document.getElementById('totalCarrito').textContent = formatMoney(total);
     document.getElementById('itemsCarritoCount').textContent = carrito.reduce((sum, i) => sum + i.cantidad, 0);
+}
+
+// =====================================================
+// MENÚ CONTEXTUAL DEL CARRITO (3 puntos)
+// =====================================================
+function toggleMenuItemCarrito(productoId) {
+    menuItemAbierto = menuItemAbierto === productoId ? null : productoId;
+    edicionItemActivo = null;
+    renderizarCarrito();
+}
+
+function iniciarEdicionPrecio(productoId) {
+    menuItemAbierto = null;
+    edicionItemActivo = { productoId, modo: 'precio' };
+    renderizarCarrito();
+    setTimeout(() => {
+        const input = document.getElementById(`inputPrecioItem_${productoId}`);
+        if (input) { input.focus(); input.select(); }
+    }, 30);
+}
+
+function iniciarDescuentoItem(productoId) {
+    menuItemAbierto = null;
+    edicionItemActivo = { productoId, modo: 'descuento' };
+    renderizarCarrito();
+    setTimeout(() => {
+        const input = document.getElementById(`inputDescItem_${productoId}`);
+        if (input) input.focus();
+    }, 30);
+}
+
+function cancelarEdicionItem() {
+    edicionItemActivo = null;
+    renderizarCarrito();
+}
+
+function aplicarPrecioPersonalizado(productoId) {
+    const item = carrito.find(i => i.producto_id === productoId);
+    if (!item) return;
+
+    const inputEl = document.getElementById(`inputPrecioItem_${productoId}`);
+    const nuevoPrecio = parseFloat(inputEl?.value);
+    if (isNaN(nuevoPrecio) || nuevoPrecio < 0) {
+        alert('Ingresa un precio válido');
+        return;
+    }
+
+    const producto = productosCache.find(p => p.id === productoId);
+    item.precio_unitario = nuevoPrecio;
+    item.subtotal = item.cantidad * nuevoPrecio;
+    item.precio_personalizado = true;
+    item.descuento_aplicado = false;
+    item.descuento_valor = 0;
+    if (producto) calcularImpuestosItem(item, producto);
+
+    edicionItemActivo = null;
+    renderizarCarrito();
+}
+
+function setTipoDescuento(productoId, tipo) {
+    const item = carrito.find(i => i.producto_id === productoId);
+    if (!item) return;
+    item.descuento_tipo = tipo;
+
+    const activo = 'bg-primary text-white border-primary';
+    const inactivo = 'bg-gray-50 text-gray-600 border-gray-200';
+    const base = 'flex-1 text-xs py-1 rounded-lg border font-bold';
+    const btnP = document.getElementById(`btnDescPesos_${productoId}`);
+    const btnPct = document.getElementById(`btnDescPct_${productoId}`);
+    if (btnP) btnP.className = `${base} ${tipo === 'pesos' ? activo : inactivo}`;
+    if (btnPct) btnPct.className = `${base} ${tipo === 'porcentaje' ? activo : inactivo}`;
+    const input = document.getElementById(`inputDescItem_${productoId}`);
+    if (input) input.placeholder = tipo === 'porcentaje' ? '0 – 100' : '0.00';
+}
+
+function aplicarDescuentoItem(productoId) {
+    const item = carrito.find(i => i.producto_id === productoId);
+    if (!item) return;
+
+    const inputEl = document.getElementById(`inputDescItem_${productoId}`);
+    const valor = parseFloat(inputEl?.value);
+    if (isNaN(valor) || valor <= 0) {
+        alert('Ingresa un valor de descuento válido');
+        return;
+    }
+
+    const tipo = item.descuento_tipo || 'pesos';
+    const precioBase = item.precio_original ?? item.precio_unitario;
+    let nuevoPrecio;
+
+    if (tipo === 'porcentaje') {
+        if (valor >= 100) { alert('El descuento no puede ser del 100% o más'); return; }
+        nuevoPrecio = precioBase * (1 - valor / 100);
+    } else {
+        nuevoPrecio = precioBase - valor;
+        if (nuevoPrecio < 0) { alert('El descuento no puede ser mayor al precio'); return; }
+    }
+
+    item.precio_original = precioBase;
+    item.precio_unitario = nuevoPrecio;
+    item.subtotal = item.cantidad * nuevoPrecio;
+    item.descuento_aplicado = true;
+    item.descuento_tipo = tipo;
+    item.descuento_valor = valor;
+    item.precio_personalizado = false;
+
+    const producto = productosCache.find(p => p.id === productoId);
+    if (producto) calcularImpuestosItem(item, producto);
+
+    edicionItemActivo = null;
+    renderizarCarrito();
 }
 
 // =====================================================
