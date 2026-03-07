@@ -365,15 +365,23 @@ function agregarAlCarrito(productoId) {
 }
 
 function calcularImpuestosItem(item, producto) {
-    // Impuestos sobre el subtotal
-    if (producto.aplica_impuestos !== false) {
-        item.iva_monto = item.subtotal * (item.iva_porcentaje / 100);
-        item.ieps_monto = item.subtotal * (item.ieps_porcentaje / 100);
+    // Los precios del sistema ya incluyen IVA/IEPS → extraemos los impuestos del precio final
+    if (producto.aplica_impuestos !== false && (item.iva_porcentaje > 0 || item.ieps_porcentaje > 0)) {
+        const ivaRate  = item.iva_porcentaje  / 100;
+        const iepsRate = item.ieps_porcentaje / 100;
+        const divisor  = 1 + ivaRate + iepsRate;
+        // Subtotal = base sin impuestos
+        item.subtotal   = (item.cantidad * item.precio_unitario) / divisor;
+        item.iva_monto  = item.subtotal * ivaRate;
+        item.ieps_monto = item.subtotal * iepsRate;
+        // Total = precio final original (lo que el cliente paga)
+        item.total = item.cantidad * item.precio_unitario;
     } else {
-        item.iva_monto = 0;
+        item.subtotal   = item.cantidad * item.precio_unitario;
+        item.iva_monto  = 0;
         item.ieps_monto = 0;
+        item.total      = item.subtotal;
     }
-    item.total = item.subtotal + item.iva_monto + item.ieps_monto;
 }
 
 function cambiarCantidadCarrito(productoId, delta) {
@@ -393,7 +401,6 @@ function cambiarCantidadCarrito(productoId, delta) {
         return;
     } else {
         item.cantidad = nuevaCantidad;
-        item.subtotal = item.cantidad * item.precio_unitario;
         calcularImpuestosItem(item, producto);
     }
 
@@ -518,7 +525,7 @@ function renderizarCarrito() {
                                     ${dropdownHTML}
                                 </div>
                             </div>
-                            <p class="font-black text-primary">${formatMoney(item.subtotal)}</p>
+                            <p class="font-black text-primary">${formatMoney(item.total)}</p>
                             ${item.precio_personalizado ? `<p class="text-[10px] text-orange-500 font-bold">(Precio Personalizado)</p>` : ''}
                             ${item.descuento_aplicado ? `<p class="text-[10px] text-emerald-600 font-bold">(Descuento)</p>` : ''}
                         </div>
