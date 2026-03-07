@@ -5,7 +5,6 @@ if (!window.SUPABASE_URL) window.SUPABASE_URL = 'https://gajhfqfuvzotppnmzbuc.su
 if (!window.SUPABASE_KEY) window.SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
 
 let productosCache = [];
-let productosImportacion = [];
 let productoSeleccionado = null;
 
 // =====================================================
@@ -140,10 +139,9 @@ function renderizarTabla(datos) {
 function actualizarKPIs() {
     const activos = productosCache.filter(p => p.activo !== false);
     const totalProductos = activos.length;
-    const stockBajo = activos.filter(p => {
-        const stockTotal = (p.stock_norte || 0) + (p.stock_sur || 0) + (p.stock_taller || 0) + (p.stock_matriz || 0);
-        return stockTotal <= (p.stock_minimo || 0);
-    }).length;
+
+    const costoNorte = activos.reduce((sum, p) => sum + ((p.stock_norte || 0) * (p.costo || 0)), 0);
+    const costoSur   = activos.reduce((sum, p) => sum + ((p.stock_sur   || 0) * (p.costo || 0)), 0);
 
     const valorInventario = activos.reduce((sum, p) => {
         const stockTotal = (p.stock_norte || 0) + (p.stock_sur || 0) + (p.stock_taller || 0) + (p.stock_matriz || 0);
@@ -153,7 +151,8 @@ function actualizarKPIs() {
     const categorias = new Set(activos.map(p => p.categoria).filter(c => c)).size;
 
     document.getElementById('kpiTotalProductos').textContent = totalProductos;
-    document.getElementById('kpiStockBajo').textContent = stockBajo;
+    document.getElementById('kpiCostoNorte').textContent = formatMoney(costoNorte);
+    document.getElementById('kpiCostoSur').textContent   = formatMoney(costoSur);
     document.getElementById('kpiValorInventario').textContent = formatMoney(valorInventario);
     document.getElementById('kpiCategorias').textContent = categorias;
 }
@@ -731,195 +730,354 @@ async function toggleDetallesTaller(productoId) {
 }
 
 // =====================================================
-// 5. IMPORTACIÓN EXCEL
+// 5. EXPORTACIÓN EXCEL
 // =====================================================
-function abrirModalImportar() {
-    document.getElementById('modalImportar').classList.remove('hidden');
-    limpiarImportacion();
+function exportarInventarioExcel() {
+    const activos = productosCache.filter(p => p.activo !== false);
+    if (activos.length === 0) { alert('No hay productos para exportar.'); return; }
+
+    const headers = [
+        'ID (No modificar)', 'Nombre del Producto', 'SKU', 'Categoría',
+        'Stock Norte', 'Stock Sur', 'Stock Taller', 'Stock Total',
+        'Precio Público', 'Precio Venta 2', 'Precio Venta 3', 'Costo',
+        'Ubicación Norte', 'Ubicación Sur',
+        'Impuestos', 'IVA %', 'IEPS %', 'Unidad', 'Clave SAT'
+    ];
+
+    const filas = activos.map(p => {
+        const stockTotal = (p.stock_norte || 0) + (p.stock_sur || 0) + (p.stock_taller || 0);
+        return [
+            p.id,
+            p.nombre || '',
+            p.sku || '',
+            p.categoria || '',
+            p.stock_norte || 0,
+            p.stock_sur || 0,
+            p.stock_taller || 0,
+            stockTotal,
+            p.precio_publico || 0,
+            p.precio_venta_2 || 0,
+            p.precio_venta_3 || 0,
+            p.costo || 0,
+            p.ubicacion_norte || '',
+            p.ubicacion_sur || '',
+            p.aplica_impuestos ? 'Si' : 'No',
+            p.iva_porcentaje ?? 16,
+            p.ieps_porcentaje ?? 0,
+            p.unidad_medida || 'PZA',
+            p.clave_sat || ''
+        ];
+    });
+
+    // Hoja principal con datos
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...filas]);
+
+    // Anchos de columna
+    ws['!cols'] = [
+        { wch: 40 }, // ID
+        { wch: 40 }, // Nombre
+        { wch: 15 }, // SKU
+        { wch: 20 }, // Categoría
+        { wch: 14 }, // Stock Norte
+        { wch: 12 }, // Stock Sur
+        { wch: 14 }, // Stock Taller
+        { wch: 13 }, // Stock Total
+        { wch: 16 }, // Precio Público
+        { wch: 15 }, // Precio Venta 2
+        { wch: 15 }, // Precio Venta 3
+        { wch: 12 }, // Costo
+        { wch: 18 }, // Ubicación Norte
+        { wch: 16 }, // Ubicación Sur
+        { wch: 12 }, // Impuestos
+        { wch: 8  }, // IVA %
+        { wch: 8  }, // IEPS %
+        { wch: 10 }, // Unidad
+        { wch: 14 }  // Clave SAT
+    ];
+
+    // Primera fila fija (freeze)
+    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+    // Hoja de instrucciones
+    const instrucciones = [
+        ['INSTRUCCIONES DE USO'],
+        [''],
+        ['Este archivo permite actualizar inventario, costos y precios de forma masiva.'],
+        ['Pasos:', '1. Modifica los valores en las columnas EDITABLES (marcadas abajo)'],
+        ['',        '2. Guarda el archivo sin cambiar el nombre de las hojas'],
+        ['',        '3. En el sistema, ve a Productos → Actualizar Inventario → carga este archivo'],
+        [''],
+        ['COLUMNAS EDITABLES (puedes modificar estos valores):'],
+        ['E', 'Stock Norte'],
+        ['F', 'Stock Sur'],
+        ['G', 'Stock Taller'],
+        ['I', 'Precio Público'],
+        ['J', 'Precio Venta 2'],
+        ['K', 'Precio Venta 3'],
+        ['L', 'Costo'],
+        [''],
+        ['COLUMNAS DE SOLO LECTURA (NO modificar — el sistema las ignora al importar):'],
+        ['A', 'ID — identificador interno del sistema (NO borrar)'],
+        ['B', 'Nombre del Producto'],
+        ['C', 'SKU'],
+        ['D', 'Categoría'],
+        ['H', 'Stock Total (calculado automáticamente)'],
+        ['M', 'Ubicación Norte'],
+        ['N', 'Ubicación Sur'],
+        ['O', 'Impuestos'],
+        ['P', 'IVA %'],
+        ['Q', 'IEPS %'],
+        ['R', 'Unidad'],
+        ['S', 'Clave SAT'],
+        [''],
+        ['NOTA: El sistema identifica cada producto por el ID en columna A.'],
+        ['Si agregas filas nuevas con nombre pero sin ID, se crearán como productos nuevos.']
+    ];
+    const wsInstr = XLSX.utils.aoa_to_sheet(instrucciones);
+    wsInstr['!cols'] = [{ wch: 6 }, { wch: 80 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+    XLSX.utils.book_append_sheet(wb, wsInstr, 'INSTRUCCIONES');
+
+    const fecha = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `Inventario_Agrigarden_${fecha}.xlsx`);
 }
 
-function cerrarModalImportar() {
-    document.getElementById('modalImportar').classList.add('hidden');
-    limpiarImportacion();
+// =====================================================
+// 6. IMPORTACIÓN / ACTUALIZACIÓN EXCEL
+// =====================================================
+let previewActualizacion = [];
+
+function abrirModalActualizarInventario() {
+    document.getElementById('modalActualizarInv').classList.remove('hidden');
+    _limpiarActualizacion();
 }
 
-function limpiarImportacion() {
-    productosImportacion = [];
-    document.getElementById('inputExcel').value = '';
-    document.getElementById('previewImportacion').classList.add('hidden');
-    document.getElementById('btnConfirmarImport').disabled = true;
+function cerrarModalActualizarInventario() {
+    document.getElementById('modalActualizarInv').classList.add('hidden');
+    _limpiarActualizacion();
 }
 
-function procesarExcel(input) {
+function _limpiarActualizacion() {
+    previewActualizacion = [];
+    const inp = document.getElementById('inputExcelActualizar');
+    if (inp) inp.value = '';
+    const prev = document.getElementById('previewActualizacion');
+    if (prev) prev.classList.add('hidden');
+    const btn = document.getElementById('btnConfirmarActualizacion');
+    if (btn) btn.disabled = true;
+}
+
+function procesarExcelActualizacion(input) {
     const file = input.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
         try {
-            const workbook = XLSX.read(e.target.result, { type: 'binary' });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const datos = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            const wb = XLSX.read(e.target.result, { type: 'binary' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const datos = XLSX.utils.sheet_to_json(ws, { header: 1 });
+            const filas = datos.slice(1).filter(row => row.length > 0);
 
-            // Función para parsear Si/No a boolean
-            const parseSiNo = (val) => {
-                if (!val) return false;
-                const str = val.toString().trim().toLowerCase();
-                return str === 'si' || str === 'sí' || str === 'yes' || str === '1' || str === 'true';
-            };
+            previewActualizacion = filas.map((row, idx) => {
+                const excelId    = (row[0] || '').toString().trim();
+                const nombre     = (row[1] || '').toString().trim();
+                const sku        = (row[2] || '').toString().trim().toUpperCase();
+                const categoria  = (row[3] || '').toString().trim().toUpperCase();
+                const stockNorte = parseFloat(row[4]) || 0;
+                const stockSur   = parseFloat(row[5]) || 0;
+                const stockTaller= parseFloat(row[6]) || 0;
+                // col H (row[7]) = Stock Total — ignorado
+                const precioPublico = parseFloat(row[8]) || 0;
+                const precioVenta2  = parseFloat(row[9]) || 0;
+                const precioVenta3  = parseFloat(row[10]) || 0;
+                const costo         = parseFloat(row[11]) || 0;
+                const ubicNorte     = (row[12] || '').toString().trim();
+                const ubicSur       = (row[13] || '').toString().trim();
+                const aplImpuestos  = (row[14] || '').toString().trim().toLowerCase();
+                const ivaPct        = parseFloat(row[15]) ?? 16;
+                const iepsPct       = parseFloat(row[16]) ?? 0;
+                const unidad        = (row[17] || 'PZA').toString().trim().toUpperCase();
+                const claveSat      = (row[18] || '').toString().trim();
 
-            // Saltar encabezado si existe - Requiere nombre (columna A)
-            const filas = datos.slice(1).filter(row => row.length > 0 && row[0]);
+                if (!nombre) return { idx, estado: 'incompleto', nombre: '', sku, excelId };
 
-            // Mapeo de las 27 columnas (A-AA)
-            productosImportacion = filas.map(row => ({
-                // A: Nombre del Producto
-                nombre: (row[0] || '').toString().trim().toUpperCase(),
-                // B: Es un Servicio (Si/No)
-                es_servicio: parseSiNo(row[1]),
-                // C: Se Vende (Si/No)
-                se_vende: row[2] !== undefined ? parseSiNo(row[2]) : true,
-                // D: Descripción
-                descripcion: (row[3] || '').toString().trim() || null,
-                // E: Categoría
-                categoria: (row[4] || '').toString().trim().toUpperCase() || null,
-                // F: Marca
-                marca: (row[5] || '').toString().trim().toUpperCase() || null,
-                // G: Unidad de Venta
-                unidad_medida: (row[6] || 'PZA').toString().trim().toUpperCase(),
-                // H: Código de Barras
-                codigo_barras: (row[7] || '').toString().trim() || null,
-                // I: SKU
-                sku: (row[8] || '').toString().trim().toUpperCase() || null,
-                // J: Utiliza Stock (Si/No)
-                utiliza_stock: row[9] !== undefined ? parseSiNo(row[9]) : true,
-                // K: Stock Total Norte
-                stock_norte: parseFloat(row[10]) || 0,
-                // L: Stock Mínimo Norte
-                stock_minimo_norte: parseFloat(row[11]) || 0,
-                // M: Stock Apartado Norte
-                stock_apartado_norte: parseFloat(row[12]) || 0,
-                // N: Ubicación Norte
-                ubicacion_norte: (row[13] || '').toString().trim().toUpperCase() || null,
-                // O: Stock Sur
-                stock_sur: parseFloat(row[14]) || 0,
-                // P: Stock Mínimo Sur
-                stock_minimo_sur: parseFloat(row[15]) || 0,
-                // Q: Stock Apartado Sur
-                stock_apartado_sur: parseFloat(row[16]) || 0,
-                // R: Ubicación Sur
-                ubicacion_sur: (row[17] || '').toString().trim().toUpperCase() || null,
-                // S: Precio Público
-                precio_publico: parseFloat(row[18]) || 0,
-                // T: Precio Venta 2
-                precio_venta_2: parseFloat(row[19]) || 0,
-                // U: Precio Venta 3
-                precio_venta_3: parseFloat(row[20]) || 0,
-                // V: Precio MercadoLibre
-                precio_mercadolibre: parseFloat(row[21]) || 0,
-                // W: Costo
-                costo: parseFloat(row[22]) || 0,
-                // X: Impuestos (Si/No)
-                aplica_impuestos: row[23] !== undefined ? parseSiNo(row[23]) : true,
-                // Y: IVA %
-                iva_porcentaje: parseFloat(row[24]) || 16,
-                // Z: IEPS %
-                ieps_porcentaje: parseFloat(row[25]) || 0,
-                // AA: Clave SAT
-                clave_sat: (row[26] || '').toString().trim() || null,
-                // Defaults
-                activo: true
-            }));
+                // Buscar match en cache
+                let match = null;
+                if (excelId) match = productosCache.find(p => String(p.id) === excelId);
+                if (!match && sku) match = productosCache.find(p => p.sku && p.sku.toUpperCase() === sku);
+                if (!match) match = productosCache.find(p => p.nombre && p.nombre.toUpperCase() === nombre.toUpperCase());
 
-            // Mostrar preview
-            document.getElementById('contadorImportacion').textContent = productosImportacion.length;
-            document.getElementById('tablaPreviewImport').innerHTML = productosImportacion.slice(0, 10).map(p => `
-                <tr class="border-b border-slate-100">
-                    <td class="px-3 py-2 font-mono">${p.sku || '-'}</td>
-                    <td class="px-3 py-2 font-bold">${p.nombre}</td>
-                    <td class="px-3 py-2">${p.categoria || '-'}</td>
-                    <td class="px-3 py-2 text-center">${p.stock_norte}</td>
-                    <td class="px-3 py-2 text-center">${p.stock_sur}</td>
-                    <td class="px-3 py-2 text-right font-bold text-primary">${formatMoney(p.precio_publico)}</td>
-                </tr>
-            `).join('') + (productosImportacion.length > 10 ? `<tr><td colspan="6" class="px-3 py-2 text-center text-slate-400 italic">...y ${productosImportacion.length - 10} más</td></tr>` : '');
+                return {
+                    idx,
+                    estado: match ? 'encontrado' : 'no_encontrado',
+                    matchId: match ? match.id : null,
+                    nombre, sku, categoria, excelId,
+                    stockNorte, stockSur, stockTaller,
+                    precioPublico, precioVenta2, precioVenta3, costo,
+                    ubicNorte, ubicSur, aplImpuestos, ivaPct, iepsPct, unidad, claveSat,
+                    esNuevo: false // el usuario puede marcar como nuevo
+                };
+            }).filter(Boolean);
 
-            document.getElementById('previewImportacion').classList.remove('hidden');
-            document.getElementById('btnConfirmarImport').disabled = false;
-
-        } catch (error) {
-            console.error('Error procesando Excel:', error);
-            alert('Error al leer el archivo Excel. Verifica el formato.');
+            _renderPreviewActualizacion();
+            document.getElementById('previewActualizacion').classList.remove('hidden');
+            document.getElementById('btnConfirmarActualizacion').disabled = false;
+        } catch (err) {
+            console.error(err);
+            alert('Error al leer el archivo. Verifica que sea el formato exportado por este sistema.');
         }
     };
     reader.readAsBinaryString(file);
 }
 
-async function confirmarImportacion() {
-    if (productosImportacion.length === 0) return;
+function _renderPreviewActualizacion() {
+    const encontrados  = previewActualizacion.filter(r => r.estado === 'encontrado').length;
+    const noEncontrados= previewActualizacion.filter(r => r.estado === 'no_encontrado').length;
+    const incompletos  = previewActualizacion.filter(r => r.estado === 'incompleto').length;
 
-    const btn = document.getElementById('btnConfirmarImport');
-    btn.disabled = true;
+    document.getElementById('resumenActualizacion').innerHTML =
+        `<span class="text-green-600 font-black">${encontrados} encontrados</span> · ` +
+        `<span class="text-orange-500 font-black">${noEncontrados} no encontrados</span> · ` +
+        `<span class="text-red-500 font-black">${incompletos} sin nombre (se omitirán)</span>`;
 
-    const BATCH_SIZE = 1000; // Límite máximo de Supabase
-    const totalBatches = Math.ceil(productosImportacion.length / BATCH_SIZE);
-    let importados = 0;
-    let errores = 0;
-
-    try {
-        for (let i = 0; i < totalBatches; i++) {
-            const batch = productosImportacion.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
-            btn.innerHTML = `<span class="animate-spin material-symbols-outlined">sync</span> Importando lote ${i + 1}/${totalBatches} (${batch.length} productos)`;
-
-            try {
-                const response = await fetch(`${window.SUPABASE_URL}/rest/v1/productos`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': window.SUPABASE_KEY,
-                        'Authorization': `Bearer ${window.SUPABASE_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=minimal'
-                    },
-                    body: JSON.stringify(batch)
-                });
-
-                if (response.ok) {
-                    importados += batch.length;
-                } else {
-                    const errorText = await response.text();
-                    errores += batch.length;
-                    console.error('Error en lote', i + 1, errorText);
-                    // Mostrar el error real al usuario
-                    alert(`Error en lote ${i + 1}: ${errorText}`);
-                }
-            } catch (batchError) {
-                errores += batch.length;
-                console.error('Error en lote', i + 1, batchError);
-                alert(`Error de conexión en lote ${i + 1}: ${batchError.message}`);
-            }
-
-            // Pequeña pausa entre lotes
-            if (i < totalBatches - 1) {
-                await new Promise(r => setTimeout(r, 100));
-            }
+    document.getElementById('tablaPreviewActualizacion').innerHTML = previewActualizacion.map((r, i) => {
+        if (r.estado === 'incompleto') {
+            return `<tr class="bg-red-50 border-b border-red-100">
+                <td class="px-3 py-2 text-center"><span class="text-[9px] font-black text-red-500 bg-red-100 px-2 py-0.5 rounded">✗ SIN NOMBRE</span></td>
+                <td class="px-3 py-2 text-xs text-red-400 italic" colspan="5">Fila ${i + 2} — se omitirá</td>
+            </tr>`;
         }
-
-        if (errores === 0) {
-            alert(`¡${importados} productos importados exitosamente!`);
-        } else {
-            alert(`Importación completada:\n✅ ${importados} productos importados\n❌ ${errores} con errores (posibles SKUs duplicados)`);
+        if (r.estado === 'encontrado') {
+            return `<tr class="bg-green-50/60 border-b border-green-100">
+                <td class="px-3 py-2 text-center"><span class="text-[9px] font-black text-green-600 bg-green-100 px-2 py-0.5 rounded">✓ OK</span></td>
+                <td class="px-3 py-2 font-mono text-xs text-slate-500">${r.sku || '-'}</td>
+                <td class="px-3 py-2 font-bold text-xs">${r.nombre}</td>
+                <td class="px-3 py-2 text-center text-xs">${r.stockNorte} / ${r.stockSur} / ${r.stockTaller}</td>
+                <td class="px-3 py-2 text-center text-xs text-primary font-bold">${formatMoney(r.precioPublico)}</td>
+                <td class="px-3 py-2 text-center text-xs text-red-500 font-bold">${formatMoney(r.costo)}</td>
+            </tr>`;
         }
+        // no_encontrado
+        return `<tr class="bg-orange-50/60 border-b border-orange-100" id="fila-act-${i}">
+            <td class="px-3 py-2 text-center"><span class="text-[9px] font-black text-orange-600 bg-orange-100 px-2 py-0.5 rounded">⚠ NO ENCONTRADO</span></td>
+            <td class="px-3 py-2 font-mono text-xs text-slate-500">${r.sku || '-'}</td>
+            <td class="px-3 py-2 font-bold text-xs">${r.nombre}</td>
+            <td class="px-3 py-2" colspan="3">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div class="relative flex-1 min-w-[160px]">
+                        <input type="text" placeholder="Buscar producto existente..."
+                            oninput="buscarProductoRelacionar(${i}, this.value)"
+                            class="w-full text-xs border border-orange-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-primary"
+                            id="searchRelacionar-${i}">
+                        <div id="dropdownRelacionar-${i}" class="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl z-50 hidden max-h-40 overflow-auto"></div>
+                    </div>
+                    <label class="flex items-center gap-1 text-[10px] font-bold text-slate-500 cursor-pointer whitespace-nowrap">
+                        <input type="checkbox" onchange="marcarComoNuevo(${i}, this.checked)" class="rounded">
+                        Agregar como nuevo
+                    </label>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
 
-        cerrarModalImportar();
-        cargarProductos();
+function buscarProductoRelacionar(rowIndex, query) {
+    const dropdown = document.getElementById(`dropdownRelacionar-${rowIndex}`);
+    if (!query || query.length < 2) { dropdown.classList.add('hidden'); return; }
+    const q = query.toUpperCase();
+    const resultados = productosCache.filter(p =>
+        (p.nombre && p.nombre.toUpperCase().includes(q)) ||
+        (p.sku && p.sku.toUpperCase().includes(q))
+    ).slice(0, 8);
+    if (resultados.length === 0) { dropdown.classList.add('hidden'); return; }
+    dropdown.innerHTML = resultados.map(p => `
+        <div onclick="relacionarProducto(${rowIndex}, ${p.id})"
+            class="px-3 py-2 text-xs hover:bg-primary/10 cursor-pointer border-b border-slate-50">
+            <span class="font-bold">${p.nombre}</span>
+            ${p.sku ? `<span class="text-slate-400 ml-1">${p.sku}</span>` : ''}
+        </div>`).join('');
+    dropdown.classList.remove('hidden');
+}
 
-    } catch (error) {
-        console.error('Error importando:', error);
-        alert('Error de conexión. Intenta de nuevo.');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span> Importar Productos';
+function relacionarProducto(rowIndex, productoId) {
+    previewActualizacion[rowIndex].matchId = productoId;
+    previewActualizacion[rowIndex].estado = 'relacionado';
+    previewActualizacion[rowIndex].esNuevo = false;
+    const prod = productosCache.find(p => p.id === productoId);
+    const search = document.getElementById(`searchRelacionar-${rowIndex}`);
+    if (search && prod) search.value = prod.nombre;
+    const dropdown = document.getElementById(`dropdownRelacionar-${rowIndex}`);
+    if (dropdown) dropdown.classList.add('hidden');
+    const fila = document.getElementById(`fila-act-${rowIndex}`);
+    if (fila) fila.classList.replace('bg-orange-50/60', 'bg-blue-50/60');
+    const badge = fila?.querySelector('span');
+    if (badge) { badge.textContent = '🔗 RELACIONADO'; badge.className = 'text-[9px] font-black text-blue-600 bg-blue-100 px-2 py-0.5 rounded'; }
+}
+
+function marcarComoNuevo(rowIndex, checked) {
+    previewActualizacion[rowIndex].esNuevo = checked;
+    if (checked) {
+        previewActualizacion[rowIndex].matchId = null;
+        previewActualizacion[rowIndex].estado = 'no_encontrado';
     }
+}
+
+async function confirmarActualizacion() {
+    const btn = document.getElementById('btnConfirmarActualizacion');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-spin material-symbols-outlined">sync</span> Procesando...';
+
+    let actualizados = 0, agregados = 0, ignorados = 0, errores = 0;
+
+    for (const r of previewActualizacion) {
+        if (r.estado === 'incompleto') { ignorados++; continue; }
+
+        const camposActualizables = {
+            stock_norte: r.stockNorte, stock_sur: r.stockSur, stock_taller: r.stockTaller,
+            precio_publico: r.precioPublico, precio_venta_2: r.precioVenta2,
+            precio_venta_3: r.precioVenta3, costo: r.costo
+        };
+
+        if ((r.estado === 'encontrado' || r.estado === 'relacionado') && r.matchId) {
+            try {
+                const res = await fetch(`${window.SUPABASE_URL}/rest/v1/productos?id=eq.${r.matchId}`, {
+                    method: 'PATCH',
+                    headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(camposActualizables)
+                });
+                res.ok ? actualizados++ : errores++;
+            } catch { errores++; }
+        } else if (r.esNuevo && r.nombre) {
+            const parseSiNo = v => { const s = (v || '').toString().toLowerCase(); return s === 'si' || s === 'sí' || s === 'yes' || s === '1' || s === 'true'; };
+            const nuevoProducto = {
+                nombre: r.nombre.toUpperCase(), sku: r.sku || null, categoria: r.categoria || null,
+                stock_norte: r.stockNorte, stock_sur: r.stockSur, stock_taller: r.stockTaller,
+                precio_publico: r.precioPublico, precio_venta_2: r.precioVenta2,
+                precio_venta_3: r.precioVenta3, costo: r.costo,
+                ubicacion_norte: r.ubicNorte || null, ubicacion_sur: r.ubicSur || null,
+                aplica_impuestos: parseSiNo(r.aplImpuestos),
+                iva_porcentaje: r.ivaPct, ieps_porcentaje: r.iepsPct,
+                unidad_medida: r.unidad || 'PZA', clave_sat: r.claveSat || null,
+                activo: true, utiliza_stock: true
+            };
+            try {
+                const res = await fetch(`${window.SUPABASE_URL}/rest/v1/productos`, {
+                    method: 'POST',
+                    headers: { 'apikey': window.SUPABASE_KEY, 'Authorization': `Bearer ${window.SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify(nuevoProducto)
+                });
+                res.ok ? agregados++ : errores++;
+            } catch { errores++; }
+        } else {
+            ignorados++;
+        }
+    }
+
+    alert(`Actualización completada:\n✅ ${actualizados} actualizados\n➕ ${agregados} agregados nuevos\n⏭ ${ignorados} ignorados${errores > 0 ? `\n❌ ${errores} con errores` : ''}`);
+    cerrarModalActualizarInventario();
+    cargarProductos();
 }
 
 // =====================================================
@@ -1043,85 +1201,6 @@ async function ejecutarTransferencia() {
         console.error('Error en transferencia:', error);
         alert('Error al realizar la transferencia.');
     }
-}
-
-// =====================================================
-// 7. DESCARGA DE PLANTILLA EXCEL
-// =====================================================
-function descargarPlantillaExcel() {
-    // Encabezados de la plantilla (26 columnas A-Z)
-    const headers = [
-        'Nombre del Producto',        // A
-        'Es un Servicio',             // B (Si/No)
-        'Se Vende',                   // C (Si/No)
-        'Descripción',                // D
-        'Categoría',                  // E
-        'Marca',                      // F
-        'Unidad de Venta',            // G
-        'Código de Barras',           // H
-        'SKU',                        // I
-        'Utiliza Stock',              // J (Si/No)
-        'Stock Total Norte',          // K
-        'Stock Mínimo Norte',         // L
-        'Stock Apartado Norte',       // M
-        'Ubicación Norte',            // N
-        'Stock Sur',                  // O
-        'Stock Mínimo Sur',           // P
-        'Stock Apartado Sur',         // Q
-        'Ubicación Sur',              // R
-        'Precio Público',             // S
-        'Precio Venta 2',             // T
-        'Precio Venta 3',             // U
-        'Precio MercadoLibre',        // V
-        'Costo',                      // W
-        'Impuestos',                  // X (Si/No)
-        'IVA %',                      // Y
-        'IEPS %',                     // Z
-        'Clave SAT'                   // AA
-    ];
-
-    // Fila de ejemplo (27 columnas A-AA)
-    const ejemploRow = [
-        'FERTILIZANTE ORGÁNICO',      // Nombre del Producto
-        'No',                         // Es un Servicio
-        'Si',                         // Se Vende
-        'Fertilizante natural para plantas', // Descripción
-        'FERTILIZANTES',              // Categoría
-        'AGRIQUÍM',                   // Marca
-        'KG',                         // Unidad de Venta
-        '7501234567890',              // Código de Barras
-        'FO-001',                     // SKU
-        'Si',                         // Utiliza Stock
-        50,                           // Stock Total Norte
-        10,                           // Stock Mínimo Norte
-        0,                            // Stock Apartado Norte
-        'ESTANTE A-1',                // Ubicación Norte
-        30,                           // Stock Sur
-        5,                            // Stock Mínimo Sur
-        0,                            // Stock Apartado Sur
-        'ESTANTE B-2',                // Ubicación Sur
-        150.00,                       // Precio Público
-        120.00,                       // Precio Venta 2
-        100.00,                       // Precio Venta 3
-        180.00,                       // Precio MercadoLibre
-        80.00,                        // Costo
-        'Si',                         // Impuestos
-        16,                           // IVA %
-        0,                            // IEPS %
-        '43211501'                    // Clave SAT
-    ];
-
-    // Crear workbook y worksheet
-    const ws = XLSX.utils.aoa_to_sheet([headers, ejemploRow]);
-
-    // Ajustar anchos de columna
-    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 15) }));
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Productos');
-
-    // Descargar
-    XLSX.writeFile(wb, 'Plantilla_Productos_Agrigarden.xlsx');
 }
 
 // =====================================================

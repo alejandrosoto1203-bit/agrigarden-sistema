@@ -101,9 +101,13 @@
                 </p>
             </div>
             <div class="flex flex-col lg:flex-row gap-4 w-full lg:w-auto">
-                <button onclick="abrirModalImportar()"
+                <button onclick="exportarInventarioExcel()"
                     class="w-full lg:w-auto bg-white border border-slate-200 px-6 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 text-sm text-slate-600 hover:bg-slate-50 transition-all">
-                    <span class="material-symbols-outlined text-lg">upload_file</span> Importar Excel
+                    <span class="material-symbols-outlined text-lg">download</span> Exportar Excel
+                </button>
+                <button onclick="abrirModalActualizarInventario()"
+                    class="w-full lg:w-auto bg-white border border-slate-200 px-6 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 text-sm text-slate-600 hover:bg-slate-50 transition-all">
+                    <span class="material-symbols-outlined text-lg">upload_file</span> Actualizar Inventario
                 </button>
                 <button onclick="abrirModalProducto()"
                     class="w-full lg:w-auto bg-primary text-black px-8 py-3 rounded-2xl font-black flex items-center justify-center gap-2 text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
@@ -135,18 +139,21 @@
         </div>
 
         <!-- KPIs RÁPIDOS -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
             <div class="bg-white p-6 rounded-2xl border border-slate-100">
                 <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Productos</p>
                 <p id="kpiTotalProductos" class="text-3xl font-black text-slate-800 mt-1">0</p>
             </div>
             <div class="bg-white p-6 rounded-2xl border border-slate-100">
-                <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Stock Bajo</p>
-                <p id="kpiStockBajo" class="text-3xl font-black text-orange-500 mt-1">0</p>
+                <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Costo Inventario Norte</p>
+                <p id="kpiCostoNorte" class="text-3xl font-black text-slate-800 mt-1">$0</p>
             </div>
             <div class="bg-white p-6 rounded-2xl border border-slate-100">
-                <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Valor Inventario (Público)
-                </p>
+                <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Costo Inventario Sur</p>
+                <p id="kpiCostoSur" class="text-3xl font-black text-slate-800 mt-1">$0</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl border border-slate-100">
+                <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Valor Inventario (Público)</p>
                 <p id="kpiValorInventario" class="text-3xl font-black text-primary mt-1">$0</p>
             </div>
             <div class="bg-white p-6 rounded-2xl border border-slate-100">
@@ -458,104 +465,95 @@
         </div>
     </div>
 
-    <!-- MODAL IMPORTAR EXCEL -->
-    <div id="modalImportar"
+    <!-- MODAL ACTUALIZAR INVENTARIO -->
+    <div id="modalActualizarInv"
         class="fixed inset-0 bg-slate-900/60 hidden z-[150] flex items-center justify-center backdrop-blur-md p-4">
-        <div class="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div class="p-4 lg:p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+        <div class="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <!-- Header -->
+            <div class="p-6 lg:p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
                 <div>
-                    <h3 class="text-2xl font-black uppercase italic text-slate-800">Importar Productos</h3>
-                    <p class="text-sm text-slate-400 mt-1">Carga masiva desde archivo Excel (.xlsx)</p>
+                    <h3 class="text-2xl font-black uppercase italic text-slate-800">Actualizar Inventario</h3>
+                    <p class="text-sm text-slate-400 mt-1">Carga el Excel exportado para actualizar stock, costos y precios</p>
                 </div>
-                <button onclick="cerrarModalImportar()"
+                <button onclick="cerrarModalActualizarInventario()"
                     class="size-12 rounded-2xl hover:bg-slate-200 flex items-center justify-center text-slate-400">
                     <span class="material-symbols-outlined text-3xl">close</span>
                 </button>
             </div>
-            <div class="flex-1 overflow-y-auto p-4 lg:p-8">
-                <!-- ZONA DE CARGA -->
-                <div id="zonaDropExcel" onclick="document.getElementById('inputExcel').click()"
-                    class="photo-upload-zone rounded-3xl p-12 flex flex-col items-center justify-center cursor-pointer">
-                    <span class="material-symbols-outlined text-6xl text-slate-300">upload_file</span>
-                    <p class="text-slate-600 font-bold mt-4">Arrastra tu archivo Excel aquí</p>
-                    <p class="text-slate-400 text-sm mt-1">o haz clic para seleccionar</p>
-                    <input type="file" id="inputExcel" class="hidden" accept=".xlsx,.xls"
-                        onchange="procesarExcel(this)">
-                </div>
 
-                <!-- BOTÓN DESCARGAR PLANTILLA -->
-                <div class="mt-6 flex justify-center">
-                    <button onclick="descargarPlantillaExcel()"
-                        class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all">
-                        <span class="material-symbols-outlined">download</span> Descargar Plantilla Excel
+            <div class="flex-1 overflow-y-auto p-6 lg:p-8 space-y-6">
+                <!-- PASO 1: Exportar plantilla -->
+                <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 flex items-center justify-between gap-4">
+                    <div>
+                        <p class="text-sm font-black text-blue-800 uppercase tracking-wide">Paso 1 — Descarga el inventario actual</p>
+                        <p class="text-xs text-blue-500 mt-1">Exporta el Excel, modifica stock / costos / precios y regresa a cargarlo aquí.</p>
+                    </div>
+                    <button onclick="exportarInventarioExcel(); cerrarModalActualizarInventario();"
+                        class="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-blue-700 transition-all whitespace-nowrap">
+                        <span class="material-symbols-outlined text-lg">download</span> Exportar Excel
                     </button>
                 </div>
 
-                <!-- FORMATO ESPERADO -->
-                <div class="mt-6 bg-slate-50 p-6 rounded-2xl">
-                    <p class="text-xs font-black uppercase text-slate-500 mb-3">Columnas de la Plantilla:</p>
-                    <div class="flex flex-wrap gap-2 text-[9px] font-bold uppercase">
-                        <span class="bg-white px-2 py-1 rounded-full border">A: Nombre Producto</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">B: Es Servicio</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">C: Se Vende</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">D: Descripción</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">E: Categoría</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">F: Marca</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">G: Unidad Venta</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">H: Código Barras</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">I: SKU</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">J: Utiliza Stock</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">K: Stock Norte</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">L: Stock Mín Norte</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">M: Stock Apartado Norte</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">N: Ubicación Norte</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">O: Stock Sur</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">P: Stock Mín Sur</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">Q: Stock Apartado Sur</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">R: Ubicación Sur</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">S: Precio Público</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">T: Precio Venta 2</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">U: Precio Venta 3</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">V: Precio MercadoLibre</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">W: Costo</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">X: Impuestos</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">Y: IVA %</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">Z: IEPS %</span>
-                        <span class="bg-white px-2 py-1 rounded-full border">AA: Clave SAT</span>
+                <!-- PASO 2: Cargar archivo -->
+                <div>
+                    <p class="text-xs font-black uppercase text-slate-400 tracking-widest mb-3">Paso 2 — Carga el archivo modificado</p>
+                    <div onclick="document.getElementById('inputExcelActualizar').click()"
+                        class="photo-upload-zone rounded-3xl p-10 flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-slate-200 hover:border-primary transition-all">
+                        <span class="material-symbols-outlined text-5xl text-slate-300">upload_file</span>
+                        <p class="text-slate-600 font-bold mt-3 text-sm">Arrastra tu archivo Excel aquí</p>
+                        <p class="text-slate-400 text-xs mt-1">o haz clic para seleccionar · Solo archivos .xlsx</p>
+                        <input type="file" id="inputExcelActualizar" class="hidden" accept=".xlsx,.xls"
+                            onchange="procesarExcelActualizacion(this)">
                     </div>
                 </div>
 
-                <!-- PREVIEW DATOS -->
-                <div id="previewImportacion" class="hidden mt-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <p class="text-sm font-black uppercase text-slate-600"><span id="contadorImportacion">0</span>
-                            productos detectados</p>
-                        <button onclick="limpiarImportacion()"
-                            class="text-xs font-bold text-red-500 hover:text-red-700">Limpiar</button>
+                <!-- LEYENDA DE COLUMNAS EDITABLES -->
+                <div class="bg-slate-50 rounded-2xl p-4">
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Columnas que se actualizarán al importar:</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-[10px] font-bold">E · Stock Norte</span>
+                        <span class="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-[10px] font-bold">F · Stock Sur</span>
+                        <span class="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-[10px] font-bold">G · Stock Taller</span>
+                        <span class="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-[10px] font-bold">I · Precio Público</span>
+                        <span class="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-[10px] font-bold">J · Precio Venta 2</span>
+                        <span class="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-[10px] font-bold">K · Precio Venta 3</span>
+                        <span class="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-[10px] font-bold">L · Costo</span>
+                        <span class="bg-slate-200 text-slate-500 px-2.5 py-1 rounded-full text-[10px] font-bold">Resto · Solo lectura</span>
                     </div>
-                    <div class="max-h-64 overflow-auto rounded-xl border border-slate-200">
+                </div>
+
+                <!-- PREVIEW -->
+                <div id="previewActualizacion" class="hidden">
+                    <div class="flex justify-between items-center mb-3">
+                        <p id="resumenActualizacion" class="text-xs font-bold text-slate-500"></p>
+                        <button onclick="_limpiarActualizacion()"
+                            class="text-xs font-bold text-red-400 hover:text-red-600">Limpiar</button>
+                    </div>
+                    <div class="max-h-80 overflow-auto rounded-xl border border-slate-200">
                         <table class="w-full text-xs">
                             <thead class="bg-slate-100 sticky top-0">
                                 <tr class="text-[9px] font-black uppercase text-slate-500">
+                                    <th class="px-3 py-2 text-center w-32">Estado</th>
                                     <th class="px-3 py-2">SKU</th>
                                     <th class="px-3 py-2">Nombre</th>
-                                    <th class="px-3 py-2">Categoría</th>
-                                    <th class="px-3 py-2">Stock N</th>
-                                    <th class="px-3 py-2">Stock S</th>
-                                    <th class="px-3 py-2">Precio</th>
+                                    <th class="px-3 py-2 text-center">Stock N/S/T</th>
+                                    <th class="px-3 py-2 text-center">Precio</th>
+                                    <th class="px-3 py-2 text-center">Costo</th>
                                 </tr>
                             </thead>
-                            <tbody id="tablaPreviewImport"></tbody>
+                            <tbody id="tablaPreviewActualizacion"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
-            <div class="p-4 lg:p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
-                <button type="button" onclick="cerrarModalImportar()"
-                    class="flex-1 py-4 text-sm font-bold text-slate-500">Cancelar</button>
-                <button id="btnConfirmarImport" type="button" onclick="confirmarImportacion()" disabled
+
+            <!-- Footer -->
+            <div class="p-6 lg:p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
+                <button type="button" onclick="cerrarModalActualizarInventario()"
+                    class="flex-1 py-4 text-sm font-bold text-slate-500 hover:text-slate-700">Cancelar</button>
+                <button id="btnConfirmarActualizacion" type="button" onclick="confirmarActualizacion()" disabled
                     class="flex-[2] bg-primary text-black py-4 rounded-2xl font-black uppercase text-sm shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                    <span class="material-symbols-outlined">check_circle</span> Importar Productos
+                    <span class="material-symbols-outlined">sync</span> Aplicar Actualización
                 </button>
             </div>
         </div>
@@ -620,7 +618,7 @@
 
     <script src="api.js?v=5"></script>
     <script src="menu.js?v=3"></script>
-    <script src="productos.js?v=11"></script>
+    <script src="productos.js?v=12"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             inyectarMenu('productos');
