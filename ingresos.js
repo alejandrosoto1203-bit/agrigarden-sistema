@@ -306,7 +306,56 @@ async function actualizarIngreso() {
 async function eliminarIngreso(id) {
     if (!confirm("¿Estás seguro de eliminar este ingreso permanentemente?")) return;
     try {
-        // También eliminar venta_items asociados
+        // 1. Obtener tipo y sucursal de la transacción
+        const resTxn = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${id}&select=tipo,sucursal,categoria`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const txnArr = resTxn.ok ? await resTxn.json() : [];
+        const txn = txnArr[0] || {};
+
+        // 2. Si es Venta Directa, revertir stock y borrar movimientos
+        if (txn.tipo === 'Venta Directa') {
+            const resItems = await fetch(`${SUPABASE_URL}/rest/v1/venta_items?transaccion_id=eq.${id}&select=producto_id,cantidad`, {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+            });
+            const items = resItems.ok ? await resItems.json() : [];
+
+            const sucursal = txn.sucursal || '';
+            const stockKey = sucursal === 'Norte' ? 'stock_norte' : sucursal === 'Taller' ? 'stock_taller' : 'stock_sur';
+
+            for (const item of items) {
+                const resProd = await fetch(`${SUPABASE_URL}/rest/v1/productos?id=eq.${item.producto_id}&select=id,${stockKey}`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                const prodArr = resProd.ok ? await resProd.json() : [];
+                if (prodArr.length === 0) continue;
+
+                const stockActual = prodArr[0][stockKey] || 0;
+                const updateData = {};
+                updateData[stockKey] = stockActual + item.cantidad;
+                await fetch(`${SUPABASE_URL}/rest/v1/productos?id=eq.${item.producto_id}`, {
+                    method: 'PATCH',
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+            }
+
+            // Borrar movimientos_stock — cubre formato nuevo (#TXN) y viejo (TXNdbId)
+            const refNueva = `Venta POS - ${txn.categoria || ''}`;
+            const refVieja = `Venta POS - TXN${id}`;
+            await Promise.all([
+                fetch(`${SUPABASE_URL}/rest/v1/movimientos_stock?referencia=eq.${encodeURIComponent(refNueva)}`, {
+                    method: 'DELETE',
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                }),
+                fetch(`${SUPABASE_URL}/rest/v1/movimientos_stock?referencia=eq.${encodeURIComponent(refVieja)}`, {
+                    method: 'DELETE',
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                })
+            ]);
+        }
+
+        // 3. Eliminar venta_items y transacción
         await fetch(`${SUPABASE_URL}/rest/v1/venta_items?transaccion_id=eq.${id}`, {
             method: 'DELETE',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
