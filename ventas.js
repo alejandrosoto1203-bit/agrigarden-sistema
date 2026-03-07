@@ -737,7 +737,7 @@ async function confirmarVenta() {
             console.warn("No se pudo obtener el último número de transacción, iniciando en 1", errorTxn);
         }
 
-        const folioTxn = `##${proximoTxnNum}`;
+        const folioTxn = `#${proximoTxnNum}`;
 
         // 1. Crear transacción en tabla transacciones (para que aparezca en Ingresos)
         const esVentaRep = !!ventaDesdeReparacion;
@@ -852,12 +852,12 @@ async function confirmarVenta() {
                     producto_id: item.producto_id,
                     sucursal: esVentaReparacion ? 'Taller' : cajaActual,
                     tipo: esVentaReparacion ? 'VENTA_REPARACION' : 'VENTA',
-                    cantidad: item.cantidad,
+                    cantidad: -item.cantidad,
                     stock_anterior: stockAnterior,
                     stock_nuevo: stockNuevo,
                     referencia: esVentaReparacion
                         ? `Venta Reparación ${ventaDesdeReparacion.folio}`
-                        : `Venta POS - TXN${bdTransaccionId}`
+                        : `Venta POS - ${folioTxn}`
                 })
             });
 

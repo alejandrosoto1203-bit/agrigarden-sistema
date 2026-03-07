@@ -188,7 +188,7 @@ function renderizarTablaIngresos(datos) {
         return `
             <tr class="hover:bg-gray-50/80 transition-all border-b border-gray-50 font-bold ${esAbono ? 'bg-purple-50/30' : ''} ${esReparacion ? 'border-l-4 border-l-amber-400' : ''}">
                 <td class="px-4 py-3 text-gray-600">${fecha}</td>
-                <td class="px-4 py-3 text-center text-xs text-gray-400 font-mono">#${item.categoria || 'S/N'}</td>
+                <td class="px-4 py-3 text-center text-xs text-gray-400 font-mono">${(item.categoria || 'S/N').replace(/^#+/, '#')}</td>
                 <td class="px-4 py-3 text-center">
                     <span class="${tipoBadge} px-2 py-0.5 rounded text-[9px] font-black uppercase">${tipoLabel}</span>
                     ${esReparacion ? '<span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[9px] font-black uppercase ml-1">🔧 REP</span>' : ''}
