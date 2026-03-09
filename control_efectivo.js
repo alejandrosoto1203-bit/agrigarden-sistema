@@ -59,14 +59,37 @@ window.cargarControlEfectivo = async function () {
         if (kpiSaldo_Sur) kpiSaldo_Sur.innerText = `$${saldoSur.toLocaleString('es-MX')}`;
 
         logMsg("2. Obteniendo Movimientos...");
-        const [resTx, resGx] = await Promise.all([
-            fetch(`${API_URL}/rest/v1/transacciones?select=*&order=created_at.desc`, { headers }),
-            fetch(`${API_URL}/rest/v1/gastos?select=*&order=created_at.desc`, { headers })
-        ]);
 
-        let txs = [], gxs = [];
-        if (resTx.ok) txs = await resTx.json();
-        if (resGx.ok) gxs = await resGx.json();
+        // Paginación transacciones
+        let txs = [];
+        let txOffset = 0;
+        const PAGE = 1000;
+        while (true) {
+            const res = await fetch(`${API_URL}/rest/v1/transacciones?select=*&order=created_at.desc`, {
+                headers: { ...headers, 'Range-Unit': 'items', 'Range': `${txOffset}-${txOffset + PAGE - 1}` }
+            });
+            if (!res.ok) break;
+            const chunk = await res.json();
+            txs = txs.concat(chunk);
+            if (chunk.length < PAGE) break;
+            txOffset += PAGE;
+        }
+
+        // Paginación gastos
+        let gxs = [];
+        let gxOffset = 0;
+        while (true) {
+            const res = await fetch(`${API_URL}/rest/v1/gastos?select=*&order=created_at.desc`, {
+                headers: { ...headers, 'Range-Unit': 'items', 'Range': `${gxOffset}-${gxOffset + PAGE - 1}` }
+            });
+            if (!res.ok) break;
+            const chunk = await res.json();
+            gxs = gxs.concat(chunk);
+            if (chunk.length < PAGE) break;
+            gxOffset += PAGE;
+        }
+
+        logMsg(`Transacciones: ${txs.length} | Gastos: ${gxs.length}`);
 
         // MERGE & SPLIT
         // Filter only 'EFECTIVO'
