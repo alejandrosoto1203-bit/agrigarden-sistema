@@ -691,14 +691,14 @@ window.abrirModalUsoVehiculo = async function(vehiculo) {
                 const extras = document.createElement('div');
                 extras.id = 'uso_comb_extra_fields';
                 extras.className = 'hidden space-y-4 pt-4 border-t border-gray-100 mt-4';
-                extras.innerHTML = \`
+                extras.innerHTML = `
                     <div class="grid grid-cols-2 gap-4">
                         <div><label class="label-form text-red-600">Monto ($)</label><input type="number" step="0.01" id="uso_comb_monto" class="input-form bg-red-50 focus:bg-white" placeholder="0.00"></div>
                         <div><label class="label-form">Precio/Lt ($)</label><input type="number" step="0.01" id="uso_comb_preciolitro" class="input-form" placeholder="24.50"></div>
                         <div><label class="label-form">Sucursal</label><select id="uso_comb_sucursal" class="input-form"><option value="Sur">Sur</option><option value="Norte">Norte</option><option value="Matriz">Matriz</option></select></div>
                         <div><label class="label-form">Pago</label><select id="uso_comb_pago" class="input-form"><option value="Efectivo">Efectivo</option><option value="Transferencia Hey Banco">Transferencia Hey</option><option value="Tarjeta de Credito BBVA">TC BBVA</option></select></div>
                     </div>
-                \`;
+                `;
                 formEntregar.insertBefore(extras, document.getElementById('btnEntregarTurno'));
             }
             toggleCombustibleUI();
@@ -715,8 +715,8 @@ window.abrirModalUsoVehiculo = async function(vehiculo) {
             // Poner los 2 asignados
             const selToma = document.getElementById('uso_empleado_toma');
             selToma.innerHTML = `
-                <option value="\${vehiculo.responsable1}">\${vehiculo.responsable1 || 'Empleado 1'}</option>
-                <option value="\${vehiculo.responsable2}">\${vehiculo.responsable2 || 'Empleado 2'}</option>
+                <option value="${vehiculo.responsable1}">${vehiculo.responsable1 || 'Empleado 1'}</option>
+                <option value="${vehiculo.responsable2}">${vehiculo.responsable2 || 'Empleado 2'}</option>
             `;
             formTomar.classList.remove('hidden');
         }
@@ -830,13 +830,13 @@ window.abrirModalRendimiento = async function(vehiculo) {
         if (cargas && cargas.length > 0) {
             tablaCargas.innerHTML = cargas.map(c => `
                 <tr class="hover:bg-slate-50 border-b border-gray-100">
-                    <td class="px-3 py-3 text-slate-800 font-bold">\${new Date(c.fecha + 'T00:00:00').toLocaleDateString('es-MX')}</td>
-                    <td class="px-3 py-3 text-slate-500 font-bold max-w-[100px] truncate">\${c.responsable}</td>
-                    <td class="px-3 py-3 text-right text-slate-600 font-black">\${c.kilometraje}</td>
-                    <td class="px-3 py-3 text-right text-blue-600 font-bold">\${(c.monto/c.precio_litro).toFixed(1)} L</td>
-                    <td class="px-3 py-3 text-right text-red-600 font-black">$\${Number(c.monto).toLocaleString()}</td>
+                    <td class="px-3 py-3 text-slate-800 font-bold">${new Date(c.fecha + 'T00:00:00').toLocaleDateString('es-MX')}</td>
+                    <td class="px-3 py-3 text-slate-500 font-bold max-w-[100px] truncate">${c.responsable}</td>
+                    <td class="px-3 py-3 text-right text-slate-600 font-black">${c.kilometraje}</td>
+                    <td class="px-3 py-3 text-right text-blue-600 font-bold">${(c.monto/c.precio_litro).toFixed(1)} L</td>
+                    <td class="px-3 py-3 text-right text-red-600 font-black">$${Number(c.monto).toLocaleString()}</td>
                     <td class="px-3 py-3 text-center">
-                        \${c.rendimiento_kml ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-black">\${c.rendimiento_kml} <span class="text-[8px] uppercase">km/L</span></span>` : '-'}
+                        ${c.rendimiento_kml ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-black">${c.rendimiento_kml} <span class="text-[8px] uppercase">km/L</span></span>` : '-'}
                     </td>
                 </tr>
             `).join('');
@@ -875,25 +875,25 @@ window.abrirModalRendimiento = async function(vehiculo) {
                 <div class="space-y-4 pt-2">
                     <!-- Resumen Empleado 1 -->
                     <div class="bg-white border text-center border-slate-100 p-4 rounded-xl shadow-sm">
-                        <p class="text-xs font-black uppercase text-slate-700 truncate">\${r1 || 'Sin asignar 1'}</p>
+                        <p class="text-xs font-black uppercase text-slate-700 truncate">${r1 || 'Sin asignar 1'}</p>
                         <div class="flex justify-between items-end mt-2">
-                            <span class="text-2xl font-black text-emerald-600">\${kmResp1} <span class="text-[10px] text-emerald-800">km</span></span>
-                            <span class="text-xs font-black text-slate-400">\${ptj1}% del uso</span>
+                            <span class="text-2xl font-black text-emerald-600">${kmResp1} <span class="text-[10px] text-emerald-800">km</span></span>
+                            <span class="text-xs font-black text-slate-400">${ptj1}% del uso</span>
                         </div>
                         <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden">
-                            <div class="bg-emerald-500 h-2 rounded-full" style="width: \${ptj1}%"></div>
+                            <div class="bg-emerald-500 h-2 rounded-full" style="width: ${ptj1}%"></div>
                         </div>
                     </div>
                     
                     <!-- Resumen Empleado 2 -->
                     <div class="bg-white border text-center border-slate-100 p-4 rounded-xl shadow-sm">
-                        <p class="text-xs font-black uppercase text-slate-700 truncate">\${r2 || 'Sin asignar 2'}</p>
+                        <p class="text-xs font-black uppercase text-slate-700 truncate">${r2 || 'Sin asignar 2'}</p>
                         <div class="flex justify-between items-end mt-2">
-                            <span class="text-2xl font-black text-blue-600">\${kmResp2} <span class="text-[10px] text-blue-800">km</span></span>
-                            <span class="text-xs font-black text-slate-400">\${ptj2}% del uso</span>
+                            <span class="text-2xl font-black text-blue-600">${kmResp2} <span class="text-[10px] text-blue-800">km</span></span>
+                            <span class="text-xs font-black text-slate-400">${ptj2}% del uso</span>
                         </div>
                         <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden">
-                            <div class="bg-blue-500 h-2 rounded-full" style="width: \${ptj2}%"></div>
+                            <div class="bg-blue-500 h-2 rounded-full" style="width: ${ptj2}%"></div>
                         </div>
                     </div>
                     
