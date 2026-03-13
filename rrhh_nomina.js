@@ -356,9 +356,12 @@ function renderizarTablaPagos() {
                 </td>
                 <td class="px-6 py-4">
                     <div class="flex flex-col gap-2 min-w-[200px]">
-                        <div class="flex justify-between items-center text-[10px] font-bold text-slate-500">
-                            <span>Sueldo Base:</span>
-                            <span class="text-slate-900 font-black">$${record.sueldo_base.toFixed(2)}</span>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="text-[10px] font-bold text-slate-500">Sueldo Base:</span>
+                            <div class="relative w-24">
+                                <span class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-900 font-bold text-[10px]">$</span>
+                                <input type="number" id="base_${id}" oninput="modificarSueldoVariables('${id}')" onclick="event.stopPropagation()" class="w-full bg-transparent border-none text-slate-900 rounded text-[10px] py-1 pl-5 pr-0 text-right font-black" value="${record.sueldo_base.toFixed(2)}" placeholder="0.00">
+                            </div>
                         </div>
                         <div class="flex justify-between items-center gap-2">
                             <span class="text-[9px] font-bold text-green-600 uppercase">Bonos:</span>
@@ -441,13 +444,15 @@ function actualizarPreviewRecibo(id) {
     const pInicio = document.getElementById('globalPeriodoInicio').value;
     const pFin = document.getElementById('globalPeriodoFin').value;
 
+    const inputBase = document.getElementById(`base_${id}`);
     const inputBonos = document.getElementById(`bonos_${id}`);
     const inputDeduc = document.getElementById(`deducciones_${id}`);
     
+    const base = inputBase ? (parseFloat(inputBase.value) || 0) : record.sueldo_base;
     const bonos = inputBonos ? (parseFloat(inputBonos.value) || 0) : (record.bonificaciones || 0);
     const deduc = inputDeduc ? (parseFloat(inputDeduc.value) || 0) : (record.deducciones || 0);
     
-    const neto = record.sueldo_base + bonos - deduc;
+    const neto = base + bonos - deduc;
     const efectivo = parseFloat(document.getElementById(`pago_efectivo_${id}`).value) || 0;
     const transfer = parseFloat(document.getElementById(`pago_transferencia_${id}`).value) || 0;
     const obs = document.getElementById(`obs_${id}`).value;
@@ -514,7 +519,7 @@ function actualizarPreviewRecibo(id) {
                 <tbody class="text-[11px] font-bold divide-y divide-slate-100">
                     <tr>
                         <td class="px-4 py-3">Sueldo Base (Quincenal)</td>
-                        <td class="px-4 py-3 text-right" contenteditable="true">${formatMoney(record.sueldo_base)}</td>
+                        <td class="px-4 py-3 text-right" contenteditable="true">${formatMoney(base)}</td>
                         <td class="px-4 py-3 text-right">---</td>
                     </tr>
                     <tr>
@@ -588,6 +593,7 @@ window.recalcularTotalDispersarVar = function() {
 };
 
 window.modificarSueldoVariables = function(id) {
+    const inputBase = document.getElementById(`base_${id}`);
     const inputBonos = document.getElementById(`bonos_${id}`);
     const inputDeduc = document.getElementById(`deducciones_${id}`);
     const displayNeto = document.getElementById(`neto_display_${id}`);
@@ -595,9 +601,9 @@ window.modificarSueldoVariables = function(id) {
     const inputEfectivo = document.getElementById(`pago_efectivo_${id}`);
     const inputTransfer = document.getElementById(`pago_transferencia_${id}`);
     
-    if(!inputBonos || !inputDeduc || !displayNeto || !inputEfectivo || !inputTransfer) return;
+    if(!inputBase || !inputBonos || !inputDeduc || !displayNeto || !inputEfectivo || !inputTransfer) return;
     
-    const sueldo = parseFloat(displayNeto.getAttribute('data-sueldo')) || 0;
+    const sueldo = parseFloat(inputBase.value) || 0;
     const bonos = parseFloat(inputBonos.value) || 0;
     const deduc = parseFloat(inputDeduc.value) || 0;
     
@@ -689,15 +695,17 @@ async function confirmarDisersionPagos() {
             return alert(`Error en la distribución de pago para un empleado.\nLa suma no coincide con el total. Verifica los campos en rojo.`);
         }
 
+        const inputBase = document.getElementById(`base_${id}`);
         const inputBonos = document.getElementById(`bonos_${id}`);
         const inputDeduc = document.getElementById(`deducciones_${id}`);
         
+        const baseReal = inputBase ? (parseFloat(inputBase.value) || 0) : record.sueldo_base;
         const bonosReal = inputBonos ? (parseFloat(inputBonos.value) || 0) : (record.bonificaciones || 0);
         const deducReal = inputDeduc ? (parseFloat(inputDeduc.value) || 0) : (record.deducciones || 0);
 
         nominaIdsToUpdate.push({
             id: id,
-            sueldo_base: record.sueldo_base,
+            sueldo_base: baseReal,
             bonificaciones: bonosReal,
             deducciones: deducReal
         });
@@ -745,6 +753,7 @@ async function confirmarDisersionPagos() {
                 .update({ 
                     estado: 'Pagado', 
                     fecha_pago: fechaHoy,
+                    sueldo_base: recordUpdate.sueldo_base,
                     bonificaciones: recordUpdate.bonificaciones,
                     deducciones: recordUpdate.deducciones
                 })
