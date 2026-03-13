@@ -354,15 +354,30 @@ function renderizarTablaPagos() {
                     <p class="font-bold text-slate-900">${emp ? emp.nombre_completo : 'Empleado'}</p>
                     <textarea id="obs_${id}" oninput="actualizarPreviewRecibo('${id}')" placeholder="Observaciones..." class="text-[10px] w-full bg-slate-50 border border-slate-200 rounded-lg focus:border-primary outline-none py-2 px-3 mt-2 resize-none" rows="2" onclick="event.stopPropagation()"></textarea>
                 </td>
-                <td class="px-6 py-4 text-right">
-                    <div class="relative">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                        <input type="number" 
-                            id="neto_${id}" 
-                            oninput="modificarNeto('${id}')"
-                            onclick="event.stopPropagation()"
-                            class="w-full bg-slate-50 border-slate-200 rounded-lg pl-6 py-2 font-black text-slate-900 text-right" 
-                            value="${neto.toFixed(2)}">
+                <td class="px-6 py-4">
+                    <div class="flex flex-col gap-2 min-w-[200px]">
+                        <div class="flex justify-between items-center text-[10px] font-bold text-slate-500">
+                            <span>Sueldo Base:</span>
+                            <span class="text-slate-900 font-black">$${record.sueldo_base.toFixed(2)}</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="text-[9px] font-bold text-green-600 uppercase">Bonos:</span>
+                            <div class="relative w-24">
+                                <span class="absolute left-2 top-1/2 -translate-y-1/2 text-green-600 font-bold text-[10px]">$</span>
+                                <input type="number" id="bonos_${id}" oninput="modificarSueldoVariables('${id}')" onclick="event.stopPropagation()" class="w-full bg-green-50 border-green-200 text-green-700 rounded text-[10px] py-1 pl-5 pr-2 text-right font-bold" value="${(record.bonificaciones || 0).toFixed(2)}" placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="text-[9px] font-bold text-red-500 uppercase">Deducciones:</span>
+                            <div class="relative w-24">
+                                <span class="absolute left-2 top-1/2 -translate-y-1/2 text-red-500 font-bold text-[10px]">$</span>
+                                <input type="number" id="deducciones_${id}" oninput="modificarSueldoVariables('${id}')" onclick="event.stopPropagation()" class="w-full bg-red-50 border-red-200 text-red-700 rounded text-[10px] py-1 pl-5 pr-2 text-right font-bold" value="${(record.deducciones || 0).toFixed(2)}" placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="border-t border-slate-200 mt-1 pt-2 flex justify-between items-center">
+                            <span class="text-[10px] font-black uppercase text-slate-700">Neto:</span>
+                            <span id="neto_display_${id}" class="text-sm font-black text-slate-900" data-sueldo="${record.sueldo_base}">$${neto.toFixed(2)}</span>
+                        </div>
                     </div>
                 </td>
                 <td class="px-6 py-4">
@@ -426,8 +441,13 @@ function actualizarPreviewRecibo(id) {
     const pInicio = document.getElementById('globalPeriodoInicio').value;
     const pFin = document.getElementById('globalPeriodoFin').value;
 
-    const inputNeto = document.getElementById(`neto_${id}`);
-    const neto = inputNeto ? parseFloat(inputNeto.value) || 0 : (record.sueldo_base + (record.bonificaciones || 0) - (record.deducciones || 0));
+    const inputBonos = document.getElementById(`bonos_${id}`);
+    const inputDeduc = document.getElementById(`deducciones_${id}`);
+    
+    const bonos = inputBonos ? (parseFloat(inputBonos.value) || 0) : (record.bonificaciones || 0);
+    const deduc = inputDeduc ? (parseFloat(inputDeduc.value) || 0) : (record.deducciones || 0);
+    
+    const neto = record.sueldo_base + bonos - deduc;
     const efectivo = parseFloat(document.getElementById(`pago_efectivo_${id}`).value) || 0;
     const transfer = parseFloat(document.getElementById(`pago_transferencia_${id}`).value) || 0;
     const obs = document.getElementById(`obs_${id}`).value;
@@ -499,13 +519,13 @@ function actualizarPreviewRecibo(id) {
                     </tr>
                     <tr>
                         <td class="px-4 py-3">Bonificaciones / Incentivos</td>
-                        <td class="px-4 py-3 text-right text-green-600" contenteditable="true">+${formatMoney(record.bonificaciones)}</td>
+                        <td class="px-4 py-3 text-right text-green-600" contenteditable="true">+${formatMoney(bonos)}</td>
                         <td class="px-4 py-3 text-right">---</td>
                     </tr>
                     <tr>
                         <td class="px-4 py-3">Deducciones (Impuestos/Préstamos)</td>
                         <td class="px-4 py-3 text-right">---</td>
-                        <td class="px-4 py-3 text-right text-red-500" contenteditable="true">-${formatMoney(record.deducciones)}</td>
+                        <td class="px-4 py-3 text-right text-red-500" contenteditable="true">-${formatMoney(deduc)}</td>
                     </tr>
                 </tbody>
                 <tfoot>
@@ -555,26 +575,35 @@ async function generarYDescargarPDF(id) {
     }
 }
 
-window.recalcularTotalDispersar = function() {
+window.recalcularTotalDispersarVar = function() {
     let totalGeneral = 0;
     Array.from(seleccionados).forEach(id => {
-        const inputNeto = document.getElementById(`neto_${id}`);
-        if (inputNeto) {
-            totalGeneral += parseFloat(inputNeto.value) || 0;
+        const displayNeto = document.getElementById(`neto_display_${id}`);
+        if (displayNeto) {
+            totalGeneral += parseFloat(displayNeto.innerText.replace(/[^0-9.-]+/g,"")) || 0;
         }
     });
     const lbl = document.getElementById('totalDispersar');
     if (lbl) lbl.innerText = formatMoney(totalGeneral);
 };
 
-window.modificarNeto = function(id) {
-    const inputNeto = document.getElementById(`neto_${id}`);
+window.modificarSueldoVariables = function(id) {
+    const inputBonos = document.getElementById(`bonos_${id}`);
+    const inputDeduc = document.getElementById(`deducciones_${id}`);
+    const displayNeto = document.getElementById(`neto_display_${id}`);
+    
     const inputEfectivo = document.getElementById(`pago_efectivo_${id}`);
     const inputTransfer = document.getElementById(`pago_transferencia_${id}`);
     
-    if(!inputNeto || !inputEfectivo || !inputTransfer) return;
+    if(!inputBonos || !inputDeduc || !displayNeto || !inputEfectivo || !inputTransfer) return;
     
-    const nuevoNeto = parseFloat(inputNeto.value) || 0;
+    const sueldo = parseFloat(displayNeto.getAttribute('data-sueldo')) || 0;
+    const bonos = parseFloat(inputBonos.value) || 0;
+    const deduc = parseFloat(inputDeduc.value) || 0;
+    
+    const nuevoNeto = sueldo + bonos - deduc;
+    displayNeto.innerText = formatMoney(nuevoNeto);
+    
     inputEfectivo.setAttribute('data-total', nuevoNeto);
     inputTransfer.setAttribute('data-total', nuevoNeto);
     
@@ -588,7 +617,7 @@ window.modificarNeto = function(id) {
     const nuevoTransfer = Math.max(0, nuevoNeto - efectivoActual);
     inputTransfer.value = nuevoTransfer.toFixed(2);
     
-    recalcularTotalDispersar();
+    recalcularTotalDispersarVar();
     actualizarPreviewRecibo(id);
 };
 
@@ -660,16 +689,17 @@ async function confirmarDisersionPagos() {
             return alert(`Error en la distribución de pago para un empleado.\nLa suma no coincide con el total. Verifica los campos en rojo.`);
         }
 
-        // Calcular diferencia para bonificacion/deduccion si el neto original cambio
-        const netoIntencional = parseFloat(document.getElementById(`neto_${id}`).value) || 0;
-        const netoOriginal = record.sueldo_base + (record.bonificaciones || 0) - (record.deducciones || 0);
-        const diffNeto = netoIntencional - netoOriginal;
+        const inputBonos = document.getElementById(`bonos_${id}`);
+        const inputDeduc = document.getElementById(`deducciones_${id}`);
         
+        const bonosReal = inputBonos ? (parseFloat(inputBonos.value) || 0) : (record.bonificaciones || 0);
+        const deducReal = inputDeduc ? (parseFloat(inputDeduc.value) || 0) : (record.deducciones || 0);
+
         nominaIdsToUpdate.push({
             id: id,
             sueldo_base: record.sueldo_base,
-            bonificaciones: (record.bonificaciones || 0) + (diffNeto > 0 ? diffNeto : 0),
-            deducciones: (record.deducciones || 0) + (diffNeto < 0 ? Math.abs(diffNeto) : 0)
+            bonificaciones: bonosReal,
+            deducciones: deducReal
         });
 
         // Generar payload GASTOS - EFECTIVO
