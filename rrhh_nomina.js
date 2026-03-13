@@ -352,11 +352,21 @@ function renderizarTablaPagos() {
         tr.innerHTML = `
                 <td class="px-6 py-4">
                     <p class="font-bold text-slate-900">${emp ? emp.nombre_completo : 'Empleado'}</p>
-                    <input type="text" id="obs_${id}" oninput="actualizarPreviewRecibo('${id}')" placeholder="Observaciones..." class="text-[10px] w-full bg-transparent border-b border-slate-200 focus:border-primary outline-none py-1" onclick="event.stopPropagation()">
+                    <textarea id="obs_${id}" oninput="actualizarPreviewRecibo('${id}')" placeholder="Observaciones..." class="text-[10px] w-full bg-slate-50 border border-slate-200 rounded-lg focus:border-primary outline-none py-2 px-3 mt-2 resize-none" rows="2" onclick="event.stopPropagation()"></textarea>
                 </td>
-                <td class="px-6 py-4 text-right font-black">$${neto.toFixed(2)}</td>
-                <td class="px-6 py-4">
+                <td class="px-6 py-4 text-right">
                     <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                        <input type="number" 
+                            id="neto_${id}" 
+                            oninput="modificarNeto('${id}')"
+                            onclick="event.stopPropagation()"
+                            class="w-full bg-slate-50 border-slate-200 rounded-lg pl-6 py-2 font-black text-slate-900 text-right" 
+                            value="${neto.toFixed(2)}">
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="relative mb-2">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
                         <input type="number" 
                             id="pago_efectivo_${id}" 
@@ -366,9 +376,14 @@ function renderizarTablaPagos() {
                             class="w-full bg-slate-50 border-slate-200 rounded-lg pl-6 py-2 font-bold text-slate-700 text-center" 
                             placeholder="0.00" value="0.00">
                     </div>
+                    <select id="sucursal_efectivo_${id}" onclick="event.stopPropagation()" class="w-full bg-slate-50 border-slate-200 rounded-lg text-[9px] font-bold py-1 focus:ring-primary uppercase">
+                        <option value="Matriz" ${emp && emp.sucursal === 'Matriz' ? 'selected' : ''}>Matriz</option>
+                        <option value="Norte" ${emp && emp.sucursal === 'Norte' ? 'selected' : ''}>Norte</option>
+                        <option value="Sur" ${emp && emp.sucursal === 'Sur' ? 'selected' : ''}>Sur</option>
+                    </select>
                 </td>
                 <td class="px-6 py-4">
-                    <div class="relative">
+                    <div class="relative mb-2">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
                         <input type="number" 
                             id="pago_transferencia_${id}" 
@@ -378,6 +393,11 @@ function renderizarTablaPagos() {
                             class="w-full bg-blue-50 border-blue-200 rounded-lg pl-6 py-2 font-bold text-blue-700 text-center" 
                             placeholder="0.00" value="${neto.toFixed(2)}">
                     </div>
+                    <select id="sucursal_transferencia_${id}" onclick="event.stopPropagation()" class="w-full bg-blue-50 border-blue-200 rounded-lg text-[9px] font-bold py-1 focus:ring-primary uppercase text-blue-700">
+                        <option value="Matriz" ${emp && emp.sucursal === 'Matriz' ? 'selected' : ''}>Matriz</option>
+                        <option value="Norte" ${emp && emp.sucursal === 'Norte' ? 'selected' : ''}>Norte</option>
+                        <option value="Sur" ${emp && emp.sucursal === 'Sur' ? 'selected' : ''}>Sur</option>
+                    </select>
                 </td>
             `;
         tbody.appendChild(tr);
@@ -406,10 +426,15 @@ function actualizarPreviewRecibo(id) {
     const pInicio = document.getElementById('globalPeriodoInicio').value;
     const pFin = document.getElementById('globalPeriodoFin').value;
 
-    const neto = record.sueldo_base + (record.bonificaciones || 0) - (record.deducciones || 0);
+    const inputNeto = document.getElementById(`neto_${id}`);
+    const neto = inputNeto ? parseFloat(inputNeto.value) || 0 : (record.sueldo_base + (record.bonificaciones || 0) - (record.deducciones || 0));
     const efectivo = parseFloat(document.getElementById(`pago_efectivo_${id}`).value) || 0;
     const transfer = parseFloat(document.getElementById(`pago_transferencia_${id}`).value) || 0;
     const obs = document.getElementById(`obs_${id}`).value;
+
+    // Read the selected branches
+    const sucursalEfectivo = document.getElementById(`sucursal_efectivo_${id}`)?.value || sucursalPago;
+    const sucursalTransferencia = document.getElementById(`sucursal_transferencia_${id}`)?.value || sucursalPago;
 
     // Guardamos datos para referencia
     reciboActualData = { id, record, emp, neto };
@@ -447,11 +472,11 @@ function actualizarPreviewRecibo(id) {
                 <p class="text-[9px] font-black uppercase text-slate-400 mb-1 text-center">Detalle de Dispersión</p>
                 <div class="flex justify-around text-center">
                     <div>
-                        <p class="text-[8px] font-bold text-slate-500 uppercase">Efectivo</p>
+                        <p class="text-[8px] font-bold text-slate-500 uppercase">Efectivo (${sucursalEfectivo})</p>
                         <p class="text-xs font-black" contenteditable="true">${formatMoney(efectivo)}</p>
                     </div>
                     <div>
-                        <p class="text-[8px] font-bold text-slate-500 uppercase">Transferencia</p>
+                        <p class="text-[8px] font-bold text-slate-500 uppercase">Transferencia (${sucursalTransferencia})</p>
                         <p class="text-xs font-black" contenteditable="true">${formatMoney(transfer)}</p>
                     </div>
                 </div>
@@ -530,6 +555,43 @@ async function generarYDescargarPDF(id) {
     }
 }
 
+window.recalcularTotalDispersar = function() {
+    let totalGeneral = 0;
+    Array.from(seleccionados).forEach(id => {
+        const inputNeto = document.getElementById(`neto_${id}`);
+        if (inputNeto) {
+            totalGeneral += parseFloat(inputNeto.value) || 0;
+        }
+    });
+    const lbl = document.getElementById('totalDispersar');
+    if (lbl) lbl.innerText = formatMoney(totalGeneral);
+};
+
+window.modificarNeto = function(id) {
+    const inputNeto = document.getElementById(`neto_${id}`);
+    const inputEfectivo = document.getElementById(`pago_efectivo_${id}`);
+    const inputTransfer = document.getElementById(`pago_transferencia_${id}`);
+    
+    if(!inputNeto || !inputEfectivo || !inputTransfer) return;
+    
+    const nuevoNeto = parseFloat(inputNeto.value) || 0;
+    inputEfectivo.setAttribute('data-total', nuevoNeto);
+    inputTransfer.setAttribute('data-total', nuevoNeto);
+    
+    // Auto-adjust transfer to match the new net, keeping efectivo same
+    let efectivoActual = parseFloat(inputEfectivo.value) || 0;
+    if (efectivoActual > nuevoNeto) {
+        efectivoActual = nuevoNeto;
+        inputEfectivo.value = efectivoActual.toFixed(2);
+    }
+    
+    const nuevoTransfer = Math.max(0, nuevoNeto - efectivoActual);
+    inputTransfer.value = nuevoTransfer.toFixed(2);
+    
+    recalcularTotalDispersar();
+    actualizarPreviewRecibo(id);
+};
+
 // Función expuesta globalmente para el oninput
 window.calcularRestantePago = function (id, source) {
     const inputEfectivo = document.getElementById(`pago_efectivo_${id}`);
@@ -587,7 +649,8 @@ async function confirmarDisersionPagos() {
         const efectivo = parseFloat(document.getElementById(`pago_efectivo_${id}`).value) || 0;
         const transfer = parseFloat(document.getElementById(`pago_transferencia_${id}`).value) || 0;
         const obs = document.getElementById(`obs_${id}`).value;
-        const sucursalPago = document.getElementById('globalSucursal').value;
+        const sucursalEfectivoPago = document.getElementById(`sucursal_efectivo_${id}`)?.value || document.getElementById('globalSucursal').value;
+        const sucursalTransferenciaPago = document.getElementById(`sucursal_transferencia_${id}`)?.value || document.getElementById('globalSucursal').value;
         const frecuenciaPago = document.getElementById('globalFrecuencia').value;
         const fechaPagoGasto = document.getElementById('globalFechaPago').value || fechaHoy;
         const pInicio = document.getElementById('globalPeriodoInicio').value;
@@ -597,7 +660,17 @@ async function confirmarDisersionPagos() {
             return alert(`Error en la distribución de pago para un empleado.\nLa suma no coincide con el total. Verifica los campos en rojo.`);
         }
 
-        nominaIdsToUpdate.push(id);
+        // Calcular diferencia para bonificacion/deduccion si el neto original cambio
+        const netoIntencional = parseFloat(document.getElementById(`neto_${id}`).value) || 0;
+        const netoOriginal = record.sueldo_base + (record.bonificaciones || 0) - (record.deducciones || 0);
+        const diffNeto = netoIntencional - netoOriginal;
+        
+        nominaIdsToUpdate.push({
+            id: id,
+            sueldo_base: record.sueldo_base,
+            bonificaciones: (record.bonificaciones || 0) + (diffNeto > 0 ? diffNeto : 0),
+            deducciones: (record.deducciones || 0) + (diffNeto < 0 ? Math.abs(diffNeto) : 0)
+        });
 
         // Generar payload GASTOS - EFECTIVO
         if (efectivo > 0) {
@@ -608,7 +681,7 @@ async function confirmarDisersionPagos() {
                 subcategoria: 'NOMINA',
                 metodo_pago: 'Efectivo',
                 monto_total: efectivo,
-                sucursal: sucursalPago,
+                sucursal: sucursalEfectivoPago,
                 notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (${pInicio} AL ${pFin}) (EFECTIVO) ID: ${id} | ${obs}`,
                 estado_pago: 'Pagado'
             });
@@ -623,7 +696,7 @@ async function confirmarDisersionPagos() {
                 subcategoria: 'NOMINA',
                 metodo_pago: 'Transferencia',
                 monto_total: transfer,
-                sucursal: sucursalPago,
+                sucursal: sucursalTransferenciaPago,
                 notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (${pInicio} AL ${pFin}) (TRANSF) ID: ${id} | ${obs}`,
                 estado_pago: 'Pagado'
             });
@@ -635,14 +708,21 @@ async function confirmarDisersionPagos() {
     try {
         if (!sbClient) initNominaClient();
 
-        // A. Actualizar nóminas a Pagado
-        const { error: errNomina } = await sbClient
-            .from('rrhh_nomina')
-            .update({ estado: 'Pagado', fecha_pago: fechaHoy })
-            .in('empleado_id', nominaIdsToUpdate)
-            .eq('estado', 'Pendiente');
-
-        if (errNomina) throw errNomina;
+        // A. Actualizar nóminas a Pagado con montos ajustados indiv
+        for (const recordUpdate of nominaIdsToUpdate) {
+            const { error: errNomina } = await sbClient
+                .from('rrhh_nomina')
+                .update({ 
+                    estado: 'Pagado', 
+                    fecha_pago: fechaHoy,
+                    bonificaciones: recordUpdate.bonificaciones,
+                    deducciones: recordUpdate.deducciones
+                })
+                .eq('empleado_id', recordUpdate.id)
+                .eq('estado', 'Pendiente');
+            
+            if (errNomina) throw errNomina;
+        }
 
         // B. Insertar Gastos
         if (gastosPayload.length > 0) {
