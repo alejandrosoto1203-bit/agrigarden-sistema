@@ -350,7 +350,8 @@
         let GITHUB_OWNER = '', GITHUB_REPO = '', GITHUB_TOKEN = '';
         const WORKFLOW_FILE = 'pulpos_sync.yml';
 
-        const METODOS_PAGO = [
+        // Fallback estático — se reemplaza con datos de sys_metodos_pago al cargar
+        let METODOS_PAGO = [
             'Efectivo', 'Cheque', 'Crédito',
             'Tarjeta BBVA', 'Tarjeta Hey Banco', 'Tarjeta Mercado Pago Fiscal Norte', 'Tarjeta Mercado Pago No Fiscal Norte', 'Tarjeta',
             'Transferencia BBVA', 'Transferencia Hey Banco', 'Transferencia'
@@ -409,6 +410,18 @@
             const hoy = new Date().toISOString().split('T')[0];
             document.getElementById('inputFecha').max = hoy;
             document.getElementById('inputFecha').value = hoy;
+            // Cargar métodos de pago activos desde PROD
+            try {
+                const r = await fetch(`${_SB_URL}/rest/v1/sys_metodos_pago?select=nombre&activo=eq.true&order=orden.asc`, {
+                    headers: { 'apikey': _SB_KEY, 'Authorization': `Bearer ${_SB_KEY}` }
+                });
+                if (r.ok) {
+                    const data = await r.json();
+                    if (data && data.length > 0) {
+                        METODOS_PAGO = data.map(m => m.nombre);
+                    }
+                }
+            } catch(e) {}
             await cargarConfigGithub();
             await cargarHistorial();
             // Ya no abre modal automáticamente — el usuario decide cuándo sincronizar
