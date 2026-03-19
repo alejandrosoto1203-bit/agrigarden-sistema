@@ -9,10 +9,8 @@
     <title>Cuentas por Cobrar - Agrigarden</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
-        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
     <script>
         tailwind.config = {
             theme: {
@@ -24,39 +22,50 @@
         }
     </script>
     <style>
-        body {
-            background-color: #f8faf9;
-            font-family: 'Manrope', sans-serif;
-        }
+        body { background-color: #f8faf9; font-family: 'Manrope', sans-serif; }
 
         .card {
             background: white;
             border-radius: 1.25rem;
             border: 1px solid #e5e7eb;
-            transition: all 0.3s;
-        }
-
-        .card:hover {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
-        }
-
-        #historialNotas::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        #historialNotas::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-
-        #historialNotas::-webkit-scrollbar-thumb {
-            background: #19e66b;
-            border-radius: 10px;
+            transition: all 0.2s;
         }
 
         .tab-active {
             color: #111814;
             border-bottom: 2px solid #19e66b;
         }
+
+        #historialNotas::-webkit-scrollbar { width: 4px; }
+        #historialNotas::-webkit-scrollbar-track { background: #f1f1f1; }
+        #historialNotas::-webkit-scrollbar-thumb { background: #19e66b; border-radius: 10px; }
+
+        .alerta-card {
+            transition: all 0.18s;
+        }
+        .alerta-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px -4px rgba(239, 68, 68, 0.18);
+        }
+
+        .fila-cobro { transition: background 0.12s; }
+        .fila-cobro:hover { background-color: #f9fafb; }
+
+        .btn-pag {
+            min-width: 2rem;
+            height: 2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            font-size: 0.7rem;
+            font-weight: 800;
+            transition: all 0.15s;
+            border: 1px solid transparent;
+        }
+        .btn-pag:hover:not(:disabled):not(.btn-pag-activa) { background: #f3f4f6; border-color: #e5e7eb; }
+        .btn-pag-activa { background: var(--theme-color); color: black; }
+        .btn-pag:disabled { opacity: 0.3; cursor: not-allowed; }
     </style>
 </head>
 
@@ -64,156 +73,174 @@
 
     <div id="sidebar-container"></div>
 
-    <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8 min-w-0">
-        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-0">
+    <main class="pt-20 lg:pt-0 flex-1 p-4 lg:p-8 space-y-5 min-w-0">
+
+        <!-- HEADER -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
                 <nav class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Inicio > Créditos</nav>
-                <h1 class="text-3xl lg:text-3xl font-extrabold tracking-tight italic uppercase">Cuentas por Cobrar
-                </h1>
-                <p class="text-gray-500 text-sm font-medium">Monitoreo y gestión de saldos pendientes de Agrigarden
-                </p>
+                <h1 class="text-2xl lg:text-3xl font-extrabold tracking-tight italic uppercase">Cuentas por Cobrar</h1>
+                <p class="text-gray-500 text-sm font-medium">Monitoreo y gestión de saldos pendientes de Agrigarden</p>
             </div>
-            <div class="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
+            <div class="flex gap-2 w-full lg:w-auto">
                 <button onclick="sincronizarHistorialCreditos()"
-                    class="w-full lg:w-auto bg-black text-white px-6 py-3 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg hover:scale-105 transition-transform group">
-                    <span
-                        class="material-symbols-outlined text-lg group-hover:rotate-180 transition-transform duration-500">sync</span>
-                    <span class="text-center">Sincronizar<br>Historial</span>
+                    class="flex-1 lg:flex-none bg-black text-white px-5 py-2.5 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg hover:opacity-90 transition-opacity group">
+                    <span class="material-symbols-outlined text-base group-hover:rotate-180 transition-transform duration-500">sync</span>
+                    Sincronizar
                 </button>
                 <button onclick="exportarCuentas()"
-                    class="w-full lg:w-auto bg-white border-2 border-gray-100 text-gray-600 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-xs hover:border-gray-200 transition-all">
-                    <span class="material-symbols-outlined text-lg">download</span> Exportar
+                    class="flex-1 lg:flex-none bg-white border border-gray-200 text-gray-600 px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 text-xs hover:bg-gray-50 transition-all">
+                    <span class="material-symbols-outlined text-base">download</span> Exportar
                 </button>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="card p-4 lg:p-8 flex justify-between items-start">
+        <!-- KPI CARDS -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="card p-5 flex justify-between items-center">
                 <div>
-                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Total Pendiente</p>
-                    <span id="totalPorCobrar" class="text-3xl font-black">$0.00</span>
+                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Total Pendiente</p>
+                    <span id="totalPorCobrar" class="text-2xl font-black">$0.00</span>
                 </div>
-                <div class="p-3 bg-green-50 text-primary rounded-2xl"><span
-                        class="material-symbols-outlined text-3xl">account_balance_wallet</span></div>
-            </div>
-            <div class="card p-4 lg:p-8 flex justify-between items-start border-red-100">
-                <div>
-                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Saldos Vencidos</p>
-                    <span id="totalVencido" class="text-3xl font-black text-red-600">$0.00</span>
-                    <p class="text-[10px] font-black text-red-400 mt-2 flex items-center gap-1"><span
-                            class="material-symbols-outlined text-xs">warning</span> <span id="cuentasVencidas">0</span>
-                        vencidas</p>
+                <div class="p-3 bg-green-50 text-primary rounded-2xl">
+                    <span class="material-symbols-outlined text-2xl">account_balance_wallet</span>
                 </div>
-                <div class="p-3 bg-red-50 text-red-500 rounded-2xl"><span
-                        class="material-symbols-outlined text-3xl">event_busy</span></div>
             </div>
-            <div class="card p-4 lg:p-8 flex justify-between items-start">
+            <div class="card p-5 flex justify-between items-center" style="border-color:#fecaca;">
                 <div>
-                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-2">Recuperado este Mes
+                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Saldos Vencidos</p>
+                    <span id="totalVencido" class="text-2xl font-black text-red-600">$0.00</span>
+                    <p class="text-[10px] font-black text-red-400 mt-1 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">warning</span>
+                        <span id="cuentasVencidas">0</span> vencidas
                     </p>
-                    <span id="recuperadoMes" class="text-3xl font-black">$0.00</span>
                 </div>
-                <div class="p-3 bg-blue-50 text-blue-500 rounded-2xl"><span
-                        class="material-symbols-outlined text-3xl">payments</span></div>
+                <div class="p-3 bg-red-50 text-red-500 rounded-2xl">
+                    <span class="material-symbols-outlined text-2xl">event_busy</span>
+                </div>
+            </div>
+            <div class="card p-5 flex justify-between items-center">
+                <div>
+                    <p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Recuperado este Mes</p>
+                    <span id="recuperadoMes" class="text-2xl font-black">$0.00</span>
+                </div>
+                <div class="p-3 bg-blue-50 text-blue-500 rounded-2xl">
+                    <span class="material-symbols-outlined text-2xl">payments</span>
+                </div>
             </div>
         </div>
 
-        <div id="panelAlertasVencidas" class="hidden animate-in fade-in slide-in-from-top-4 duration-500">
-            <div
-                class="bg-red-50 border-2 border-red-100 rounded-[2rem] p-6 lg:p-8 space-y-6 shadow-xl shadow-red-900/5">
+        <!-- PANEL DE ALERTAS -->
+        <div id="panelAlertasVencidas" class="hidden">
+            <div class="bg-red-50 border border-red-100 rounded-2xl p-5 space-y-4">
+                <!-- Header del panel -->
                 <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="p-2 bg-red-500 text-white rounded-xl shadow-lg shadow-red-500/20 animate-pulse">
-                            <span class="material-symbols-outlined">notification_important</span>
+                    <div class="flex items-center gap-2.5">
+                        <div class="p-1.5 bg-red-500 text-white rounded-lg shadow-sm shadow-red-500/30 animate-pulse">
+                            <span class="material-symbols-outlined text-sm">notification_important</span>
                         </div>
                         <div>
-                            <h3 class="text-sm font-black uppercase tracking-widest text-red-600 italic">Acción
-                                Inmediata Requerida</h3>
-                            <p class="text-[10px] font-bold text-red-400 uppercase tracking-widest">Tienes cuentas con
-                                retraso que necesitan gestión</p>
+                            <h3 class="text-xs font-black uppercase tracking-widest text-red-600 italic">Acción Inmediata Requerida</h3>
+                            <p class="text-[9px] font-bold text-red-400 uppercase tracking-widest">Cuentas con retraso pendientes de gestión</p>
                         </div>
                     </div>
+                    <button onclick="toggleAlertasVencidas()" id="btnToggleAlertas"
+                        class="flex items-center gap-1 text-[9px] font-black text-red-400 uppercase tracking-widest hover:text-red-600 transition-colors px-2 py-1 rounded-lg hover:bg-red-100">
+                        <span class="material-symbols-outlined text-sm" id="iconToggleAlertas">expand_less</span>
+                        <span id="textoToggleAlertas">Colapsar</span>
+                    </button>
                 </div>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr
-                                class="text-[9px] font-black uppercase tracking-widest text-red-300 border-b border-red-100">
-                                <th class="px-4 py-3">Cliente</th>
-                                <th class="px-4 py-3 text-center">Atraso</th>
-                                <th class="px-4 py-3 text-right">Saldo Pendiente</th>
-                                <th class="px-4 py-3 text-center">Gestión</th>
-                            </tr>
-                        </thead>
-                        <tbody id="listaAlertasVencidas" class="divide-y divide-red-100/50">
-                            <!-- Inyectado via JS -->
-                        </tbody>
-                    </table>
+                <!-- Grid de cards de alertas -->
+                <div id="cuerpoAlertasVencidas">
+                    <div id="gridAlertasVencidas" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+                    <p id="masAlertasMsg" class="hidden text-center text-[10px] text-red-500 font-black mt-3 cursor-pointer hover:underline"
+                        onclick="verTodasVencidas()">
+                        Ver todas las cuentas vencidas ↓
+                    </p>
                 </div>
             </div>
         </div>
 
-        <div class="card overflow-hidden shadow-sm">
-            <div class="px-8 pt-4 border-b border-gray-100 flex gap-4 lg:p-8">
+        <!-- TABLA PRINCIPAL -->
+        <div class="card overflow-hidden">
+
+            <!-- TABS -->
+            <div class="px-6 pt-5 border-b border-gray-100 flex gap-6">
                 <button onclick="cambiarPestaña('pendiente')" id="tabPendiente"
-                    class="pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all">Por
-                    Cobrar</button>
+                    class="pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all">Por Cobrar</button>
                 <button onclick="cambiarPestaña('pagado')" id="tabPagado"
                     class="pb-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all">Cobrados</button>
             </div>
 
-            <div class="p-6 border-b border-gray-100 flex flex-wrap gap-4 bg-gray-50/30">
-                <div
-                    class="flex-1 min-w-[300px] bg-white rounded-xl flex items-center px-4 border border-gray-100 focus-within:border-primary transition-all shadow-sm">
-                    <span class="material-symbols-outlined text-gray-400">search</span>
+            <!-- FILTROS -->
+            <div class="px-6 py-3.5 border-b border-gray-100 flex flex-wrap gap-3 bg-gray-50/40 items-center">
+                <!-- Búsqueda -->
+                <div class="flex-1 min-w-[200px] bg-white rounded-xl flex items-center px-3 border border-gray-100 focus-within:border-primary transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-gray-400 text-lg">search</span>
                     <input type="text" id="busquedaCobros" placeholder="Buscar cliente o folio..."
-                        class="bg-transparent border-none focus:ring-0 w-full text-sm font-semibold">
+                        class="bg-transparent border-none focus:ring-0 w-full text-sm font-semibold py-2.5 pl-2">
                 </div>
-                <div class="min-w-[180px] bg-white rounded-xl px-4 border border-gray-100 flex items-center shadow-sm">
+                <!-- Estado -->
+                <div class="bg-white rounded-xl px-3 border border-gray-100 flex items-center gap-1 shadow-sm">
+                    <span class="material-symbols-outlined text-gray-400 text-base">filter_list</span>
                     <select id="filtroEstadoCobro" onchange="aplicarFiltrosCobros()"
-                        class="bg-transparent border-none focus:ring-0 w-full text-[10px] font-black uppercase tracking-widest">
-                        <option value="Todos">Todos los Estados</option>
-                        <option value="Vigente">Solo Vigentes</option>
-                        <option value="Vencido">Solo Vencidos</option>
+                        class="bg-transparent border-none focus:ring-0 text-[10px] font-black uppercase tracking-widest py-2.5">
+                        <option value="Todos">Todos los estados</option>
+                        <option value="Vigente">Solo vigentes</option>
+                        <option value="Vencido">Solo vencidos</option>
                     </select>
                 </div>
-                <div class="min-w-[150px] bg-white rounded-xl px-4 border border-gray-100 flex items-center shadow-sm">
+                <!-- Sucursal -->
+                <div class="bg-white rounded-xl px-3 border border-gray-100 flex items-center gap-1 shadow-sm">
+                    <span class="material-symbols-outlined text-gray-400 text-base">store</span>
                     <select id="filtroSucursalCobro" onchange="aplicarFiltrosCobros()"
-                        class="bg-transparent border-none focus:ring-0 w-full text-[10px] font-black uppercase tracking-widest">
-                        <option value="Todos">Todas las Sucursales</option>
+                        class="bg-transparent border-none focus:ring-0 text-[10px] font-black uppercase tracking-widest py-2.5">
+                        <option value="Todos">Todas las sucursales</option>
                         <option value="Norte">Norte</option>
                         <option value="Sur">Sur</option>
                         <option value="Matriz">Matriz</option>
                     </select>
                 </div>
+                <!-- Contador de resultados -->
+                <span id="resumenFiltroCobros" class="ml-auto text-[10px] text-gray-400 font-bold uppercase tracking-widest whitespace-nowrap">
+                    0 registros
+                </span>
             </div>
 
+            <!-- TABLA -->
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
-                    <thead
-                        class="bg-gray-50 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-gray-100">
+                    <thead class="bg-gray-50/60 text-gray-400 text-[9px] font-black uppercase tracking-[0.15em] border-b border-gray-100">
                         <tr>
-                            <th class="px-8 py-5">Fecha</th>
-                            <th class="px-8 py-5">Cliente</th>
-                            <th class="px-8 py-5 text-center">Folio Ref.</th>
-                            <th class="px-8 py-5 text-center">Sucursal</th>
-                            <th class="px-8 py-5 text-right">Monto Original</th>
-                            <th class="px-8 py-5 text-right text-primary">Saldo Pend.</th>
-                            <th class="px-8 py-5 text-center">Vencimiento</th>
-                            <th class="px-8 py-5 text-center">Estado</th>
-                            <th class="px-8 py-5 text-center">Acciones</th>
+                            <th class="px-6 py-3.5">Fecha</th>
+                            <th class="px-6 py-3.5">Cliente</th>
+                            <th class="px-6 py-3.5 text-center">Folio</th>
+                            <th class="px-6 py-3.5 text-center">Sucursal</th>
+                            <th class="px-6 py-3.5 text-right">Monto Orig.</th>
+                            <th class="px-6 py-3.5 text-right text-primary">Saldo Pend.</th>
+                            <th class="px-6 py-3.5 text-center">Vencimiento</th>
+                            <th class="px-6 py-3.5 text-center">Estado</th>
+                            <th class="px-6 py-3.5 text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="tablaCobranza" class="divide-y divide-gray-50"></tbody>
                 </table>
             </div>
+
+            <!-- PAGINACIÓN -->
+            <div id="paginacionCobros" class="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-gray-50/30">
+                <p id="infoPaginacionCobros" class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                    Mostrando 0 registros
+                </p>
+                <div id="btnsPaginacionCobros" class="flex items-center gap-1"></div>
+            </div>
         </div>
     </main>
 
+    <!-- MODAL: Abono / Liquidación -->
     <div id="modalAbono"
         class="fixed inset-0 bg-black/60 hidden z-[110] flex items-center justify-center backdrop-blur-sm transition-all">
-        <div class="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden p-4 lg:p-8 space-y-6">
+        <div class="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden p-6 space-y-5">
             <div class="text-center">
                 <h3 id="tituloModalAbono" class="text-lg font-black uppercase italic">Registrar Entrada</h3>
                 <p id="abonoCliente" class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1"></p>
@@ -221,26 +248,20 @@
 
             <div class="space-y-4">
                 <div>
-                    <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Monto a
-                        Recibir</label>
+                    <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Monto a Recibir</label>
                     <input type="number" id="montoAbono"
                         class="w-full bg-gray-50 border-none rounded-2xl py-4 text-xl font-black focus:ring-2 focus:ring-primary"
                         placeholder="0.00">
                 </div>
-
                 <div>
-                    <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Método de
-                        Entrada</label>
+                    <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Método de Entrada</label>
                     <select id="metodoPagoCobro" onchange="checkMetodoCobro(this.value)"
                         class="w-full bg-gray-50 border-none rounded-2xl py-4 text-sm font-bold focus:ring-2 focus:ring-primary">
-                        <!-- Opciones generadas dinámicamente por poblarSelectoresMetodoPago() -->
                         <option value="Efectivo">Efectivo</option>
                     </select>
                 </div>
-
-                <div id="extraMetodoCobro" class="hidden animate-in fade-in slide-in-from-top-2">
-                    <label class="text-[9px] font-black uppercase text-gray-400 block mb-2 ml-2">Especifique
-                        Método</label>
+                <div id="extraMetodoCobro" class="hidden">
+                    <label class="text-[9px] font-black uppercase text-gray-400 block mb-2 ml-2">Especifique Método</label>
                     <input type="text" id="otroMetodoCobro"
                         class="w-full bg-gray-50 border-none rounded-2xl py-4 text-sm font-bold focus:ring-2 focus:ring-primary uppercase"
                         placeholder="¿Cuál método?">
@@ -256,25 +277,25 @@
         </div>
     </div>
 
+    <!-- MODAL: Bitácora -->
     <div id="modalBitacora"
         class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center backdrop-blur-sm transition-all">
         <div class="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden">
-            <div class="p-4 lg:p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                 <div>
                     <h3 class="text-xl font-black uppercase italic tracking-tight">Bitácora de Cobranza</h3>
-                    <p id="clienteBitacora" class="text-[10px] text-primary font-black uppercase mt-1 tracking-widest">
-                    </p>
+                    <p id="clienteBitacora" class="text-[10px] text-primary font-black uppercase mt-1 tracking-widest"></p>
                 </div>
                 <button onclick="cerrarBitacora()"
-                    class="size-10 rounded-full hover:bg-gray-200 flex items-center justify-center"><span
-                        class="material-symbols-outlined text-gray-400">close</span></button>
+                    class="size-10 rounded-full hover:bg-gray-200 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-gray-400">close</span>
+                </button>
             </div>
-            <div class="p-4 lg:p-8 space-y-6">
+            <div class="p-6 space-y-5">
                 <div>
-                    <label class="text-[9px] font-black uppercase text-gray-400 block mb-2">Resultado de la
-                        Gestión</label>
+                    <label class="text-[9px] font-black uppercase text-gray-400 block mb-2">Resultado de la Gestión</label>
                     <textarea id="notaCobranza"
-                        class="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm font-semibold focus:ring-2 focus:ring-primary min-h-[120px]"
+                        class="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm font-semibold focus:ring-2 focus:ring-primary min-h-[100px]"
                         placeholder="Ej: Se llamó al cliente..."></textarea>
                 </div>
                 <div>
@@ -282,16 +303,16 @@
                     <input type="date" id="fechaPromesa"
                         class="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-primary">
                 </div>
-                <div class="pt-4">
-                    <label class="text-[9px] font-black uppercase text-gray-400 block mb-3">Historial de
-                        Gestiones</label>
-                    <div id="historialNotas" class="space-y-3 max-h-[180px] overflow-y-auto pr-2"></div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-gray-400 block mb-2">Historial de Gestiones</label>
+                    <div id="historialNotas" class="space-y-2 max-h-[160px] overflow-y-auto pr-2"></div>
                 </div>
             </div>
-            <div class="p-4 lg:p-8 bg-gray-50/50 border-t border-gray-100">
+            <div class="p-6 bg-gray-50/50 border-t border-gray-100">
                 <button onclick="guardarGestion()"
-                    class="w-full bg-black text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-lg shadow-black/10">Guardar
-                    Gestión</button>
+                    class="w-full bg-black text-white py-3.5 rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-lg shadow-black/10">
+                    Guardar Gestión
+                </button>
             </div>
         </div>
     </div>
@@ -314,8 +335,32 @@
             const inputBusq = document.getElementById('busquedaCobros');
             if (inputBusq) inputBusq.addEventListener('input', aplicarFiltrosCobros);
         });
+
         function cerrarModalAbono() { document.getElementById('modalAbono').classList.add('hidden'); }
         function cerrarBitacora() { document.getElementById('modalBitacora').classList.add('hidden'); }
+
+        let _alertasColapsadas = false;
+        function toggleAlertasVencidas() {
+            _alertasColapsadas = !_alertasColapsadas;
+            const cuerpo = document.getElementById('cuerpoAlertasVencidas');
+            const icon = document.getElementById('iconToggleAlertas');
+            const texto = document.getElementById('textoToggleAlertas');
+            if (_alertasColapsadas) {
+                cuerpo.style.display = 'none';
+                icon.textContent = 'expand_more';
+                texto.textContent = 'Expandir';
+            } else {
+                cuerpo.style.display = '';
+                icon.textContent = 'expand_less';
+                texto.textContent = 'Colapsar';
+            }
+        }
+
+        function verTodasVencidas() {
+            document.getElementById('filtroEstadoCobro').value = 'Vencido';
+            aplicarFiltrosCobros();
+            document.querySelector('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     </script>
 </body>
 

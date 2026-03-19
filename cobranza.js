@@ -22,6 +22,50 @@ let currentTransaccionId = null;
 let currentGastoId = null;
 let mostrarFuturosPagos = false; // Control de vista "Próximos Meses"
 
+// Paginación Cuentas por Cobrar
+let paginaActualCobros = 1;
+const FILAS_POR_PAGINA_COBROS = 15;
+
+function renderizarPaginacionCobros(datosCompletos) {
+    const total = datosCompletos.length;
+    const totalPaginas = Math.max(1, Math.ceil(total / FILAS_POR_PAGINA_COBROS));
+    const inicio = (paginaActualCobros - 1) * FILAS_POR_PAGINA_COBROS + 1;
+    const fin = Math.min(paginaActualCobros * FILAS_POR_PAGINA_COBROS, total);
+
+    const infoEl = document.getElementById('infoPaginacionCobros');
+    if (infoEl) infoEl.textContent = total === 0 ? 'Sin resultados' : `Mostrando ${inicio}–${fin} de ${total}`;
+
+    const contEl = document.getElementById('btnsPaginacionCobros');
+    if (!contEl) return;
+
+    if (totalPaginas <= 1) { contEl.innerHTML = ''; return; }
+
+    let html = `<button class="btn-pag" ${paginaActualCobros === 1 ? 'disabled' : ''} onclick="cambiarPaginaCobros(${paginaActualCobros - 1})">
+        <span class="material-symbols-outlined text-sm">chevron_left</span>
+    </button>`;
+
+    const rango = 2;
+    for (let p = 1; p <= totalPaginas; p++) {
+        if (p === 1 || p === totalPaginas || (p >= paginaActualCobros - rango && p <= paginaActualCobros + rango)) {
+            html += `<button class="btn-pag ${p === paginaActualCobros ? 'btn-pag-activa' : ''}" onclick="cambiarPaginaCobros(${p})">${p}</button>`;
+        } else if (p === paginaActualCobros - rango - 1 || p === paginaActualCobros + rango + 1) {
+            html += `<span class="px-1 text-gray-300 font-black text-xs">…</span>`;
+        }
+    }
+
+    html += `<button class="btn-pag" ${paginaActualCobros === totalPaginas ? 'disabled' : ''} onclick="cambiarPaginaCobros(${paginaActualCobros + 1})">
+        <span class="material-symbols-outlined text-sm">chevron_right</span>
+    </button>`;
+
+    contEl.innerHTML = html;
+}
+
+function cambiarPaginaCobros(pagina) {
+    paginaActualCobros = pagina;
+    aplicarFiltrosCobros._desdePaginacion = true;
+    aplicarFiltrosCobros();
+}
+
 // FUNCIONES DE SOPORTE PARA "OTROS"
 function checkMetodoCobro(val) {
     const extra = document.getElementById('extraMetodoCobro');
@@ -74,7 +118,17 @@ function renderizarTablaCobros(datosFiltrados) {
     tabla.innerHTML = "";
     const hoy = new Date();
 
-    datosFiltrados.forEach(item => {
+    // Paginar: mostrar solo los registros de la página actual
+    const inicio = (paginaActualCobros - 1) * FILAS_POR_PAGINA_COBROS;
+    const datosPagina = datosFiltrados.slice(inicio, inicio + FILAS_POR_PAGINA_COBROS);
+
+    if (datosPagina.length === 0) {
+        tabla.innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-gray-400 text-sm font-semibold italic">Sin resultados para los filtros seleccionados.</td></tr>`;
+        renderizarPaginacionCobros(datosFiltrados);
+        return;
+    }
+
+    datosPagina.forEach(item => {
         const montoOriginal = item.monto || 0;
         const saldoPendiente = (item.saldo_pendiente !== null) ? item.saldo_pendiente : montoOriginal;
         const estadoActual = item.estado_cobro || 'Pendiente';
@@ -133,6 +187,9 @@ function renderizarTablaCobros(datosFiltrados) {
         `;
         tabla.appendChild(fila);
     });
+
+    // Renderizar controles de paginación
+    renderizarPaginacionCobros(datosFiltrados);
 }
 
 async function enviarWhatsAppCobranza(item, esVencido) {
@@ -768,14 +825,16 @@ function cambiarPestaña(tipo) {
         btnPend.classList.add('text-gray-400');
     }
 
+    paginaActualCobros = 1; // Resetear a primera página al cambiar tab
     aplicarFiltrosCobros();
 }
 function cambiarPestañaPagar(tipo) { pestañaActualPagos = tipo; aplicarFiltrosPagos(); }
 
 function renderizarAlertasCobranza(datos) {
     const container = document.getElementById('panelAlertasVencidas');
-    const lista = document.getElementById('listaAlertasVencidas');
-    if (!container || !lista) return;
+    const grid = document.getElementById('gridAlertasVencidas');
+    const masMsg = document.getElementById('masAlertasMsg');
+    if (!container || !grid) return;
 
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
@@ -785,16 +844,11 @@ function renderizarAlertasCobranza(datos) {
 
     const vencidos = datos.filter(item => {
         if (item.estado_cobro === 'Pagado') return false;
-
-        // Criterio de vencimiento: 30 días
         const fechaVenc = new Date(item.created_at);
         fechaVenc.setDate(fechaVenc.getDate() + 30);
         if (hoy <= fechaVenc) return false;
-
-        // Respetar filtros de sucursal y búsqueda
         const coincideSuc = filtroSucursal === 'Todos' || item.sucursal === filtroSucursal;
         const coincideTxt = (item.nombre_cliente?.toLowerCase().includes(busqueda) || item.categoria?.toLowerCase().includes(busqueda));
-
         return coincideSuc && coincideTxt;
     });
 
@@ -804,42 +858,57 @@ function renderizarAlertasCobranza(datos) {
     }
 
     container.classList.remove('hidden');
-    lista.innerHTML = vencidos.map(item => {
+    const MAX_CARDS = 6;
+    const visibles = vencidos.slice(0, MAX_CARDS);
+
+    grid.innerHTML = visibles.map(item => {
         const fechaVenc = new Date(item.created_at);
         fechaVenc.setDate(fechaVenc.getDate() + 30);
-
-        // Calcular días de atraso
-        const diffTime = Math.abs(hoy - fechaVenc);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const diffDays = Math.ceil(Math.abs(hoy - fechaVenc) / (1000 * 60 * 60 * 24));
+        const saldo = item.saldo_pendiente !== null ? item.saldo_pendiente : item.monto;
+        const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
+        const nivel = item.nivel_cobranza || 0;
 
         return `
-            <tr class="text-sm font-bold text-gray-700">
-                <td class="px-4 py-4">
-                    <div class="flex flex-col">
-                        <span class="uppercase text-xs font-black">${item.nombre_cliente}</span>
-                        <span class="text-[9px] text-gray-400 font-bold uppercase tracking-widest">${item.categoria || '#S/N'}</span>
+            <div class="alerta-card bg-white border border-red-100 rounded-xl p-3.5 flex justify-between items-start gap-3">
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-black uppercase text-gray-800 truncate">${item.nombre_cliente}</p>
+                    <p class="text-[9px] text-gray-400 font-bold mt-0.5">${item.categoria || '#S/N'} ${item.sucursal ? '· ' + item.sucursal : ''}</p>
+                    <div class="flex items-center gap-2 mt-2">
+                        <span class="text-[9px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-black border border-red-200">${diffDays}d atraso</span>
+                        <span class="text-xs font-black text-red-600">${formatMoney(saldo)}</span>
+                        ${nivel > 0 ? `<span class="text-[9px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-black">L${nivel}</span>` : ''}
                     </div>
-                </td>
-                <td class="px-4 py-4 text-center">
-                    <span class="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-[9px] font-black uppercase tracking-tighter border border-red-200">
-                        ${diffDays} días de atraso
-                    </span>
-                </td>
-                <td class="px-4 py-4 text-right text-red-600 font-black">
-                    ${formatMoney(item.saldo_pendiente || item.monto)}
-                </td>
-                <td class="px-4 py-4 text-center">
-                    <button onclick="enviarWhatsAppCobranza(${JSON.stringify(item).replace(/"/g, '&quot;')}, true)" 
-                            class="p-2 bg-green-500 text-white rounded-xl hover:scale-110 active:scale-95 transition-all shadow-lg shadow-green-500/20">
-                        <span class="material-symbols-outlined text-sm font-bold">chat</span>
+                </div>
+                <div class="flex flex-col gap-1.5 shrink-0">
+                    <button onclick="enviarWhatsAppCobranza(${itemJson}, true)"
+                        class="p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all flex items-center justify-center shadow-sm" title="WhatsApp">
+                        <span class="material-symbols-outlined text-sm">chat</span>
                     </button>
-                </td>
-            </tr>
+                    <button onclick="prepararAbonoPago('${item.id}', '${item.nombre_cliente}', ${saldo}, 'abono')"
+                        class="p-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-all flex items-center justify-center shadow-sm" title="Registrar abono">
+                        <span class="material-symbols-outlined text-sm">payments</span>
+                    </button>
+                </div>
+            </div>
         `;
     }).join('');
+
+    if (masMsg) {
+        if (vencidos.length > MAX_CARDS) {
+            masMsg.textContent = `Ver las ${vencidos.length - MAX_CARDS} cuentas vencidas restantes en la tabla ↓`;
+            masMsg.classList.remove('hidden');
+        } else {
+            masMsg.classList.add('hidden');
+        }
+    }
 }
 
 function aplicarFiltrosCobros() {
+    // Cuando se llama desde UI (no desde cambiarPaginaCobros), resetear a página 1
+    if (!aplicarFiltrosCobros._desdePaginacion) paginaActualCobros = 1;
+    aplicarFiltrosCobros._desdePaginacion = false;
+
     const busqueda = document.getElementById('busquedaCobros')?.value.toLowerCase() || '';
     const filtroEstado = document.getElementById('filtroEstadoCobro')?.value || 'Todos';
     const filtroSucursal = document.getElementById('filtroSucursalCobro')?.value || 'Todos';
@@ -857,8 +926,12 @@ function aplicarFiltrosCobros() {
         return (item.nombre_cliente?.toLowerCase().includes(busqueda) || item.categoria?.toLowerCase().includes(busqueda)) && coincideSuc;
     });
 
-
     currentFilteredCobros = datosFiltrados; // Store for export
+
+    // Actualizar contador de resultados en filtros
+    const resumenEl = document.getElementById('resumenFiltroCobros');
+    if (resumenEl) resumenEl.textContent = `${datosFiltrados.length} registro${datosFiltrados.length !== 1 ? 's' : ''}`;
+
     renderizarTablaCobros(datosFiltrados);
     renderizarAlertasCobranza(datosCacheCobros);
 }
