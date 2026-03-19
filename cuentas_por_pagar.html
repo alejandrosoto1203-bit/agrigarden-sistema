@@ -250,8 +250,13 @@
     <script src="export_helper.js"></script>
     <script src="cobranza.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             inyectarMenu('pagar');
+            // Esperar a que los métodos de pago estén completamente cargados desde PROD
+            if (window.cargarConfiguracionSistema) await window.cargarConfiguracionSistema();
+            if (typeof poblarSelectoresMetodoPago === 'function') {
+                poblarSelectoresMetodoPago(['metodoPagoProv'], {});
+            }
             cargarCuentasPorPagar();
             const busq = document.getElementById('busquedaProveedor');
             if (busq) busq.addEventListener('input', aplicarFiltrosPagos);

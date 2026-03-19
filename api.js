@@ -99,11 +99,13 @@ window.cargarConfiguracionSistema();
 // Uso: poblarSelectoresMetodoPago(['filtroMetodo', 'editMetodo'], { incluirTodos: true })
 window.poblarSelectoresMetodoPago = function (selectorIds = [], opciones = {}) {
     const metodos = (window.CONFIG_NEGOCIO?.metodosPago || []).filter(m => m.activo);
-    if (metodos.length === 0) return;
 
     selectorIds.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
+
+        // Si no hay métodos activos, dejar el select sin modificar (mantiene el fallback hardcodeado)
+        if (metodos.length === 0) return;
 
         const valorActual = el.value;
         const opcionesPrevias = opciones.incluirTodos ? '<option value="Todos">Todos</option>' : '';
