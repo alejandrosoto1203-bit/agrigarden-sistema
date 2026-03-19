@@ -251,7 +251,7 @@ function mostrarModalIngreso() {
     window.location.href = "registro_multiple.html";
 }
 
-function abrirModalEditarIngreso(ingreso) {
+async function abrirModalEditarIngreso(ingreso) {
     const modal = document.getElementById('modalEditarIngreso');
     if (!modal) return;
 
@@ -259,7 +259,6 @@ function abrirModalEditarIngreso(ingreso) {
     document.getElementById('editFecha').value = ingreso.created_at.split('T')[0];
     document.getElementById('editCategoria').value = ingreso.categoria || '';
     document.getElementById('editTipo').value = ingreso.tipo;
-    document.getElementById('editMetodo').value = ingreso.metodo_pago;
     document.getElementById('editCliente').value = ingreso.nombre_cliente || '';
     document.getElementById('editMonto').value = ingreso.monto;
     document.getElementById('editSucursal').value = ingreso.sucursal || 'Norte';
@@ -267,6 +266,23 @@ function abrirModalEditarIngreso(ingreso) {
     // Soporte para notas si existe el campo
     const inputNotas = document.getElementById('editNotas');
     if (inputNotas) inputNotas.value = ingreso.notas || '';
+
+    // Cargar métodos de pago dinámicos desde PROD
+    const selectMetodoIng = document.getElementById('editMetodo');
+    if (selectMetodoIng) {
+        try {
+            const _U = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+            const _K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+            const r = await fetch(`${_U}/rest/v1/sys_metodos_pago?select=nombre&activo=eq.true&order=orden.asc`, { headers: { 'apikey': _K, 'Authorization': `Bearer ${_K}` } });
+            if (r.ok) {
+                const metodos = await r.json();
+                if (metodos && metodos.length > 0) {
+                    selectMetodoIng.innerHTML = metodos.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('');
+                }
+            }
+        } catch(e) {}
+        if (ingreso.metodo_pago) selectMetodoIng.value = ingreso.metodo_pago;
+    }
 
     modal.classList.remove('hidden');
 }

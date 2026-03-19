@@ -453,10 +453,25 @@ async function guardarPrestamo() {
 }
 
 // 4. LÓGICA DE LIQUIDACIÓN ANTICIPADA (LIMPIEZA AUTOMÁTICA)
-function prepararLiquidacion(p) {
+async function prepararLiquidacion(p) {
     prestamoSeleccionado = p;
     document.getElementById('txtLiquidarInfo').innerText = `LIQUIDAR: ${p.descripcion} (${p.prestamista})`;
     document.getElementById('fechaLiquidacion').value = new Date().toISOString().split('T')[0];
+    // Cargar métodos de pago dinámicos desde PROD
+    const selectLiq = document.getElementById('metodoLiquidacion');
+    if (selectLiq) {
+        try {
+            const _U = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+            const _K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+            const r = await fetch(`${_U}/rest/v1/sys_metodos_pago?select=nombre&activo=eq.true&order=orden.asc`, { headers: { 'apikey': _K, 'Authorization': `Bearer ${_K}` } });
+            if (r.ok) {
+                const metodos = await r.json();
+                if (metodos && metodos.length > 0) {
+                    selectLiq.innerHTML = metodos.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('');
+                }
+            }
+        } catch(e) {}
+    }
     document.getElementById('modalLiquidarPrestamo').classList.remove('hidden');
 }
 

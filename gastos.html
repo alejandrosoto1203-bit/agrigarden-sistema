@@ -518,9 +518,23 @@
         <script src="export_helper.js"></script>
         <script src="gastos.js"></script>
         <script>
-            document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('DOMContentLoaded', async () => {
                 if (typeof inyectarMenu === 'function') inyectarMenu('gastos');
                 if (typeof cargarGastos === 'function') cargarGastos();
+
+                // Poblar filtro de método de pago desde PROD
+                try {
+                    const _U = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+                    const _K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+                    const r = await fetch(`${_U}/rest/v1/sys_metodos_pago?select=nombre&activo=eq.true&order=orden.asc`, { headers: { 'apikey': _K, 'Authorization': `Bearer ${_K}` } });
+                    if (r.ok) {
+                        const metodos = await r.json();
+                        if (metodos && metodos.length > 0) {
+                            const filtro = document.getElementById('filtroMetodoGasto');
+                            if (filtro) filtro.innerHTML = '<option value="Todos">Todos</option>' + metodos.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('');
+                        }
+                    }
+                } catch(e) {}
 
                 const selectMetodo = document.getElementById('editMetodo');
                 if (selectMetodo) {

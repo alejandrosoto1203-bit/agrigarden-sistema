@@ -840,7 +840,7 @@ async function guardarLoteGastos() {
     }
 }
 
-function abrirModalEdicion(gasto) {
+async function abrirModalEdicion(gasto) {
     const modal = document.getElementById('modalEditarGasto');
     if (!modal) return;
     document.getElementById('editGastoId').value = gasto.id;
@@ -849,12 +849,27 @@ function abrirModalEdicion(gasto) {
     document.getElementById('editCategoria').value = gasto.categoria || 'Gasto';
     document.getElementById('editSucursalGasto').value = gasto.sucursal || 'Matriz';
     document.getElementById('editSubcategoria').value = gasto.subcategoria || '';
-    document.getElementById('editMetodo').value = gasto.metodo_pago || 'Efectivo';
     document.getElementById('editMonto').value = gasto.monto_total || 0;
     document.getElementById('editNotas').value = gasto.notas || '';
     const containerDias = document.getElementById('containerDiasCredito');
     if (gasto.metodo_pago === 'Crédito') { containerDias.classList.remove('hidden'); document.getElementById('editDiasCredito').value = gasto.dias_credito || 0; }
     else { containerDias.classList.add('hidden'); }
+    // Cargar métodos de pago dinámicos desde PROD
+    const selectMetodo = document.getElementById('editMetodo');
+    if (selectMetodo) {
+        try {
+            const _U = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+            const _K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+            const r = await fetch(`${_U}/rest/v1/sys_metodos_pago?select=nombre&activo=eq.true&order=orden.asc`, { headers: { 'apikey': _K, 'Authorization': `Bearer ${_K}` } });
+            if (r.ok) {
+                const metodos = await r.json();
+                if (metodos && metodos.length > 0) {
+                    selectMetodo.innerHTML = metodos.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('');
+                }
+            }
+        } catch(e) {}
+    }
+    if (selectMetodo && gasto.metodo_pago) selectMetodo.value = gasto.metodo_pago;
     modal.classList.remove('hidden');
 }
 
