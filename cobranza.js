@@ -517,7 +517,7 @@ function actualizarKPIsPagos(datos) {
     if (document.getElementById('kpiVenceHoy')) document.getElementById('kpiVenceHoy').innerText = formatMoney(venceHoySuma);
 }
 
-function prepararAbonoPago(id, nombre, saldo, modo) {
+async function prepararAbonoPago(id, nombre, saldo, modo) {
     idTransaccionAbono = id;
     saldoMaximoAbono = saldo;
     const elNombre = document.getElementById('abonoCliente');
@@ -529,6 +529,25 @@ function prepararAbonoPago(id, nombre, saldo, modo) {
         elMonto.readOnly = (modo === 'liquidacion');
     }
     if (elTitulo) elTitulo.innerText = (modo === 'liquidacion') ? "Liquidar Cuenta" : "Registrar Abono";
+
+    // Poblar métodos de pago directo desde PROD en el momento exacto que se abre el modal
+    const selectMetodo = document.getElementById('metodoPagoCobro');
+    if (selectMetodo) {
+        try {
+            const _U = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+            const _K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+            const r = await fetch(`${_U}/rest/v1/sys_metodos_pago?select=nombre,activo&activo=eq.true&order=orden.asc`, {
+                headers: { 'apikey': _K, 'Authorization': `Bearer ${_K}` }
+            });
+            if (r.ok) {
+                const metodos = await r.json();
+                if (metodos && metodos.length > 0) {
+                    selectMetodo.innerHTML = metodos.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('');
+                }
+            }
+        } catch(e) { /* mantener opciones existentes */ }
+    }
+
     document.getElementById('modalAbono')?.classList.remove('hidden');
 }
 
@@ -603,7 +622,7 @@ async function guardarAbono() {
     }
 }
 
-function prepararAbonoProv(id, nombre, saldo, modo) {
+async function prepararAbonoProv(id, nombre, saldo, modo) {
     idGastoAbono = id;
     saldoMaximoAbono = saldo;
     const info = document.getElementById('infoAbonoProv');
@@ -614,13 +633,31 @@ function prepararAbonoProv(id, nombre, saldo, modo) {
         elMonto.readOnly = (modo === 'liquidacion');
     }
 
-    // Nueva lógica: Inicializar fecha manual con el día de hoy ajustado a zona horaria local
+    // Inicializar fecha manual con el día de hoy ajustado a zona horaria local
     const inputFecha = document.getElementById('fechaEfectivaPagoProv');
     if (inputFecha) {
         const hoyLocal = new Date();
         const offset = hoyLocal.getTimezoneOffset() * 60000;
         const fechaLocal = new Date(hoyLocal.getTime() - offset).toISOString().split('T')[0];
         inputFecha.value = fechaLocal;
+    }
+
+    // Poblar métodos de pago directo desde PROD en el momento exacto que se abre el modal
+    const selectMetodoProv = document.getElementById('metodoPagoProv');
+    if (selectMetodoProv) {
+        try {
+            const _U = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+            const _K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+            const r = await fetch(`${_U}/rest/v1/sys_metodos_pago?select=nombre,activo&activo=eq.true&order=orden.asc`, {
+                headers: { 'apikey': _K, 'Authorization': `Bearer ${_K}` }
+            });
+            if (r.ok) {
+                const metodos = await r.json();
+                if (metodos && metodos.length > 0) {
+                    selectMetodoProv.innerHTML = metodos.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('');
+                }
+            }
+        } catch(e) { /* mantener opciones existentes */ }
     }
 
     // Si hay un lote cargado (cuota compuesta), mostrar el desglose en el modal
