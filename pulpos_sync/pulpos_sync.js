@@ -874,6 +874,83 @@ async function sincronizarVentas(page) {
                 continue;
             }
 
+            // --- RASPAR ÍTEMS DE LA VENTA (productos, cantidades, precios) ---
+            const itemsPagina = await page.evaluate(() => {
+                const items = [];
+                const rows = document.querySelectorAll('table tbody tr');
+                rows.forEach(row => {
+                    const cells = Array.from(row.querySelectorAll('td'));
+                    if (cells.length < 3) return;
+
+                    let sku = '', nombre = '', cantidad = 0, precioUnitario = 0, subtotal = 0;
+                    let productoIdx = -1;
+
+                    // Buscar la celda de producto: tiene nombre + SKU en líneas separadas
+                    for (let i = 0; i < Math.min(cells.length, 3); i++) {
+                        const lines = cells[i].innerText.trim().split('\n').map(l => l.trim()).filter(l => l);
+                        if (lines.length >= 2 && /^[A-Z0-9\-\.]+$/i.test(lines[lines.length - 1]) && lines[lines.length - 1].length <= 30) {
+                            sku = lines[lines.length - 1].toUpperCase();
+                            nombre = lines.slice(0, -1).join(' ');
+                            productoIdx = i;
+                            break;
+                        }
+                        // Fallback: una línea que no sea número ni precio
+                        if (lines.length === 1 && lines[0].length > 3 && !/^\$?[\d,]+\.?\d*$/.test(lines[0]) && productoIdx === -1) {
+                            nombre = lines[0];
+                            productoIdx = i;
+                        }
+                    }
+                    if (!nombre && !sku) return;
+
+                    // Extraer cantidad y precio de las demás celdas
+                    const numericalCells = cells.map((c, idx) => {
+                        if (idx === productoIdx) return null;
+                        const txt = c.innerText.trim();
+                        const val = parseFloat(txt.replace(/[$,\s]/g, ''));
+                        if (isNaN(val) || val <= 0) return null;
+                        return { val, hasPrice: txt.includes('$'), idx };
+                    }).filter(Boolean);
+
+                    const qtyCandidates = numericalCells.filter(n => !n.hasPrice && n.val < 1000);
+                    if (qtyCandidates.length > 0) cantidad = qtyCandidates[0].val;
+
+                    const priceCells = numericalCells.filter(n => n.hasPrice);
+                    if (priceCells.length >= 2) {
+                        precioUnitario = priceCells[0].val;
+                        subtotal = priceCells[priceCells.length - 1].val;
+                    } else if (priceCells.length === 1) {
+                        subtotal = priceCells[0].val;
+                        if (cantidad > 0) precioUnitario = Math.round((subtotal / cantidad) * 100) / 100;
+                    }
+
+                    if (cantidad === 0 && subtotal === 0) return; // fila de encabezado o total
+                    items.push({ sku, nombre: nombre || sku, cantidad: cantidad || 1, precio_unitario: precioUnitario, subtotal });
+                });
+                return items;
+            });
+
+            // --- MATCH DE SKUs CONTRA PRODUCTOS EN BD ---
+            let itemsConMatch = [];
+            if (itemsPagina.length > 0) {
+                const skusUnicos = [...new Set(itemsPagina.map(i => i.sku).filter(s => s))];
+                let skuMap = {};
+                if (skusUnicos.length > 0) {
+                    const { data: prodMatch } = await supabase
+                        .from('productos')
+                        .select('id, nombre, sku')
+                        .in('sku', skusUnicos);
+                    (prodMatch || []).forEach(p => { skuMap[p.sku.toUpperCase()] = p; });
+                }
+                itemsConMatch = itemsPagina.map(item => ({
+                    ...item,
+                    producto_id: skuMap[item.sku]?.id || null,
+                    producto_nombre: skuMap[item.sku]?.nombre || null,
+                    match_status: skuMap[item.sku] ? 'matched' : 'unmatched'
+                }));
+                const matched = itemsConMatch.filter(i => i.match_status === 'matched').length;
+                console.log(`   Items: ${itemsConMatch.length} (${matched} con match, ${itemsConMatch.length - matched} sin match)`);
+            }
+
             const { metodo, claro } = mapearMetodoPago(datosVenta.metodoPago, datosVenta.comentarios);
             const sucursal = mapearSucursal(datosVenta.sucursal);
 
@@ -890,7 +967,8 @@ async function sincronizarVentas(page) {
                 estado_cobro: datosVenta.pagada ? 'Pagado' : 'Pendiente',
                 saldo_pendiente: datosVenta.pagada ? 0 : datosVenta.totalVenta,
                 notas: `Venta Pulpos ${datosVenta.numeroVenta}${datosVenta.vendedor ? ' | Vendedor: ' + datosVenta.vendedor : ''}`,
-                fuente: 'PULPOS_SYNC'
+                fuente: 'PULPOS_SYNC',
+                _items: itemsConMatch  // temporal — se inserta en staging_items después
             };
 
             if (!claro) ventasPendientes.push({ ...registro, _metodoPulpos: datosVenta.metodoPago });
@@ -911,7 +989,7 @@ async function sincronizarVentas(page) {
 
     let stagingInsertadas = 0;
     for (const venta of todasLasVentas) {
-        const { error } = await supabase.from('pulpos_sync_staging').insert({
+        const { data: stagingRow, error } = await supabase.from('pulpos_sync_staging').insert({
             sync_log_id: logId,
             fecha_sync: FECHA_SYNC,
             numero_venta: venta.categoria,
@@ -925,8 +1003,30 @@ async function sincronizarVentas(page) {
             notas: venta.notas,
             requiere_revision: venta.requiere_revision,
             confirmado: false
-        });
-        if (!error) stagingInsertadas++;
+        }).select('id').single();
+
+        if (!error && stagingRow) {
+            stagingInsertadas++;
+            // Insertar ítems en pulpos_sync_staging_items
+            const items = venta._items || [];
+            if (items.length > 0) {
+                const itemsPayload = items.map(item => ({
+                    staging_id: stagingRow.id,
+                    numero_venta: venta.categoria,
+                    sku_pulpos: item.sku || '',
+                    nombre_pulpos: item.nombre || '',
+                    cantidad: item.cantidad || 1,
+                    precio_unitario: item.precio_unitario || 0,
+                    subtotal: item.subtotal || 0,
+                    producto_id: item.producto_id || null,
+                    producto_nombre: item.producto_nombre || null,
+                    match_status: item.match_status || 'unmatched',
+                    confirmado: false
+                }));
+                const { error: itemErr } = await supabase.from('pulpos_sync_staging_items').insert(itemsPayload);
+                if (itemErr) console.error(`   Error guardando items de ${venta.categoria}:`, itemErr.message);
+            }
+        }
     }
 
     await supabase.from('pulpos_sync_log').update({
