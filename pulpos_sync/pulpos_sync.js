@@ -870,60 +870,88 @@ async function sincronizarVentas(page) {
             if (!datosVenta || !datosVenta.numeroVenta) continue;
 
             // --- RASPAR ÍTEMS DE LA VENTA (productos, cantidades, precios) ---
-            // Se hace ANTES del check de duplicados para poder rellenar items faltantes
-            const itemsPagina = await page.evaluate(() => {
-                const items = [];
-                const rows = document.querySelectorAll('table tbody tr');
-                rows.forEach(row => {
-                    const cells = Array.from(row.querySelectorAll('td'));
-                    if (cells.length < 3) return;
+            // Envuelto en try/catch propio para que un fallo aquí no pierda la venta completa
+            let itemsPagina = [];
+            try {
+                const itemsResult = await page.evaluate(() => {
+                    // Diagnóstico: capturar estructura real de la página
+                    const debug = {
+                        tables: document.querySelectorAll('table').length,
+                        tbodyTrs: document.querySelectorAll('table tbody tr').length,
+                        firstRowHTML: document.querySelector('table tbody tr')?.innerHTML?.substring(0, 300) || 'NO HAY FILAS EN TABLE TBODY',
+                        // Intentar detectar listas de productos en divs (React apps)
+                        divRows: document.querySelectorAll('[class*="item"],[class*="product"],[class*="line"],[class*="producto"]').length,
+                        url: window.location.href
+                    };
 
-                    let sku = '', nombre = '', cantidad = 0, precioUnitario = 0, subtotal = 0;
-                    let productoIdx = -1;
+                    const items = [];
+                    // Intentar tabla estándar primero
+                    let rows = Array.from(document.querySelectorAll('table tbody tr'));
 
-                    // Buscar la celda de producto: tiene nombre + SKU en líneas separadas
-                    for (let i = 0; i < Math.min(cells.length, 3); i++) {
-                        const lines = cells[i].innerText.trim().split('\n').map(l => l.trim()).filter(l => l);
-                        if (lines.length >= 2 && /^[A-Z0-9\-\.]+$/i.test(lines[lines.length - 1]) && lines[lines.length - 1].length <= 30) {
-                            sku = lines[lines.length - 1].toUpperCase();
-                            nombre = lines.slice(0, -1).join(' ');
-                            productoIdx = i;
-                            break;
-                        }
-                        // Fallback: una línea que no sea número ni precio
-                        if (lines.length === 1 && lines[0].length > 3 && !/^\$?[\d,]+\.?\d*$/.test(lines[0]) && productoIdx === -1) {
-                            nombre = lines[0];
-                            productoIdx = i;
-                        }
-                    }
-                    if (!nombre && !sku) return;
-
-                    // Extraer cantidad y precio de las demás celdas
-                    const numericalCells = cells.map((c, idx) => {
-                        if (idx === productoIdx) return null;
-                        const txt = c.innerText.trim();
-                        const val = parseFloat(txt.replace(/[$,\s]/g, ''));
-                        if (isNaN(val) || val <= 0) return null;
-                        return { val, hasPrice: txt.includes('$'), idx };
-                    }).filter(Boolean);
-
-                    const qtyCandidates = numericalCells.filter(n => !n.hasPrice && n.val < 1000);
-                    if (qtyCandidates.length > 0) cantidad = qtyCandidates[0].val;
-
-                    const priceCells = numericalCells.filter(n => n.hasPrice);
-                    if (priceCells.length >= 2) {
-                        precioUnitario = priceCells[0].val;
-                        subtotal = priceCells[priceCells.length - 1].val;
-                    } else if (priceCells.length === 1) {
-                        subtotal = priceCells[0].val;
-                        if (cantidad > 0) precioUnitario = Math.round((subtotal / cantidad) * 100) / 100;
+                    // Si no hay filas, intentar con divs de React/componentes
+                    if (rows.length === 0) {
+                        rows = Array.from(document.querySelectorAll('tr')); // tabla sin tbody
                     }
 
-                    if (cantidad === 0 && subtotal === 0) return; // fila de encabezado o total
-                    items.push({ sku, nombre: nombre || sku, cantidad: cantidad || 1, precio_unitario: precioUnitario, subtotal });
+                    rows.forEach(row => {
+                        const cells = Array.from(row.querySelectorAll('td'));
+                        if (cells.length < 3) return;
+
+                        let sku = '', nombre = '', cantidad = 0, precioUnitario = 0, subtotal = 0;
+                        let productoIdx = -1;
+
+                        // Buscar la celda de producto: tiene nombre + SKU en líneas separadas
+                        for (let i = 0; i < Math.min(cells.length, 4); i++) {
+                            const lines = cells[i].innerText.trim().split('\n').map(l => l.trim()).filter(l => l);
+                            if (lines.length >= 2 && /^[A-Z0-9\-\.]+$/i.test(lines[lines.length - 1]) && lines[lines.length - 1].length <= 30) {
+                                sku = lines[lines.length - 1].toUpperCase();
+                                nombre = lines.slice(0, -1).join(' ');
+                                productoIdx = i;
+                                break;
+                            }
+                            // Fallback: una línea que no sea número ni precio
+                            if (lines.length === 1 && lines[0].length > 3 && !/^\$?[\d,]+\.?\d*$/.test(lines[0]) && productoIdx === -1) {
+                                nombre = lines[0];
+                                productoIdx = i;
+                            }
+                        }
+                        if (!nombre && !sku) return;
+
+                        // Extraer cantidad y precio de las demás celdas
+                        const numericalCells = cells.map((c, idx) => {
+                            if (idx === productoIdx) return null;
+                            const txt = c.innerText.trim();
+                            const val = parseFloat(txt.replace(/[$,\s]/g, ''));
+                            if (isNaN(val) || val <= 0) return null;
+                            return { val, hasPrice: txt.includes('$'), idx };
+                        }).filter(Boolean);
+
+                        const qtyCandidates = numericalCells.filter(n => !n.hasPrice && n.val < 1000);
+                        if (qtyCandidates.length > 0) cantidad = qtyCandidates[0].val;
+
+                        const priceCells = numericalCells.filter(n => n.hasPrice);
+                        if (priceCells.length >= 2) {
+                            precioUnitario = priceCells[0].val;
+                            subtotal = priceCells[priceCells.length - 1].val;
+                        } else if (priceCells.length === 1) {
+                            subtotal = priceCells[0].val;
+                            if (cantidad > 0) precioUnitario = Math.round((subtotal / cantidad) * 100) / 100;
+                        }
+
+                        if (cantidad === 0 && subtotal === 0) return;
+                        items.push({ sku, nombre: nombre || sku, cantidad: cantidad || 1, precio_unitario: precioUnitario, subtotal });
+                    });
+                    return { items, debug };
                 });
-                return items;
-            });
+                itemsPagina = itemsResult.items || [];
+                // DIAGNÓSTICO: siempre loguear estructura para poder depurar
+                console.log(`   [DEBUG items] ${datosVenta.numeroVenta}: tables=${itemsResult.debug.tables} tbodyTrs=${itemsResult.debug.tbodyTrs} divRows=${itemsResult.debug.divRows} items=${itemsPagina.length}`);
+                if (itemsPagina.length === 0 && itemsResult.debug.tbodyTrs === 0) {
+                    console.log(`   [DEBUG firstRow] ${itemsResult.debug.firstRowHTML}`);
+                }
+            } catch (itemsErr) {
+                console.error(`   [ERROR items] ${datosVenta.numeroVenta}: ${itemsErr.message}`);
+            }
 
             // --- MATCH DE SKUs CONTRA PRODUCTOS EN BD ---
             let itemsConMatch = [];
