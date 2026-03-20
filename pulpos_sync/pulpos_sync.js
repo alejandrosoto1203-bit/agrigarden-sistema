@@ -809,8 +809,8 @@ async function sincronizarVentas(page) {
     for (const href of linksSet) {
         try {
             await page.goto(href, { waitUntil: 'domcontentloaded' });
-            await page.waitForLoadState('domcontentloaded');
-            await page.waitForTimeout(2000);
+            await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+            await page.waitForTimeout(3000);
 
             const datosVenta = await page.evaluate(() => {
                 const titulo = document.querySelector('h1, h2')?.innerText || '';
