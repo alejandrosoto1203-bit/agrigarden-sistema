@@ -793,11 +793,12 @@ async function sincronizarVentas(page) {
     // --- FASE 2: Verificar duplicados ya existentes en staging ---
     const { data: existentes } = await supabase
         .from('pulpos_sync_staging')
-        .select('numero_venta')
+        .select('numero_venta, id')
         .eq('fecha_sync', FECHA_SYNC);
     const numerosExistentes = new Set((existentes || []).map(e => e.numero_venta));
+    const existentesIdMap = Object.fromEntries((existentes || []).map(e => [e.numero_venta, e.id]));
     if (numerosExistentes.size > 0) {
-        console.log(`   ⚠️ ${numerosExistentes.size} ventas ya existen en staging para esta fecha (se omitirán)`);
+        console.log(`   ⚠️ ${numerosExistentes.size} ventas ya existen en staging para esta fecha (se omitirán salvo items faltantes)`);
     }
 
     // --- FASE 3: Visitar cada venta y extraer datos ---
@@ -868,13 +869,8 @@ async function sincronizarVentas(page) {
 
             if (!datosVenta || !datosVenta.numeroVenta) continue;
 
-            // Saltar si ya existe en staging
-            if (numerosExistentes.has(datosVenta.numeroVenta)) {
-                omitidas++;
-                continue;
-            }
-
             // --- RASPAR ÍTEMS DE LA VENTA (productos, cantidades, precios) ---
+            // Se hace ANTES del check de duplicados para poder rellenar items faltantes
             const itemsPagina = await page.evaluate(() => {
                 const items = [];
                 const rows = document.querySelectorAll('table tbody tr');
@@ -949,6 +945,37 @@ async function sincronizarVentas(page) {
                 }));
                 const matched = itemsConMatch.filter(i => i.match_status === 'matched').length;
                 console.log(`   Items: ${itemsConMatch.length} (${matched} con match, ${itemsConMatch.length - matched} sin match)`);
+            }
+
+            // --- Si ya existe en staging, solo agregar items si faltan ---
+            if (numerosExistentes.has(datosVenta.numeroVenta)) {
+                const stagingId = existentesIdMap[datosVenta.numeroVenta];
+                if (stagingId && itemsConMatch.length > 0) {
+                    const { count } = await supabase
+                        .from('pulpos_sync_staging_items')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('staging_id', stagingId);
+                    if ((count || 0) === 0) {
+                        const itemsPayload = itemsConMatch.map(item => ({
+                            staging_id: stagingId,
+                            numero_venta: datosVenta.numeroVenta,
+                            sku_pulpos: item.sku || '',
+                            nombre_pulpos: item.nombre || '',
+                            cantidad: item.cantidad || 1,
+                            precio_unitario: item.precio_unitario || 0,
+                            subtotal: item.subtotal || 0,
+                            producto_id: item.producto_id || null,
+                            producto_nombre: item.producto_nombre || null,
+                            match_status: item.match_status || 'unmatched',
+                            confirmado: false
+                        }));
+                        const { error: itemErr } = await supabase.from('pulpos_sync_staging_items').insert(itemsPayload);
+                        if (itemErr) console.error(`   Error agregando items a staging existente ${datosVenta.numeroVenta}:`, itemErr.message);
+                        else console.log(`   Items agregados a staging existente: ${datosVenta.numeroVenta} (${itemsConMatch.length} items)`);
+                    }
+                }
+                omitidas++;
+                continue;
             }
 
             const { metodo, claro } = mapearMetodoPago(datosVenta.metodoPago, datosVenta.comentarios);
