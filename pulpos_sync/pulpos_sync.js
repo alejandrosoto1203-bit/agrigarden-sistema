@@ -875,10 +875,13 @@ async function sincronizarVentas(page) {
             try {
                 const itemsResult = await page.evaluate(() => {
                     // Diagnóstico: capturar estructura real de la página
+                    const firstRow = document.querySelector('table tbody tr');
+                    const firstRowCells = firstRow ? Array.from(firstRow.querySelectorAll('td')).map(td => td.innerText.trim().substring(0, 80)) : [];
                     const debug = {
                         tables: document.querySelectorAll('table').length,
                         tbodyTrs: document.querySelectorAll('table tbody tr').length,
-                        firstRowHTML: document.querySelector('table tbody tr')?.innerHTML?.substring(0, 300) || 'NO HAY FILAS EN TABLE TBODY',
+                        firstRowCellCount: firstRowCells.length,
+                        firstRowCells: JSON.stringify(firstRowCells),
                         // Intentar detectar listas de productos en divs (React apps)
                         divRows: document.querySelectorAll('[class*="item"],[class*="product"],[class*="line"],[class*="producto"]').length,
                         url: window.location.href
@@ -945,9 +948,9 @@ async function sincronizarVentas(page) {
                 });
                 itemsPagina = itemsResult.items || [];
                 // DIAGNÓSTICO: siempre loguear estructura para poder depurar
-                console.log(`   [DEBUG items] ${datosVenta.numeroVenta}: tables=${itemsResult.debug.tables} tbodyTrs=${itemsResult.debug.tbodyTrs} divRows=${itemsResult.debug.divRows} items=${itemsPagina.length}`);
-                if (itemsPagina.length === 0 && itemsResult.debug.tbodyTrs === 0) {
-                    console.log(`   [DEBUG firstRow] ${itemsResult.debug.firstRowHTML}`);
+                console.log(`   [DEBUG items] ${datosVenta.numeroVenta}: tables=${itemsResult.debug.tables} tbodyTrs=${itemsResult.debug.tbodyTrs} cells=${itemsResult.debug.firstRowCellCount} items=${itemsPagina.length}`);
+                if (itemsPagina.length === 0 && itemsResult.debug.tbodyTrs > 0) {
+                    console.log(`   [DEBUG cells] ${datosVenta.numeroVenta}: ${itemsResult.debug.firstRowCells}`);
                 }
             } catch (itemsErr) {
                 console.error(`   [ERROR items] ${datosVenta.numeroVenta}: ${itemsErr.message}`);
