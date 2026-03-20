@@ -887,62 +887,45 @@ async function sincronizarVentas(page) {
                         url: window.location.href
                     };
 
+                    // Estructura real de Pulpos (confirmada):
+                    // Celda 0: SKU (1ª línea, si existe) \n NOMBRE \n $PRECIO_UNIT [\n Precio Público]
+                    // Celda 1: cantidad (puede incluir unidad ej: "1 m")
+                    // Celda 2: $SUBTOTAL (con $ y comas)
                     const items = [];
-                    // Intentar tabla estándar primero
-                    let rows = Array.from(document.querySelectorAll('table tbody tr'));
-
-                    // Si no hay filas, intentar con divs de React/componentes
-                    if (rows.length === 0) {
-                        rows = Array.from(document.querySelectorAll('tr')); // tabla sin tbody
-                    }
+                    const rows = Array.from(document.querySelectorAll('table tbody tr'));
 
                     rows.forEach(row => {
                         const cells = Array.from(row.querySelectorAll('td'));
                         if (cells.length < 3) return;
 
-                        let sku = '', nombre = '', cantidad = 0, precioUnitario = 0, subtotal = 0;
-                        let productoIdx = -1;
+                        const lineas = cells[0].innerText.trim().split('\n').map(l => l.trim()).filter(l => l);
+                        if (lineas.length === 0) return;
 
-                        // Buscar la celda de producto: tiene nombre + SKU en líneas separadas
-                        for (let i = 0; i < Math.min(cells.length, 4); i++) {
-                            const lines = cells[i].innerText.trim().split('\n').map(l => l.trim()).filter(l => l);
-                            if (lines.length >= 2 && /^[A-Z0-9\-\.]+$/i.test(lines[lines.length - 1]) && lines[lines.length - 1].length <= 30) {
-                                sku = lines[lines.length - 1].toUpperCase();
-                                nombre = lines.slice(0, -1).join(' ');
-                                productoIdx = i;
-                                break;
-                            }
-                            // Fallback: una línea que no sea número ni precio
-                            if (lines.length === 1 && lines[0].length > 3 && !/^\$?[\d,]+\.?\d*$/.test(lines[0]) && productoIdx === -1) {
-                                nombre = lines[0];
-                                productoIdx = i;
-                            }
+                        // SKU: primera línea si es alfanumérica sin espacios y sin $
+                        let sku = '';
+                        let inicioNombre = 0;
+                        if (/^[A-Z0-9\-\.\/]+$/i.test(lineas[0]) && !lineas[0].includes('$') && lineas[0].length <= 30) {
+                            sku = lineas[0].toUpperCase();
+                            inicioNombre = 1;
                         }
+
+                        // Nombre: líneas entre SKU y la línea de precio ($...)
+                        const lineasNombre = lineas.slice(inicioNombre).filter(l => !l.startsWith('$') && l.toLowerCase() !== 'precio público' && l.toLowerCase() !== 'precio publico');
+                        const nombre = lineasNombre.join(' ').trim();
                         if (!nombre && !sku) return;
 
-                        // Extraer cantidad y precio de las demás celdas
-                        const numericalCells = cells.map((c, idx) => {
-                            if (idx === productoIdx) return null;
-                            const txt = c.innerText.trim();
-                            const val = parseFloat(txt.replace(/[$,\s]/g, ''));
-                            if (isNaN(val) || val <= 0) return null;
-                            return { val, hasPrice: txt.includes('$'), idx };
-                        }).filter(Boolean);
+                        // Precio unitario: primera línea que empieza con $
+                        const lineaPrecio = lineas.find(l => l.startsWith('$'));
+                        const precioUnitario = lineaPrecio ? parseFloat(lineaPrecio.replace(/[$,\s]/g, '')) || 0 : 0;
 
-                        const qtyCandidates = numericalCells.filter(n => !n.hasPrice && n.val < 1000);
-                        if (qtyCandidates.length > 0) cantidad = qtyCandidates[0].val;
+                        // Cantidad: celda 1, extraer solo el número
+                        const cantidad = parseFloat(cells[1].innerText.trim().replace(/[^0-9.]/g, '')) || 1;
 
-                        const priceCells = numericalCells.filter(n => n.hasPrice);
-                        if (priceCells.length >= 2) {
-                            precioUnitario = priceCells[0].val;
-                            subtotal = priceCells[priceCells.length - 1].val;
-                        } else if (priceCells.length === 1) {
-                            subtotal = priceCells[0].val;
-                            if (cantidad > 0) precioUnitario = Math.round((subtotal / cantidad) * 100) / 100;
-                        }
+                        // Subtotal: celda 2
+                        const subtotal = parseFloat(cells[2].innerText.trim().replace(/[$,\s]/g, '')) || 0;
 
-                        if (cantidad === 0 && subtotal === 0) return;
-                        items.push({ sku, nombre: nombre || sku, cantidad: cantidad || 1, precio_unitario: precioUnitario, subtotal });
+                        if (subtotal === 0 && precioUnitario === 0) return; // fila vacía o encabezado
+                        items.push({ sku, nombre: nombre || sku, cantidad, precio_unitario: precioUnitario, subtotal });
                     });
                     return { items, debug };
                 });
