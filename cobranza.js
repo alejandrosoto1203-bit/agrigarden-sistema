@@ -724,22 +724,29 @@ async function guardarAbonoProv() {
                 });
             }
 
-            // NUEVO: Registrar Salida de Dinero por el TOTAL del Lote (Ej: Pago Préstamo)
-            await fetch(`${SUPABASE_URL}/rest/v1/gastos`, {
+            // Registrar Salida de Dinero en Gastos (Pago de Pasivo)
+            const primerItem = itemsLotePagoProv[0];
+            const resGastoPago = await fetch(`${SUPABASE_URL}/rest/v1/gastos`, {
                 method: 'POST',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
                 body: JSON.stringify({
-                    proveedor: document.getElementById('infoAbonoProv').innerText.split(':')[1]?.split('(')[0]?.trim() || "PROVEEDOR",
+                    proveedor: primerItem?.proveedor || "PROVEEDOR",
+                    proveedor_id: primerItem?.proveedor_id || null,
                     categoria: 'Pago de Pasivo',
                     subcategoria: 'ABONO A CUENTA',
                     monto_total: monto,
+                    saldo_pendiente: 0,
                     metodo_pago: metodo,
-                    sucursal: 'Matriz',
+                    sucursal: primerItem?.sucursal || 'Norte',
                     estado_pago: 'Pagado',
                     created_at: new Date(year, month - 1, day).toISOString(),
                     notas: registroNotas
                 })
             });
+            if (!resGastoPago.ok) {
+                const errBody = await resGastoPago.text();
+                console.error('[cobranza] Error creando gasto de pago:', errBody);
+            }
 
             itemsLotePagoProv = []; // Limpiamos lote
         } else {
@@ -757,19 +764,22 @@ async function guardarAbonoProv() {
                     body: JSON.stringify({ gasto_id: idGastoAbono, nota: `PAGO REALIZADO (FECHA EFECTIVA: ${fechaLegible}): ${formatMoney(monto)} vía ${metodo}. Saldo restante: ${formatMoney(nuevoSaldo)}`.toUpperCase() })
                 });
 
-                // NUEVO: Registrar Salida de Dinero (Gasto Real)
+                // Registrar Salida de Dinero en Gastos (Pago de Pasivo)
+                const gastoOrigen = datosCachePagos.find(g => g.id === idGastoAbono);
                 await fetch(`${SUPABASE_URL}/rest/v1/gastos`, {
                     method: 'POST',
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
                     body: JSON.stringify({
-                        proveedor: document.getElementById('infoAbonoProv').innerText.split(':')[1]?.split('(')[0]?.trim() || "PROVEEDOR",
+                        proveedor: gastoOrigen?.proveedor || "PROVEEDOR",
+                        proveedor_id: gastoOrigen?.proveedor_id || null,
                         categoria: 'Pago de Pasivo',
                         subcategoria: 'ABONO A CUENTA',
                         monto_total: monto,
+                        saldo_pendiente: 0,
                         metodo_pago: metodo,
-                        sucursal: 'Matriz', // Idealmente pasar la sucursal del gasto origen
+                        sucursal: gastoOrigen?.sucursal || 'Norte',
                         estado_pago: 'Pagado',
-                        created_at: new Date(year, month - 1, day).toISOString(), // Usar la fecha efectiva
+                        created_at: new Date(year, month - 1, day).toISOString(),
                         notas: `PAGO A PROVEEDOR (REF: ${idGastoAbono})`
                     })
                 });
