@@ -383,15 +383,7 @@
                 <div class="space-y-1">
                     <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Categoría <span class="text-red-500">*</span></label>
                     <input id="npCategoria" type="text" list="listCategorias" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-green-400" placeholder="Ej: Plantas, Macetas...">
-                    <datalist id="listCategorias">
-                        <option value="Plantas">
-                        <option value="Macetas">
-                        <option value="Tierra y Sustratos">
-                        <option value="Herramientas">
-                        <option value="Fertilizantes">
-                        <option value="Servicios">
-                        <option value="Otros">
-                    </datalist>
+                    <datalist id="listCategorias"></datalist>
                 </div>
                 <div class="grid grid-cols-3 gap-3">
                     <div class="space-y-1">
@@ -998,6 +990,9 @@
 
         function abrirCrearProducto(itemId, ventaId, sku, nombre, precio) {
             itemCreandoId = itemId;
+            // Poblar categorías desde productosCache (mismas que en Inventario)
+            const categorias = [...new Set(productosCache.map(p => p.categoria).filter(c => c))].sort();
+            document.getElementById('listCategorias').innerHTML = categorias.map(c => `<option value="${c}">`).join('');
             const skuInput = document.getElementById('npSku');
             skuInput.value = sku;
             // Si viene SKU de Pulpos → bloqueado; si está vacío → editable
