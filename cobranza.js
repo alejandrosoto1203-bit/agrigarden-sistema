@@ -395,7 +395,10 @@ function renderizarTablaPagos(datos) {
             <td class="px-6 py-5 text-center">
                 <div class="flex justify-center gap-2">
                     ${!estaPagado ? `
-                        <button onclick="prepararAccionMasivaPagos(${JSON.stringify(items).replace(/"/g, '&quot;')}, 'liquidacion')" class="p-2 bg-blue-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm flex items-center justify-center">
+                        <button onclick="prepararAccionMasivaPagos(${JSON.stringify(items).replace(/"/g, '&quot;')}, 'abono')" class="p-2 bg-green-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm flex items-center justify-center" title="Registrar abono parcial">
+                            <span class="material-symbols-outlined text-sm font-bold">payments</span>
+                        </button>
+                        <button onclick="prepararAccionMasivaPagos(${JSON.stringify(items).replace(/"/g, '&quot;')}, 'liquidacion')" class="p-2 bg-blue-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm flex items-center justify-center" title="Liquidar cuenta completa">
                             <span class="material-symbols-outlined text-sm font-bold">check_circle</span>
                         </button>
                         <button onclick="abrirModalProrroga('${principal.id}', '${principal.proveedor}', '${fechaLimite.toISOString().split('T')[0]}')" class="p-2 bg-orange-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm flex items-center justify-center">
