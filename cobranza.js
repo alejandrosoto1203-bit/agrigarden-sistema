@@ -695,17 +695,23 @@ async function guardarAbonoProv() {
     try {
         // PROCESAMIENTO MULTI-REGISTRO SI ES UN LOTE (CUOTA COMPUESTA)
         if (itemsLotePagoProv.length > 0) {
-            let registroNotas = `PAGO TOTAL (FECHA EFECTIVA: ${fechaLegible}): ${formatMoney(monto)} vía ${metodo}. `;
+            const totalSaldoLote = itemsLotePagoProv.reduce((s, i) => s + (i.saldo_pendiente !== null ? i.saldo_pendiente : i.monto_total), 0);
+            const esPagoTotal = monto >= totalSaldoLote - 0.01;
+            const ratio = esPagoTotal ? 1 : monto / totalSaldoLote;
+            let registroNotas = `${esPagoTotal ? 'PAGO TOTAL' : 'ABONO PARCIAL'} (FECHA EFECTIVA: ${fechaLegible}): ${formatMoney(monto)} vía ${metodo}. `;
             let detalles = [];
 
             for (const item of itemsLotePagoProv) {
-                const montoItem = item.saldo_pendiente !== null ? item.saldo_pendiente : item.monto_total;
-                detalles.push(`${item.categoria}: ${formatMoney(montoItem)}`);
+                const saldoItem = item.saldo_pendiente !== null ? item.saldo_pendiente : item.monto_total;
+                const pagoItem = Math.min(saldoItem, parseFloat((saldoItem * ratio).toFixed(2)));
+                const nuevoSaldoItem = Math.max(0, parseFloat((saldoItem - pagoItem).toFixed(2)));
+                const estadoItem = nuevoSaldoItem <= 0 ? 'Pagado' : 'Pendiente';
+                detalles.push(`${item.categoria}: ${formatMoney(pagoItem)}`);
 
                 await fetch(`${SUPABASE_URL}/rest/v1/gastos?id=eq.${item.id}`, {
                     method: 'PATCH',
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ saldo_pendiente: 0, estado_pago: 'Pagado' })
+                    body: JSON.stringify({ saldo_pendiente: nuevoSaldoItem, estado_pago: estadoItem })
                 });
             }
 
