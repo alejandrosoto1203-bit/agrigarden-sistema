@@ -354,6 +354,9 @@ function mostrarModalGasto() {
 // 3. LÓGICA DE REGISTRO MÚLTIPLE DE GASTOS
 let proveedoresCargados = [];
 let productosVentaCache = [];
+const _SKU_PROD_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+const _SKU_PROD_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+let _skuDebounceTimer = null;
 
 async function initGastosRegistro() {
     // Cargar proveedores para autocompletado
@@ -638,33 +641,69 @@ function agregarFilaMercancia(gastoRowId) {
     }
 }
 
-function buscarProductoSugerencias(mid) {
-    const tr = document.getElementById(mid);
-    const gastoRowId = tr.dataset.gastoRowId;
-    const query = tr.querySelector('.item-sku').value.trim().toUpperCase();
-    const sugsDiv = document.getElementById(`${mid}-sugs`);
-
-    if (!query) { sugsDiv.classList.add('hidden'); return; }
-
-    const matches = productosVentaCache.filter(p =>
-        (p.sku && p.sku.toUpperCase().includes(query)) ||
-        (p.nombre && p.nombre.toUpperCase().includes(query))
-    ).slice(0, 10);
-
-    if (!matches.length) { sugsDiv.classList.add('hidden'); return; }
-
+function _renderSugsProducto(sugsDiv, matches, mid, gastoRowId) {
     sugsDiv.innerHTML = matches.map(p => {
-        const sku = (p.sku || '').replace(/'/g, "\\'");
-        const nombre = (p.nombre || '').replace(/'/g, "\\'");
+        const sku = (p.sku || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const nombre = (p.nombre || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         const costo = p.costo_promedio || 0;
         return `<div class="px-3 py-2 hover:bg-blue-50 cursor-pointer flex gap-3 items-center border-b border-gray-50 last:border-0"
                     onmousedown="seleccionarProductoMercancia('${mid}','${gastoRowId}','${sku}','${nombre}',${costo})">
-                    <span class="font-black text-gray-800 text-[11px] shrink-0 w-16">${p.sku || '—'}</span>
+                    <span class="font-black text-gray-800 text-[11px] shrink-0 w-20">${p.sku || '—'}</span>
                     <span class="text-gray-500 text-[11px] truncate">${p.nombre || ''}</span>
                 </div>`;
     }).join('');
-
     sugsDiv.classList.remove('hidden');
+}
+
+function buscarProductoSugerencias(mid) {
+    const tr = document.getElementById(mid);
+    if (!tr) return;
+    const gastoRowId = tr.dataset.gastoRowId;
+    const query = tr.querySelector('.item-sku').value.trim();
+    const sugsDiv = document.getElementById(`${mid}-sugs`);
+
+    if (query.length < 2) { sugsDiv.classList.add('hidden'); return; }
+
+    // 1) Buscar primero en el caché local (si ya se cargó)
+    if (productosVentaCache.length > 0) {
+        const q = query.toUpperCase();
+        const matches = productosVentaCache.filter(p =>
+            (p.sku && p.sku.toUpperCase().includes(q)) ||
+            (p.nombre && p.nombre.toUpperCase().includes(q))
+        ).slice(0, 10);
+        if (matches.length > 0) {
+            _renderSugsProducto(sugsDiv, matches, mid, gastoRowId);
+            return;
+        }
+    }
+
+    // 2) Fallback: búsqueda en tiempo real a Supabase con debounce
+    clearTimeout(_skuDebounceTimer);
+    sugsDiv.innerHTML = '<div class="px-3 py-2 text-[11px] text-gray-400 italic">Buscando...</div>';
+    sugsDiv.classList.remove('hidden');
+
+    _skuDebounceTimer = setTimeout(async () => {
+        try {
+            const q = encodeURIComponent(query);
+            const url = `${_SKU_PROD_URL}/rest/v1/productos?or=(sku.ilike.*${q}*,nombre.ilike.*${q}*)&select=id,sku,nombre,costo_promedio&limit=10&order=sku.asc`;
+            const res = await fetch(url, {
+                headers: { 'apikey': _SKU_PROD_KEY, 'Authorization': `Bearer ${_SKU_PROD_KEY}` }
+            });
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+                // Guardar resultados en caché para futuras búsquedas
+                data.forEach(p => {
+                    if (!productosVentaCache.find(c => c.id === p.id)) productosVentaCache.push(p);
+                });
+                _renderSugsProducto(sugsDiv, data, mid, gastoRowId);
+            } else {
+                sugsDiv.innerHTML = '<div class="px-3 py-2 text-[11px] text-gray-400 italic">Sin resultados</div>';
+            }
+        } catch (e) {
+            console.error('[SKU search]', e);
+            sugsDiv.classList.add('hidden');
+        }
+    }, 300);
 }
 
 function seleccionarProductoMercancia(mid, gastoRowId, sku, nombre, costo) {
