@@ -369,12 +369,16 @@ async function initGastosRegistro() {
     }
 
     // Cargar productos para SKU typeahead y autocompletar descripcion/costo
+    // Usa credenciales PROD hardcoded para evitar que config.js apunte a TEST
     try {
-        const resProd = await fetch(`${SUPABASE_URL}/rest/v1/productos?select=id,sku,nombre,costo_promedio&order=nombre.asc`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        const PROD_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+        const PROD_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+        const resProd = await fetch(`${PROD_URL}/rest/v1/productos?select=id,sku,nombre,costo_promedio&order=nombre.asc`, {
+            headers: { 'apikey': PROD_KEY, 'Authorization': `Bearer ${PROD_KEY}` }
         });
         const dataProd = await resProd.json();
         productosVentaCache = Array.isArray(dataProd) ? dataProd : [];
+        console.log('[gastos] productos cargados:', productosVentaCache.length);
     } catch (e) {
         console.error('Error cargando productos:', e);
         productosVentaCache = [];
