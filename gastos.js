@@ -684,18 +684,31 @@ function buscarProductoSugerencias(mid) {
 
     _skuDebounceTimer = setTimeout(async () => {
         try {
+            const headers = { 'apikey': _SKU_PROD_KEY, 'Authorization': `Bearer ${_SKU_PROD_KEY}` };
+            const base = `${_SKU_PROD_URL}/rest/v1/productos`;
+            const campos = `select=id,sku,nombre,costo_promedio&limit=8&order=sku.asc`;
             const q = encodeURIComponent(query);
-            const url = `${_SKU_PROD_URL}/rest/v1/productos?or=(sku.ilike.*${q}*,nombre.ilike.*${q}*)&select=id,sku,nombre,costo_promedio&limit=10&order=sku.asc`;
-            const res = await fetch(url, {
-                headers: { 'apikey': _SKU_PROD_KEY, 'Authorization': `Bearer ${_SKU_PROD_KEY}` }
-            });
-            const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
-                // Guardar resultados en caché para futuras búsquedas
-                data.forEach(p => {
+
+            // Dos búsquedas separadas: por SKU y por nombre
+            const [r1, r2] = await Promise.all([
+                fetch(`${base}?sku=ilike.*${q}*&${campos}`, { headers }),
+                fetch(`${base}?nombre=ilike.*${q}*&${campos}`, { headers })
+            ]);
+            const [bySku, byNombre] = await Promise.all([r1.json(), r2.json()]);
+
+            // Unir y deduplicar por id
+            const seen = new Set();
+            const combined = [];
+            for (const p of [...(Array.isArray(bySku) ? bySku : []), ...(Array.isArray(byNombre) ? byNombre : [])]) {
+                if (p.id && !seen.has(p.id)) { seen.add(p.id); combined.push(p); }
+            }
+            combined.splice(10);
+
+            if (combined.length > 0) {
+                combined.forEach(p => {
                     if (!productosVentaCache.find(c => c.id === p.id)) productosVentaCache.push(p);
                 });
-                _renderSugsProducto(sugsDiv, data, mid, gastoRowId);
+                _renderSugsProducto(sugsDiv, combined, mid, gastoRowId);
             } else {
                 sugsDiv.innerHTML = '<div class="px-3 py-2 text-[11px] text-gray-400 italic">Sin resultados</div>';
             }
