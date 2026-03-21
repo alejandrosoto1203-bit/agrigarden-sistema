@@ -998,7 +998,19 @@
 
         function abrirCrearProducto(itemId, ventaId, sku, nombre, precio) {
             itemCreandoId = itemId;
-            document.getElementById('npSku').value = sku;
+            const skuInput = document.getElementById('npSku');
+            skuInput.value = sku;
+            // Si viene SKU de Pulpos → bloqueado; si está vacío → editable
+            if (sku) {
+                skuInput.readOnly = true;
+                skuInput.classList.add('bg-gray-100');
+                skuInput.classList.remove('bg-white', 'border', 'border-gray-300');
+            } else {
+                skuInput.readOnly = false;
+                skuInput.classList.remove('bg-gray-100');
+                skuInput.classList.add('bg-white', 'border', 'border-gray-300');
+                skuInput.placeholder = 'Escribe el SKU del producto';
+            }
             document.getElementById('npNombre').value = nombre;
             document.getElementById('npPrecio').value = precio || '';
             document.getElementById('npCategoria').value = '';
