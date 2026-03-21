@@ -645,7 +645,7 @@ function _renderSugsProducto(sugsDiv, matches, mid, gastoRowId) {
     sugsDiv.innerHTML = matches.map(p => {
         const sku = (p.sku || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         const nombre = (p.nombre || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        const costo = p.costo_promedio || 0;
+        const costo = p.costo_promedio || p.costo || 0;
         return `<div class="px-3 py-2 hover:bg-blue-50 cursor-pointer flex gap-3 items-center border-b border-gray-50 last:border-0"
                     onmousedown="seleccionarProductoMercancia('${mid}','${gastoRowId}','${sku}','${nombre}',${costo})">
                     <span class="font-black text-gray-800 text-[11px] shrink-0 w-20">${p.sku || '—'}</span>
@@ -686,15 +686,16 @@ function buscarProductoSugerencias(mid) {
         try {
             const headers = { 'apikey': _SKU_PROD_KEY, 'Authorization': `Bearer ${_SKU_PROD_KEY}` };
             const base = `${_SKU_PROD_URL}/rest/v1/productos`;
-            const campos = `select=id,sku,nombre,costo_promedio&limit=8&order=sku.asc`;
             const q = encodeURIComponent(query);
 
-            // Dos búsquedas separadas: por SKU y por nombre
+            // Dos búsquedas separadas: por SKU y por nombre (select=* para evitar errores de columna)
             const [r1, r2] = await Promise.all([
-                fetch(`${base}?sku=ilike.*${q}*&${campos}`, { headers }),
-                fetch(`${base}?nombre=ilike.*${q}*&${campos}`, { headers })
+                fetch(`${base}?sku=ilike.*${q}*&select=*&limit=8&order=sku.asc`, { headers }),
+                fetch(`${base}?nombre=ilike.*${q}*&select=*&limit=8&order=sku.asc`, { headers })
             ]);
             const [bySku, byNombre] = await Promise.all([r1.json(), r2.json()]);
+
+            console.log('[SKU search] bySku:', bySku, 'byNombre:', byNombre);
 
             // Unir y deduplicar por id
             const seen = new Set();
@@ -714,7 +715,7 @@ function buscarProductoSugerencias(mid) {
             }
         } catch (e) {
             console.error('[SKU search]', e);
-            sugsDiv.classList.add('hidden');
+            sugsDiv.innerHTML = '<div class="px-3 py-2 text-[11px] text-red-400 italic">Error de conexión</div>';
         }
     }, 300);
 }
