@@ -601,17 +601,19 @@ function agregarFilaMercancia(gastoRowId) {
     const mid = `merc-${Date.now()}-${Math.floor(Math.random() * 100)}`;
     const tr = document.createElement('tr');
     tr.id = mid;
+    tr.dataset.gastoRowId = gastoRowId;
     tr.className = "mercancia-item group border-b border-blue-50/50";
 
-    // Generar datalist options
-    const dlId = `dl-${mid}`;
-
     tr.innerHTML = `
-        <td class="p-1">
-            <input type="text" list="${dlId}" class="w-full bg-white border border-gray-200 rounded px-2 py-1.5 text-xs item-sku" placeholder="SKU o Nombre" onchange="autocompletarProducto('${mid}')">
-            <datalist id="${dlId}">
-                ${(Array.isArray(productosVentaCache) ? productosVentaCache : []).map(p => `<option value="${p.sku || p.nombre}">${p.sku ? p.sku + ' - ' : ''}${p.nombre}</option>`).join('')}
-            </datalist>
+        <td class="p-1 relative">
+            <input type="text" autocomplete="off"
+                class="w-full bg-white border border-gray-200 rounded px-2 py-1.5 text-xs item-sku"
+                placeholder="SKU o Nombre"
+                oninput="buscarProductoSugerencias('${mid}')"
+                onblur="setTimeout(()=>{ const d=document.getElementById('${mid}-sugs'); if(d) d.classList.add('hidden'); },150)">
+            <div id="${mid}-sugs"
+                class="hidden absolute z-50 bg-white border border-gray-200 rounded-lg shadow-xl overflow-y-auto mt-0.5 left-0 text-left"
+                style="max-height:200px;min-width:320px"></div>
         </td>
         <td class="p-1"><input type="number" min="1" step="0.01" class="w-full bg-white border border-gray-200 rounded px-2 py-1.5 text-xs text-center item-qty" placeholder="0" value="1" oninput="calcularSubtotalMercancia('${mid}', '${gastoRowId}')"></td>
         <td class="p-1"><input type="text" class="w-full bg-gray-50 border border-gray-100 rounded px-2 py-1.5 text-xs text-gray-600 item-desc" placeholder="Descripción extraida del SKU" readonly></td>
@@ -632,24 +634,59 @@ function agregarFilaMercancia(gastoRowId) {
     }
 }
 
+function buscarProductoSugerencias(mid) {
+    const tr = document.getElementById(mid);
+    const gastoRowId = tr.dataset.gastoRowId;
+    const query = tr.querySelector('.item-sku').value.trim().toUpperCase();
+    const sugsDiv = document.getElementById(`${mid}-sugs`);
+
+    if (!query) { sugsDiv.classList.add('hidden'); return; }
+
+    const matches = productosVentaCache.filter(p =>
+        (p.sku && p.sku.toUpperCase().includes(query)) ||
+        (p.nombre && p.nombre.toUpperCase().includes(query))
+    ).slice(0, 10);
+
+    if (!matches.length) { sugsDiv.classList.add('hidden'); return; }
+
+    sugsDiv.innerHTML = matches.map(p => {
+        const sku = (p.sku || '').replace(/'/g, "\\'");
+        const nombre = (p.nombre || '').replace(/'/g, "\\'");
+        const costo = p.costo_promedio || 0;
+        return `<div class="px-3 py-2 hover:bg-blue-50 cursor-pointer flex gap-3 items-center border-b border-gray-50 last:border-0"
+                    onmousedown="seleccionarProductoMercancia('${mid}','${gastoRowId}','${sku}','${nombre}',${costo})">
+                    <span class="font-black text-gray-800 text-[11px] shrink-0 w-16">${p.sku || '—'}</span>
+                    <span class="text-gray-500 text-[11px] truncate">${p.nombre || ''}</span>
+                </div>`;
+    }).join('');
+
+    sugsDiv.classList.remove('hidden');
+}
+
+function seleccionarProductoMercancia(mid, gastoRowId, sku, nombre, costo) {
+    const tr = document.getElementById(mid);
+    tr.querySelector('.item-sku').value = sku || nombre;
+    tr.querySelector('.item-desc').value = nombre;
+    tr.querySelector('.item-costo').value = costo;
+    document.getElementById(`${mid}-sugs`).classList.add('hidden');
+    calcularSubtotalMercancia(mid, gastoRowId);
+}
+
 function autocompletarProducto(mid) {
     const tr = document.getElementById(mid);
+    if (!tr) return;
     const inputStr = tr.querySelector('.item-sku').value;
-    // Buscar en cache ya sea por SKU exacto o por nombre (el autocompletar puede rellenar el value)
-    const prod = productosVentaCache.find(p => p.sku === inputStr || p.nombre === inputStr);
-
+    const prod = productosVentaCache.find(p =>
+        (p.sku && p.sku.toUpperCase() === inputStr.toUpperCase()) ||
+        (p.nombre && p.nombre.toUpperCase() === inputStr.toUpperCase())
+    );
     if (prod) {
         tr.querySelector('.item-desc').value = prod.nombre || '';
         tr.querySelector('.item-costo').value = prod.costo_promedio || 0;
-        // Guardar el SKU real aunque haya escrito el nombre
         if (prod.sku) tr.querySelector('.item-sku').value = prod.sku;
     } else {
         tr.querySelector('.item-desc').value = '';
     }
-    // Re-calcular el subtotal de esa fila 
-    // y para propagar a la tabla madre
-    // necesitamos pasarle también el gastoRowId 
-    // (buscamos su ancestro)
     const tbody = tr.parentElement;
     const gastoRowId = tbody.id.replace('-items-body', '');
     calcularSubtotalMercancia(mid, gastoRowId);
@@ -1023,6 +1060,8 @@ window.cerrarModalNuevoProveedorRapido = cerrarModalNuevoProveedorRapido;
 window.guardarProveedorRapido = guardarProveedorRapido;
 window.verificarMercanciaToggle = verificarMercanciaToggle;
 window.agregarFilaMercancia = agregarFilaMercancia;
+window.buscarProductoSugerencias = buscarProductoSugerencias;
+window.seleccionarProductoMercancia = seleccionarProductoMercancia;
 window.autocompletarProducto = autocompletarProducto;
 window.calcularSubtotalMercancia = calcularSubtotalMercancia;
 window.calcularTotalMercancia = calcularTotalMercancia;
