@@ -114,28 +114,75 @@ async function sincronizarInventario(page) {
         await page.goto('https://app.pulpos.com/products', { waitUntil: 'domcontentloaded' });
         await page.waitForTimeout(4000);
 
-        const productIds = new Set();
-        let sinCambio = 0;
-        let scrollAttempts = 0;
-
-        while (scrollAttempts < 400 && sinCambio < 20) {
-            const links = await page.$$eval('a[href*="/products/detail"]', els =>
-                els.map(a => new URL(a.href).searchParams.get('id')).filter(Boolean)
+        // Función para extraer product IDs de la página actual
+        const extractIdsFromPage = async () => {
+            const ids = await page.$$eval('a', els =>
+                els.map(a => {
+                    try {
+                        const u = new URL(a.href);
+                        if (u.pathname.includes('/products/detail') || u.pathname.includes('/product/detail')) {
+                            return u.searchParams.get('id');
+                        }
+                    } catch { }
+                    return null;
+                }).filter(Boolean)
             );
-            const prev = productIds.size;
-            links.forEach(id => productIds.add(id));
-            if (productIds.size > prev) {
-                sinCambio = 0;
-            } else {
-                sinCambio++;
+            if (ids.length === 0) {
+                // Log diagnóstico para entender la estructura real de la página
+                const hrefSample = await page.$$eval('a', els =>
+                    els.slice(0, 30).map(a => a.href).filter(h => h && !h.endsWith('#') && !h.includes('login'))
+                );
+                console.log(`   [DEBUG] Sin links /products/detail. Muestra hrefs: ${hrefSample.slice(0, 8).join(' | ')}`);
             }
-            await page.evaluate(() => {
-                window.scrollBy(0, 1400);
-                document.documentElement.scrollBy(0, 1400);
-                document.body.scrollBy(0, 1400);
-            });
-            await page.waitForTimeout(1000);
-            scrollAttempts++;
+            return ids;
+        };
+
+        const productIds = new Set();
+        let pageNum = 1;
+        let hasNextPage = true;
+        let prevPageIds = '';
+
+        while (hasNextPage && pageNum <= 300) {
+            await page.waitForTimeout(2000);
+            const ids = await extractIdsFromPage();
+            const currentIds = [...ids].sort().join(',');
+
+            // Detectar página repetida (fin de paginación)
+            if (currentIds === prevPageIds && pageNum > 1) {
+                console.log('   Página repetida detectada — fin de paginación.');
+                break;
+            }
+            prevPageIds = currentIds;
+            ids.forEach(id => productIds.add(id));
+            console.log(`   Página ${pageNum}: ${ids.length} productos (total acumulado: ${productIds.size})`);
+
+            if (ids.length === 0 && pageNum === 1) {
+                console.log('   [WARN] Sin productos en página 1. Verifica estructura de la lista en Pulpos.');
+                break;
+            }
+
+            // Intentar ir a la siguiente página
+            const nextClicked = await page.evaluate((nextNum) => {
+                const elements = Array.from(document.querySelectorAll('button, a, div[role="button"]'));
+                const byNum = elements.find(el =>
+                    el.innerText.trim() === String(nextNum) && !el.disabled && !el.classList.contains('disabled')
+                );
+                if (byNum) { byNum.click(); return true; }
+                const byArrow = elements.find(el => {
+                    if (el.disabled || el.classList.contains('disabled')) return false;
+                    const t = el.innerText.trim().toLowerCase();
+                    const a = (el.getAttribute('aria-label') || '').toLowerCase();
+                    return t === '>' || t === '❯' || t === '»' || t === 'next' || t === 'siguiente' || a.includes('next') || a.includes('siguiente');
+                });
+                if (byArrow) { byArrow.click(); return true; }
+                return false;
+            }, pageNum + 1);
+
+            if (nextClicked) {
+                pageNum++;
+            } else {
+                hasNextPage = false;
+            }
         }
 
         console.log(`   Total productos encontrados: ${productIds.size}`);
