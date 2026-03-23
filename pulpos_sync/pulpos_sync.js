@@ -154,13 +154,48 @@ async function sincronizarInventario(page) {
                 const datos = await page.evaluate(() => {
                     const txt = document.body.innerText;
 
-                    // SKU: buscar label "SKU" seguido del valor
-                    const skuMatch = txt.match(/SKU[:\s]+([A-Z0-9\-\.\/]+)/i);
+                    // SKU: buscar label "SKU" seguido del valor (acepta cualquier carácter hasta fin de línea)
+                    const skuMatch = txt.match(/SKU[:\s]+([^\n\r]+)/i);
                     const sku = skuMatch ? skuMatch[1].trim() : null;
 
-                    // Nombre: primer h1 o h2 que no sea de navegación
-                    const headings = Array.from(document.querySelectorAll('h1, h2, h3'));
-                    const nombre = headings.find(h => h.innerText.trim().length > 2)?.innerText.trim() || '';
+                    // Nombre: múltiples estrategias en orden de prioridad
+                    let nombre = '';
+                    const NAV_WORDS = /^(inventario|productos|inicio|home|volver|atrás|back|menú|menu|buscar|search|norte|sur|agrigarden|guardar|cancelar|editar|eliminar)$/i;
+                    const NAV_PATTERNS = /detalle del producto|agrigarden\s+(norte|sur)|^\s*[\/>\-]\s*$/i;
+
+                    // Estrategia 1: buscar campo "Nombre:" explícito en cualquier parte del texto
+                    const nombreFieldMatch = txt.match(/\bNombre[:\s]+([^\n\r]+)/i);
+                    if (nombreFieldMatch) {
+                        const candidato = nombreFieldMatch[1].trim();
+                        if (candidato.length > 2 && !NAV_PATTERNS.test(candidato) && !NAV_WORDS.test(candidato)) {
+                            nombre = candidato;
+                        }
+                    }
+
+                    // Estrategia 2: texto que aparece JUSTO ANTES del SKU (excluyendo navegación)
+                    if (!nombre && skuMatch) {
+                        const skuIdx = txt.indexOf(skuMatch[0]);
+                        if (skuIdx > 0) {
+                            const linesAntes = txt.slice(0, skuIdx).trim().split('\n')
+                                .map(l => l.trim())
+                                .filter(l => l.length > 2 && !NAV_PATTERNS.test(l) && !NAV_WORDS.test(l));
+                            nombre = linesAntes.at(-1) || '';
+                        }
+                    }
+
+                    // Estrategia 3: encabezados del DOM que no sean navegación
+                    if (!nombre) {
+                        const headings = Array.from(document.querySelectorAll('h1,h2,h3,h4'))
+                            .map(h => h.innerText.trim())
+                            .filter(t => t.length > 2 && !NAV_PATTERNS.test(t) && !NAV_WORDS.test(t));
+                        nombre = headings[0] || '';
+                    }
+
+                    // Estrategia 4: título de la página
+                    if (!nombre) {
+                        const pageTitle = document.title.replace(/\s*[\|–\-]\s*Pulpos.*$/i, '').trim();
+                        if (pageTitle.length > 2 && !/detalle/i.test(pageTitle)) nombre = pageTitle;
+                    }
 
                     // Campos de texto plano
                     const catMatch = txt.match(/Categor[íi]a[:\s]+([^\n]+)/i);
@@ -180,10 +215,13 @@ async function sincronizarInventario(page) {
                     const stockNorte = stockNorteMatch ? parseFloat(stockNorteMatch[1]) : null;
                     const stockSur = stockSurMatch ? parseFloat(stockSurMatch[1]) : null;
 
-                    return { sku, nombre, categoria, marca, precio, costo, stockNorte, stockSur, txtPreview: txt.slice(0, 400) };
+                    return { sku, nombre, categoria, marca, precio, costo, stockNorte, stockSur, txtPreview: txt.slice(0, 1000) };
                 });
 
-                console.log(`[DEBUG inv ${numProd}/${productIds.size}] pulposId=${pulposId} sku=${datos.sku} nombre="${datos.nombre}" N=${datos.stockNorte} S=${datos.stockSur}`);
+                console.log(`[DEBUG inv ${numProd}/${productIds.size}] sku=${datos.sku} nombre="${datos.nombre}" N=${datos.stockNorte} S=${datos.stockSur}`);
+                if (!datos.nombre || /detalle del producto/i.test(datos.nombre)) {
+                    console.log(`   [WARN nombre] txtPreview:\n${datos.txtPreview}`);
+                }
 
                 if (!datos.sku && !datos.nombre) {
                     console.log(`   SKIP: sin SKU ni nombre. Preview:\n${datos.txtPreview}`);
