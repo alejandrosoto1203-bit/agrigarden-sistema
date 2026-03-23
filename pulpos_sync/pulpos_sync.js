@@ -110,7 +110,7 @@ async function sincronizarInventario(page) {
     const logId = logInicio?.id;
 
     try {
-        await page.goto('https://app.pulpos.com/products', { waitUntil: 'domcontentloaded' });
+        await page.goto('https://app.pulpos.com/products', { waitUntil: 'networkidle' });
         await page.waitForTimeout(3000);
 
         const productIds = new Set();
@@ -143,44 +143,64 @@ async function sincronizarInventario(page) {
         let insertados = 0;
         let errores = 0;
 
+        let numProd = 0;
         for (const pulposId of productIds) {
+            numProd++;
             try {
-                await page.goto(`https://app.pulpos.com/products/detail?id=${pulposId}`, { waitUntil: 'domcontentloaded' });
-                await page.waitForTimeout(2000);
+                await page.goto(`https://app.pulpos.com/products/detail?id=${pulposId}`, { waitUntil: 'networkidle' });
+                await page.waitForTimeout(3000);
 
                 const datos = await page.evaluate(() => {
                     const txt = document.body.innerText;
-                    const skuMatch = txt.match(/SKU[:\s]+([A-Z0-9\-]+)/i);
+
+                    // SKU: buscar label "SKU" seguido del valor
+                    const skuMatch = txt.match(/SKU[:\s]+([A-Z0-9\-\.\/]+)/i);
                     const sku = skuMatch ? skuMatch[1].trim() : null;
-                    const nombre = (document.querySelector('h1, h2')?.innerText || '').trim();
+
+                    // Nombre: primer h1 o h2 que no sea de navegación
+                    const headings = Array.from(document.querySelectorAll('h1, h2, h3'));
+                    const nombre = headings.find(h => h.innerText.trim().length > 2)?.innerText.trim() || '';
+
+                    // Campos de texto plano
                     const catMatch = txt.match(/Categor[íi]a[:\s]+([^\n]+)/i);
                     const marcaMatch = txt.match(/Marca[:\s]+([^\n]+)/i);
                     const categoria = catMatch ? catMatch[1].trim() : null;
                     const marca = marcaMatch ? marcaMatch[1].trim() : null;
-                    const precioMatch = txt.match(/Precio de Venta[:\s]+\$([0-9,]+\.?\d*)/i);
+
+                    // Precios
+                    const precioMatch = txt.match(/Precio(?:\s+de\s+Venta)?[:\s]+\$([0-9,]+\.?\d*)/i);
                     const precio = precioMatch ? parseFloat(precioMatch[1].replace(/,/g, '')) : 0;
                     const costoMatch = txt.match(/Costo[:\s]+\$([0-9,]+\.?\d*)/i);
                     const costo = costoMatch ? parseFloat(costoMatch[1].replace(/,/g, '')) : 0;
-                    const stockNorteMatch = txt.match(/Agrigarden\s+Norte[\s\S]{0,200}?(\d+(?:\.\d+)?)\s*(?:pzas?|piezas?|unidades?)/i);
-                    const stockSurMatch = txt.match(/Agrigarden\s+Sur[\s\S]{0,200}?(\d+(?:\.\d+)?)\s*(?:pzas?|piezas?|unidades?)/i);
-                    const allNums = [...txt.matchAll(/(\d+(?:\.\d+)?)\s*(?:pzas?|piezas?)/gi)];
-                    const stockNorte = stockNorteMatch ? parseFloat(stockNorteMatch[1]) : (allNums[0] ? parseFloat(allNums[0][1]) : 0);
-                    const stockSur = stockSurMatch ? parseFloat(stockSurMatch[1]) : (allNums[1] ? parseFloat(allNums[1][1]) : 0);
-                    return { sku, nombre, categoria, marca, precio, costo, stockNorte, stockSur };
+
+                    // Stock por sucursal — busca la sucursal y el número más cercano
+                    const stockNorteMatch = txt.match(/(?:Agrigarden\s+)?Norte[\s\S]{0,300}?(\d+(?:\.\d+)?)\s*(?:pzas?|piezas?|unidades?|pcs?)/i);
+                    const stockSurMatch = txt.match(/(?:Agrigarden\s+)?Sur[\s\S]{0,300}?(\d+(?:\.\d+)?)\s*(?:pzas?|piezas?|unidades?|pcs?)/i);
+                    const stockNorte = stockNorteMatch ? parseFloat(stockNorteMatch[1]) : null;
+                    const stockSur = stockSurMatch ? parseFloat(stockSurMatch[1]) : null;
+
+                    return { sku, nombre, categoria, marca, precio, costo, stockNorte, stockSur, txtPreview: txt.slice(0, 400) };
                 });
 
-                if (!datos.sku && !datos.nombre) { errores++; continue; }
+                console.log(`[DEBUG inv ${numProd}/${productIds.size}] pulposId=${pulposId} sku=${datos.sku} nombre="${datos.nombre}" N=${datos.stockNorte} S=${datos.stockSur}`);
+
+                if (!datos.sku && !datos.nombre) {
+                    console.log(`   SKIP: sin SKU ni nombre. Preview:\n${datos.txtPreview}`);
+                    errores++;
+                    continue;
+                }
 
                 const payload = {
                     pulpos_id: pulposId,
-                    stock_norte: datos.stockNorte,
-                    stock_sur: datos.stockSur,
                     ultima_sync: new Date().toISOString(),
                     ...(datos.nombre && { nombre: datos.nombre.toUpperCase() }),
                     ...(datos.categoria && { categoria: datos.categoria.toUpperCase() }),
                     ...(datos.marca && { marca: datos.marca.toUpperCase() }),
                     ...(datos.precio && { precio_publico: datos.precio }),
-                    ...(datos.costo && { costo: datos.costo })
+                    ...(datos.costo && { costo: datos.costo }),
+                    // Solo actualizar stock si se encontró el valor (no sobreescribir con null)
+                    ...(datos.stockNorte !== null && { stock_norte: datos.stockNorte }),
+                    ...(datos.stockSur !== null && { stock_sur: datos.stockSur }),
                 };
 
                 if (datos.sku) {
@@ -188,17 +208,18 @@ async function sincronizarInventario(page) {
                         .from('productos').select('id').eq('sku', datos.sku.toUpperCase()).maybeSingle();
                     if (existing) {
                         const { error } = await supabase.from('productos').update(payload).eq('sku', datos.sku.toUpperCase());
-                        if (error) { errores++; } else { actualizados++; }
+                        if (error) { console.error(`   DB ERROR update ${datos.sku}:`, error.message); errores++; }
+                        else { actualizados++; console.log(`   UPDATE ${datos.sku}`); }
                     } else {
                         const { error } = await supabase.from('productos').insert({ ...payload, sku: datos.sku.toUpperCase(), activo: true });
-                        if (error) { errores++; } else { insertados++; }
+                        if (error) { console.error(`   DB ERROR insert ${datos.sku}:`, error.message); errores++; }
+                        else { insertados++; console.log(`   INSERT NUEVO ${datos.sku} - "${datos.nombre}"`); }
                     }
                 } else {
                     const { error } = await supabase.from('productos').upsert(payload, { onConflict: 'pulpos_id' });
-                    if (error) { errores++; } else { actualizados++; }
+                    if (error) { console.error(`   DB ERROR upsert ${pulposId}:`, error.message); errores++; }
+                    else { actualizados++; }
                 }
-
-                console.log(`   OK ${datos.sku || pulposId} | N:${datos.stockNorte} S:${datos.stockSur}`);
 
             } catch (e) {
                 console.error(`   ERROR en ${pulposId}: ${e.message}`);
