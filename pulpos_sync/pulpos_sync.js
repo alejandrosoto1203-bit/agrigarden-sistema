@@ -195,8 +195,15 @@ async function sincronizarInventario(page) {
         for (const pulposId of productIds) {
             numProd++;
             try {
-                await page.goto(`https://app.pulpos.com/products/detail?id=${pulposId}`, { waitUntil: 'networkidle' });
-                await page.waitForTimeout(3000);
+                await page.goto(`https://app.pulpos.com/products/detail?id=${pulposId}`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+                await page.waitForTimeout(2000);
+                // Si Pulpos redirigió (ej. ID inválido → vuelve a /products), saltar este producto
+                const finalUrl = page.url();
+                if (!finalUrl.includes('/products/detail')) {
+                    console.log(`   SKIP (redirigido a ${finalUrl}): pulposId=${pulposId}`);
+                    errores++;
+                    continue;
+                }
 
                 const datos = await page.evaluate(() => {
                     const txt = document.body.innerText;
