@@ -110,8 +110,9 @@ async function sincronizarInventario(page) {
     const logId = logInicio?.id;
 
     try {
-        await page.goto('https://app.pulpos.com/products', { waitUntil: 'networkidle' });
-        await page.waitForTimeout(3000);
+        // Lista de productos usa domcontentloaded (scroll infinito nunca alcanza networkidle)
+        await page.goto('https://app.pulpos.com/products', { waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(4000);
 
         const productIds = new Set();
         let sinCambio = 0;
