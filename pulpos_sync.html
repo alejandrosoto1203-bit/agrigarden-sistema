@@ -1109,104 +1109,114 @@
             let exitosas = 0;
             let errores = 0;
 
-            for (const venta of stagingVentas) {
-                // Verificar si ya existe en transacciones
-                const { data: existente } = await sbPulpos
-                    .from('transacciones')
-                    .select('id')
-                    .eq('categoria', venta.numero_venta)
-                    .eq('fuente', 'PULPOS_SYNC')
-                    .maybeSingle();
+            try {
+                for (const venta of stagingVentas) {
+                    // Verificar si ya existe en transacciones
+                    const { data: existente } = await sbPulpos
+                        .from('transacciones')
+                        .select('id')
+                        .eq('categoria', venta.numero_venta)
+                        .eq('fuente', 'PULPOS_SYNC')
+                        .maybeSingle();
 
-                if (existente) { exitosas++; continue; }
+                    if (existente) { exitosas++; continue; }
 
-                const registro = {
-                    created_at: new Date(currentFecha + 'T12:00:00').toISOString(),
-                    categoria: venta.numero_venta,
-                    tipo: 'Venta Directa',
-                    metodo_pago: venta.metodo_pago || 'Otro',
-                    nombre_cliente: venta.nombre_cliente || 'PÚBLICO GENERAL',
-                    monto: venta.monto,
-                    comision_bancaria: 0,
-                    monto_neto: venta.monto,
-                    sucursal: venta.sucursal,
-                    estado_cobro: venta.estado_cobro || 'Pagado',
-                    saldo_pendiente: venta.estado_cobro === 'Pagado' ? 0 : venta.monto,
-                    notas: venta.notas || `Venta Pulpos ${venta.numero_venta}`,
-                    fuente: 'PULPOS_SYNC'
-                };
+                    const registro = {
+                        created_at: new Date(currentFecha + 'T12:00:00').toISOString(),
+                        categoria: venta.numero_venta,
+                        tipo: 'Venta Directa',
+                        metodo_pago: venta.metodo_pago || 'Otro',
+                        nombre_cliente: venta.nombre_cliente || 'PÚBLICO GENERAL',
+                        monto: venta.monto,
+                        comision_bancaria: 0,
+                        monto_neto: venta.monto,
+                        sucursal: venta.sucursal,
+                        estado_cobro: venta.estado_cobro || 'Pagado',
+                        saldo_pendiente: venta.estado_cobro === 'Pagado' ? 0 : venta.monto,
+                        notas: venta.notas || `Venta Pulpos ${venta.numero_venta}`,
+                        fuente: 'PULPOS_SYNC'
+                    };
 
-                const { data: txnData, error } = await sbPulpos.from('transacciones').insert(registro).select('id').single();
-                if (error) {
-                    console.error(`Error en ${venta.numero_venta}:`, error.message);
-                    errores++;
-                } else {
-                    // Insertar ítems en venta_items y descontar stock
-                    const itemsVenta = stagingItemsMap[venta.id] || [];
-                    const sucursalNorm = (venta.sucursal || '').includes('Sur') ? 'Sur' : 'Norte';
-                    const stockCol = sucursalNorm === 'Sur' ? 'stock_sur' : 'stock_norte';
+                    const { data: txnData, error } = await sbPulpos.from('transacciones').insert(registro).select('id').single();
+                    if (error) {
+                        console.error(`Error en ${venta.numero_venta}:`, error.message);
+                        errores++;
+                    } else {
+                        // Insertar ítems en venta_items y descontar stock
+                        const itemsVenta = stagingItemsMap[venta.id] || [];
+                        const sucursalNorm = (venta.sucursal || '').includes('Sur') ? 'Sur' : 'Norte';
+                        const stockCol = sucursalNorm === 'Sur' ? 'stock_sur' : 'stock_norte';
 
-                    for (const item of itemsVenta) {
-                        if (item.match_status === 'ignorado') continue;
+                        for (const item of itemsVenta) {
+                            if (item.match_status === 'ignorado') continue;
 
-                        // Insertar en venta_items
-                        await sbPulpos.from('venta_items').insert({
-                            transaccion_id: txnData.id,
-                            producto_id: item.producto_id || null,
-                            producto_nombre: item.producto_nombre || item.nombre_pulpos,
-                            producto_sku: item.sku_pulpos,
-                            cantidad: item.cantidad,
-                            precio_unitario: item.precio_unitario,
-                            subtotal: item.subtotal,
-                            total: item.subtotal
-                        });
+                            // Insertar en venta_items
+                            const { error: errItem } = await sbPulpos.from('venta_items').insert({
+                                transaccion_id: txnData.id,
+                                producto_id: item.producto_id || null,
+                                producto_nombre: item.producto_nombre || item.nombre_pulpos,
+                                producto_sku: item.sku_pulpos,
+                                cantidad: item.cantidad,
+                                precio_unitario: item.precio_unitario,
+                                subtotal: item.subtotal,
+                                total: item.subtotal
+                            });
+                            if (errItem) console.warn(`venta_items error (${venta.numero_venta}):`, errItem.message);
 
-                        // Descontar stock si el producto está ligado
-                        if (item.producto_id) {
-                            const { data: prod } = await sbPulpos.from('productos')
-                                .select(`id, ${stockCol}`)
-                                .eq('id', item.producto_id).single();
-                            if (prod) {
-                                const stockAnterior = prod[stockCol] || 0;
-                                const stockNuevo = Math.max(0, stockAnterior - item.cantidad);
-                                await sbPulpos.from('productos')
-                                    .update({ [stockCol]: stockNuevo })
-                                    .eq('id', item.producto_id);
-                                await sbPulpos.from('movimientos_stock').insert({
-                                    producto_id: item.producto_id,
-                                    sucursal: sucursalNorm,
-                                    tipo: 'VENTA',
-                                    cantidad: item.cantidad,
-                                    stock_anterior: stockAnterior,
-                                    stock_nuevo: stockNuevo,
-                                    referencia: `PULPOS_SYNC ${venta.numero_venta}`
-                                });
+                            // Descontar stock si el producto está ligado
+                            if (item.producto_id) {
+                                const { data: prod } = await sbPulpos.from('productos')
+                                    .select(`id, ${stockCol}`)
+                                    .eq('id', item.producto_id).single();
+                                if (prod) {
+                                    const stockAnterior = prod[stockCol] || 0;
+                                    const stockNuevo = Math.max(0, stockAnterior - item.cantidad);
+                                    await sbPulpos.from('productos')
+                                        .update({ [stockCol]: stockNuevo })
+                                        .eq('id', item.producto_id);
+                                    await sbPulpos.from('movimientos_stock').insert({
+                                        producto_id: item.producto_id,
+                                        sucursal: sucursalNorm,
+                                        tipo: 'VENTA',
+                                        cantidad: item.cantidad,
+                                        stock_anterior: stockAnterior,
+                                        stock_nuevo: stockNuevo,
+                                        referencia: `PULPOS_SYNC ${venta.numero_venta}`
+                                    });
+                                }
                             }
+
+                            // Marcar ítem como confirmado
+                            await sbPulpos.from('pulpos_sync_staging_items').update({ confirmado: true }).eq('id', item.id);
                         }
 
-                        // Marcar ítem como confirmado
-                        await sbPulpos.from('pulpos_sync_staging_items').update({ confirmado: true }).eq('id', item.id);
+                        // Marcar venta como confirmada en staging
+                        await sbPulpos.from('pulpos_sync_staging').update({ confirmado: true }).eq('id', venta.id);
+                        exitosas++;
                     }
-
-                    // Marcar venta como confirmada en staging
-                    await sbPulpos.from('pulpos_sync_staging').update({ confirmado: true }).eq('id', venta.id);
-                    exitosas++;
                 }
-            }
 
-            // Actualizar log
-            if (currentLogId) {
-                await sbPulpos.from('pulpos_sync_log').update({
-                    estado: 'completado',
-                    ventas_importadas: exitosas,
-                    mensaje: `${exitosas} ventas confirmadas a Ingresos`
-                }).eq('id', currentLogId);
-            }
+                // Actualizar log
+                if (currentLogId) {
+                    await sbPulpos.from('pulpos_sync_log').update({
+                        estado: 'completado',
+                        ventas_importadas: exitosas,
+                        mensaje: `${exitosas} ventas confirmadas a Ingresos`
+                    }).eq('id', currentLogId);
+                }
 
-            document.getElementById('modalRevision').classList.add('hidden');
-            mostrarExito(exitosas, errores);
-            await cargarHistorial();
-            resetPanel();
+                document.getElementById('modalRevision').classList.add('hidden');
+                mostrarExito(exitosas, errores);
+                await cargarHistorial();
+                resetPanel();
+
+            } catch (e) {
+                console.error('confirmarSync error:', e);
+                alert(`Error al guardar: ${e.message}\n\nRevisa la consola del navegador para más detalles.`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span class="material-symbols-outlined text-sm">check_circle</span> Confirmar todo → Ingresos`;
+            }
         }
 
         async function cancelarSync() {
