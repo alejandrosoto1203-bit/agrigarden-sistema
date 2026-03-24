@@ -750,6 +750,7 @@
         // MODAL DE REVISIÓN
         // =====================================================
         async function abrirModalRevision(fecha) {
+            currentFecha = fecha;   // asegurar que confirmarSync() use la fecha correcta
             const { data: ventas } = await sbPulpos
                 .from('pulpos_sync_staging')
                 .select('*')
@@ -1238,6 +1239,7 @@
         let stagingClientes = [];
 
         async function abrirModalRevisionClientes(fecha) {
+            currentFecha = fecha;   // asegurar que confirmarSyncClientes() use la fecha correcta
             const { data: clientes } = await sbPulpos
                 .from('clientes_staging')
                 .select('*')
