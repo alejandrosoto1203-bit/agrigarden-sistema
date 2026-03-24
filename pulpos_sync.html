@@ -668,9 +668,9 @@
                     return;
                 }
 
-                if (intentos >= 60) {
+                if (intentos >= 180) {
                     clearInterval(timerInterval);
-                    mostrarError('Tiempo de espera agotado (10 min). Revisa GitHub Actions para más detalles.');
+                    mostrarError('Tiempo de espera agotado (30 min). Revisa GitHub Actions para más detalles.');
                     return;
                 }
                 setTimeout(poll, 10000);
