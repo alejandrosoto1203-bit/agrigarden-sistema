@@ -669,6 +669,9 @@ async function cargarConfigEfectivoUI() {
         if (data && data.value) {
             document.getElementById('saldoInicialNorte').value = data.value.saldo_inicial_norte || 0;
             document.getElementById('saldoInicialSur').value = data.value.saldo_inicial_sur || 0;
+            if (document.getElementById('fechaInicioCaja')) {
+                document.getElementById('fechaInicioCaja').value = data.value.fecha_inicio || '';
+            }
 
             // Global Update
             if (window.CONFIG_NEGOCIO) {
@@ -683,11 +686,13 @@ window.guardarConfigEfectivo = async function () {
     const client = getClient();
     const saldoNorte = parseFloat(document.getElementById('saldoInicialNorte').value) || 0;
     const saldoSur = parseFloat(document.getElementById('saldoInicialSur').value) || 0;
+    const fechaInicio = document.getElementById('fechaInicioCaja')?.value || null;
 
     try {
         const payload = {
             saldo_inicial_norte: saldoNorte,
             saldo_inicial_sur: saldoSur,
+            fecha_inicio: fechaInicio || null,
             updated_at: new Date().toISOString()
         };
 
