@@ -62,10 +62,26 @@
             </div>
         </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:p-8">
+        <!-- FILTRO SUCURSAL -->
+        <div class="flex items-center gap-3">
+            <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Vista:</span>
+            <div class="flex bg-gray-100 rounded-xl p-1 gap-1">
+                <button id="filtro_ambas" onclick="filtrarVistaSucursal('ambas')"
+                    class="filtro-btn px-4 py-1.5 rounded-lg text-xs font-black uppercase transition-all"
+                    style="background:#111827;color:#fff;">Ambas</button>
+                <button id="filtro_norte" onclick="filtrarVistaSucursal('norte')"
+                    class="filtro-btn px-4 py-1.5 rounded-lg text-xs font-black uppercase transition-all"
+                    style="color:#6b7280;">Norte</button>
+                <button id="filtro_sur" onclick="filtrarVistaSucursal('sur')"
+                    class="filtro-btn px-4 py-1.5 rounded-lg text-xs font-black uppercase transition-all"
+                    style="color:#6b7280;">Sur</button>
+            </div>
+        </div>
+
+        <div id="gridSucursales" class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:p-8">
 
             <!-- COLUMNA NORTE -->
-            <div class="space-y-6">
+            <div id="colNorte" class="space-y-6">
                 <div class="flex items-center gap-2 mb-2">
                     <div class="w-3 h-3 rounded-full bg-blue-500"></div>
                     <h2 class="text-xl font-black text-blue-900 uppercase tracking-tight">Sucursal Norte</h2>
@@ -103,13 +119,14 @@
                                 <tr>
                                     <th class="px-4 py-3">Fecha</th>
                                     <th class="px-4 py-3">Concepto</th>
+                                    <th class="px-4 py-3">TXN #</th>
                                     <th class="px-4 py-3 text-right">Monto</th>
                                     <th class="px-4 py-3 text-right">Saldo</th>
                                 </tr>
                             </thead>
                             <tbody id="tablaMovimientos_Norte" class="divide-y divide-gray-50 text-xs">
                                 <tr>
-                                    <td colspan="4" class="p-6 text-center text-gray-300 italic">Cargando...</td>
+                                    <td colspan="5" class="p-6 text-center text-gray-300 italic">Cargando...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -118,7 +135,7 @@
             </div>
 
             <!-- COLUMNA SUR -->
-            <div class="space-y-6">
+            <div id="colSur" class="space-y-6">
                 <div class="flex items-center gap-2 mb-2">
                     <div class="w-3 h-3 rounded-full bg-green-500"></div>
                     <h2 class="text-xl font-black text-green-900 uppercase tracking-tight">Sucursal Sur</h2>
@@ -156,13 +173,14 @@
                                 <tr>
                                     <th class="px-4 py-3">Fecha</th>
                                     <th class="px-4 py-3">Concepto</th>
+                                    <th class="px-4 py-3">TXN #</th>
                                     <th class="px-4 py-3 text-right">Monto</th>
                                     <th class="px-4 py-3 text-right">Saldo</th>
                                 </tr>
                             </thead>
                             <tbody id="tablaMovimientos_Sur" class="divide-y divide-gray-50 text-xs">
                                 <tr>
-                                    <td colspan="4" class="p-6 text-center text-gray-300 italic">Cargando...</td>
+                                    <td colspan="5" class="p-6 text-center text-gray-300 italic">Cargando...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -181,9 +199,36 @@
         <script src="auth.js"></script>
         <script src="menu.js"></script>
         <script src="configuracion.js"></script> <!-- Reutilizamos lógica de config -->
-        <script src="control_efectivo.js?v=5"></script>
+        <script src="control_efectivo.js?v=6"></script>
         <script src="traspasos.js"></script>
         <script>
+            window.filtrarVistaSucursal = function(modo) {
+                const colNorte = document.getElementById('colNorte');
+                const colSur = document.getElementById('colSur');
+                const grid = document.getElementById('gridSucursales');
+
+                document.querySelectorAll('.filtro-btn').forEach(btn => {
+                    btn.style.background = '';
+                    btn.style.color = '#6b7280';
+                });
+                const activeBtn = document.getElementById('filtro_' + modo);
+                if (activeBtn) { activeBtn.style.background = '#111827'; activeBtn.style.color = '#fff'; }
+
+                if (modo === 'norte') {
+                    colNorte.style.display = '';
+                    colSur.style.display = 'none';
+                    grid.className = grid.className.replace('lg:grid-cols-2', 'lg:grid-cols-1');
+                } else if (modo === 'sur') {
+                    colNorte.style.display = 'none';
+                    colSur.style.display = '';
+                    grid.className = grid.className.replace('lg:grid-cols-2', 'lg:grid-cols-1');
+                } else {
+                    colNorte.style.display = '';
+                    colSur.style.display = '';
+                    grid.className = grid.className.replace('lg:grid-cols-1', 'lg:grid-cols-2');
+                }
+            };
+
             document.addEventListener('DOMContentLoaded', () => {
                 try {
                     if (typeof inyectarMenu === 'function') inyectarMenu('efectivo');

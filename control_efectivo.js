@@ -35,8 +35,8 @@ window.cargarControlEfectivo = async function () {
     const tablaNorte = document.getElementById('tablaMovimientos_Norte');
     const tablaSur = document.getElementById('tablaMovimientos_Sur');
 
-    if (tablaNorte) tablaNorte.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-400 italic animate-pulse">Cargando...</td></tr>';
-    if (tablaSur) tablaSur.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-400 italic animate-pulse">Cargando...</td></tr>';
+    if (tablaNorte) tablaNorte.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-400 italic animate-pulse">Cargando...</td></tr>';
+    if (tablaSur) tablaSur.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-400 italic animate-pulse">Cargando...</td></tr>';
 
     // DYNAMIC CONFIG FROM GLOBAL SCOPE (Defined in config.js/api.js)
     const API_URL = window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co';
@@ -105,7 +105,7 @@ window.cargarControlEfectivo = async function () {
 
         // Process Transactions (Ingresos)
         efTxs.forEach(t => {
-            const row = { id: t.id, sourceType: 'transaccion', date: new Date(t.created_at), type: 'ENTRADA', amount: t.monto || 0, concept: t.nombre_cliente || 'Venta', sucursal: t.sucursal || 'Norte' };
+            const row = { id: t.id, sourceType: 'transaccion', date: new Date(t.created_at), type: 'ENTRADA', amount: t.monto || 0, concept: t.nombre_cliente || 'Venta', txn: t.categoria || '', sucursal: t.sucursal || 'Norte' };
             if (row.sucursal === 'Norte' || row.sucursal === 'Matriz') rowsNorte.push(row);
             if (row.sucursal === 'Sur') rowsSur.push(row);
         });
@@ -131,7 +131,7 @@ window.cargarControlEfectivo = async function () {
 
             if (!tableEl) return;
             if (rows.length === 0) {
-                tableEl.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-300 italic">Sin movimientos</td></tr>';
+                tableEl.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-300 italic">Sin movimientos</td></tr>';
                 return;
             }
 
@@ -167,7 +167,7 @@ window.cargarControlEfectivo = async function () {
                 const cierreColor = group.cierre < 0 ? 'text-red-600' : 'text-gray-800';
 
                 html += `<tr class="bg-blue-50/40 border-t-2 border-blue-100">
-                    <td colspan="4" class="px-4 py-2">
+                    <td colspan="5" class="px-4 py-2">
                         <div class="flex justify-between items-center flex-wrap gap-2">
                             <span class="font-black text-[10px] uppercase text-blue-700 tracking-widest">${monthLabel}</span>
                             <div class="flex gap-4 text-[10px] font-bold">
@@ -188,6 +188,7 @@ window.cargarControlEfectivo = async function () {
                     html += `<tr class="border-b border-gray-50 hover:bg-yellow-50/50 cursor-pointer transition-colors" onclick="window.open('${linkUrl}', '_blank')">
                         <td class="px-4 py-3 font-bold text-gray-600">${r.date.toLocaleDateString()}</td>
                         <td class="px-4 py-3 uppercase text-gray-800 font-bold max-w-[150px] truncate">${r.concept}</td>
+                        <td class="px-4 py-3 font-mono text-[10px] text-gray-400">${r.txn || '—'}</td>
                         <td class="px-4 py-3 text-right font-black ${r.type === 'ENTRADA' ? 'text-green-600' : 'text-red-600'}">
                             ${r.type === 'SALIDA' ? '-' : '+'}$${r.amount.toLocaleString('es-MX')}
                         </td>
