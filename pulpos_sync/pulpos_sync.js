@@ -111,7 +111,7 @@ async function sincronizarInventario(page) {
 
     try {
         // Lista de productos usa domcontentloaded (scroll infinito nunca alcanza networkidle)
-        await page.goto('https://app.pulpos.com/products', { waitUntil: 'domcontentloaded' });
+        await page.goto('https://app.pulpos.com/products', { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForTimeout(4000);
 
         // Función para extraer product IDs de la página actual

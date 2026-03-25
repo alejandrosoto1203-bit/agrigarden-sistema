@@ -438,6 +438,7 @@
         // Estado del sync actual
         let currentFecha = '';
         let currentLogId = null;
+        let syncStartTime = null;
         let stagingVentas = [];
         let stagingItemsMap = {};    // { staging_id: [ item, ... ] }
         let productosCache = [];     // cache para búsqueda de productos al ligar
@@ -572,6 +573,7 @@
             }
 
             currentFecha = fecha || new Date().toISOString().split('T')[0];
+            syncStartTime = new Date().toISOString();
             document.getElementById('panelConfig').classList.add('hidden');
             document.getElementById('panelProgreso').classList.remove('hidden');
 
@@ -652,12 +654,13 @@
                     return;
                 }
 
-                // También escuchar 'error'
+                // También escuchar 'error' — solo errores de esta corrida (creados después de syncStartTime)
                 const { data: logError } = await sbPulpos
                     .from('pulpos_sync_log')
                     .select('*')
                     .eq('fecha_sync', fecha)
                     .eq('estado', 'error')
+                    .gte('created_at', syncStartTime)
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .maybeSingle();
