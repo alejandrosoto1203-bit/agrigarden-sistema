@@ -202,6 +202,12 @@ window.cargarControlEfectivo = async function () {
         processBranch(rowsNorte, saldoNorte, 'Norte');
         processBranch(rowsSur, saldoSur, 'Sur');
 
+        // Guardar datos para exportación Excel
+        window._efectivoData = {
+            Norte: { rows: rowsNorte, saldoInicial: saldoNorte },
+            Sur: { rows: rowsSur, saldoInicial: saldoSur }
+        };
+
         logMsg("Proceso Finalizado Exitosamente (Norte & Sur).");
 
     } catch (e) {
@@ -302,4 +308,238 @@ window.ejecutarTraspasoEfectivo = async function () {
     cerrarModalTraspaso();
     alert(`✅ Traspaso registrado: $${monto.toLocaleString('es-MX')} de ${origen} → ${destino}`);
     cargarControlEfectivo();
+};
+
+// =====================================================
+// EXPORTAR EXCEL POR SUCURSAL
+// =====================================================
+window.descargarExcelSucursal = async function (sucursal) {
+    if (typeof ExcelJS === 'undefined') {
+        alert('La librería de Excel aún no ha cargado. Espera unos segundos e intenta de nuevo.');
+        return;
+    }
+    const data = window._efectivoData && window._efectivoData[sucursal];
+    if (!data) {
+        alert('Los datos no están disponibles todavía. Espera a que cargue el reporte.');
+        return;
+    }
+
+    const { rows, saldoInicial } = data;
+    const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    const WB = new ExcelJS.Workbook();
+    WB.creator = 'Agrigarden Financial Systems';
+    WB.created = new Date();
+
+    const WS = WB.addWorksheet(`Efectivo ${sucursal}`, {
+        pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+    });
+
+    WS.columns = [
+        { key: 'a', width: 13 },
+        { key: 'b', width: 33 },
+        { key: 'c', width: 13 },
+        { key: 'd', width: 11 },
+        { key: 'e', width: 19 },
+        { key: 'f', width: 19 },
+    ];
+
+    const fillRow = (row, argb) => {
+        for (let c = 1; c <= 6; c++) row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
+    };
+
+    // ── FILA 1: TÍTULO PRINCIPAL ────────────────────────────────────
+    WS.mergeCells('A1:F1');
+    WS.getRow(1).height = 38;
+    const c1 = WS.getCell('A1');
+    c1.value = '  AGRIGARDEN  —  CONTROL DE EFECTIVO';
+    c1.font = { name: 'Calibri', size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
+    c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF111827' } };
+    c1.alignment = { vertical: 'middle', horizontal: 'left' };
+
+    // ── FILA 2: SUBTÍTULO ───────────────────────────────────────────
+    WS.getRow(2).height = 24;
+    WS.mergeCells('A2:C2');
+    const c2a = WS.getCell('A2');
+    c2a.value = `  SUCURSAL ${sucursal.toUpperCase()}`;
+    c2a.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF1e3a8a' } };
+    c2a.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFdbeafe' } };
+    c2a.alignment = { vertical: 'middle', horizontal: 'left' };
+    WS.mergeCells('D2:F2');
+    const c2d = WS.getCell('D2');
+    c2d.value = `Generado: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}  `;
+    c2d.font = { name: 'Calibri', size: 9, color: { argb: 'FF4b5563' } };
+    c2d.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFdbeafe' } };
+    c2d.alignment = { vertical: 'middle', horizontal: 'right' };
+
+    // ── FILA 3: SEPARADOR ───────────────────────────────────────────
+    WS.getRow(3).height = 10;
+    fillRow(WS.getRow(3), 'FFFFFFFF');
+
+    // ── FILAS 4-6: RESUMEN KPI ──────────────────────────────────────
+    const entradas = rows.filter(r => r.type === 'ENTRADA').reduce((a, b) => a + b.amount, 0);
+    const salidas = rows.filter(r => r.type === 'SALIDA').reduce((a, b) => a + b.amount, 0);
+    const disponible = saldoInicial + entradas - salidas;
+
+    WS.mergeCells('A4:F4');
+    WS.getRow(4).height = 18;
+    const c4 = WS.getCell('A4');
+    c4.value = '  RESUMEN DE CAJA';
+    c4.font = { name: 'Calibri', size: 8, bold: true, color: { argb: 'FF6b7280' } };
+    c4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFf3f4f6' } };
+    c4.alignment = { vertical: 'middle', horizontal: 'left' };
+    c4.border = { top: { style: 'thin', color: { argb: 'FFe5e7eb' } } };
+
+    const r5 = WS.getRow(5);
+    r5.height = 16;
+    [['Saldo Inicial', 1], ['', 2], ['Total Entradas', 3], ['', 4], ['Total Salidas', 5], ['Disponible Real', 6]].forEach(([label, col]) => {
+        const cell = r5.getCell(col);
+        cell.value = label;
+        cell.font = { name: 'Calibri', size: 7, bold: true, color: { argb: 'FF9ca3af' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFf9fafb' } };
+        cell.alignment = { vertical: 'middle', horizontal: col === 6 ? 'right' : 'left', indent: 1 };
+    });
+
+    const r6 = WS.getRow(6);
+    r6.height = 30;
+    [[1, saldoInicial, 'FF374151'], [3, entradas, 'FF16a34a'], [5, salidas, 'FFdc2626'], [6, disponible, disponible < 0 ? 'FFdc2626' : 'FF16a34a']].forEach(([col, val, argb]) => {
+        const cell = r6.getCell(col);
+        cell.value = val;
+        cell.numFmt = '"$"#,##0.00';
+        cell.font = { name: 'Calibri', size: 15, bold: true, color: { argb } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFf9fafb' } };
+        cell.alignment = { vertical: 'middle', horizontal: col === 6 ? 'right' : 'left', indent: 1 };
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FFe5e7eb' } } };
+    });
+    [2, 4].forEach(col => {
+        const cell = r6.getCell(col);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFf9fafb' } };
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FFe5e7eb' } } };
+    });
+
+    // ── FILA 7: SEPARADOR ───────────────────────────────────────────
+    WS.getRow(7).height = 10;
+    fillRow(WS.getRow(7), 'FFFFFFFF');
+
+    // ── FILA 8: ENCABEZADOS DE COLUMNA ──────────────────────────────
+    const r8 = WS.getRow(8);
+    r8.height = 22;
+    const colHeaders = ['FECHA', 'CONCEPTO / CLIENTE', 'TXN #', 'TIPO', 'MONTO', 'SALDO'];
+    const colAligns = ['left', 'left', 'left', 'center', 'right', 'right'];
+    colHeaders.forEach((label, i) => {
+        const cell = r8.getCell(i + 1);
+        cell.value = label;
+        cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1f2937' } };
+        cell.alignment = { vertical: 'middle', horizontal: colAligns[i], indent: 1 };
+    });
+
+    // Congelar desde la fila 9
+    WS.views = [{ state: 'frozen', ySplit: 8 }];
+
+    // ── RECALCULAR SALDOS Y AGRUPAR POR MES ─────────────────────────
+    const rowsAsc = [...rows].sort((a, b) => a.date - b.date);
+    let runBalance = saldoInicial;
+    rowsAsc.forEach(r => {
+        runBalance += r.type === 'ENTRADA' ? r.amount : -r.amount;
+        r.saldo = runBalance;
+    });
+    const monthGroups = {};
+    rowsAsc.forEach(r => {
+        const key = `${r.date.getFullYear()}-${String(r.date.getMonth() + 1).padStart(2, '0')}`;
+        if (!monthGroups[key]) monthGroups[key] = { rows: [], apertura: 0, cierre: 0 };
+        monthGroups[key].rows.push(r);
+        monthGroups[key].cierre = r.saldo;
+    });
+    let prevCierre = saldoInicial;
+    Object.keys(monthGroups).sort().forEach(key => {
+        monthGroups[key].apertura = prevCierre;
+        prevCierre = monthGroups[key].cierre;
+    });
+
+    // ── FILAS DE DATOS ───────────────────────────────────────────────
+    let rowIdx = 9;
+    let alt = false;
+
+    Object.keys(monthGroups).sort().reverse().forEach(key => {
+        const group = monthGroups[key];
+        const [year, month] = key.split('-');
+        const monthLabel = `  ${MESES[parseInt(month) - 1].toUpperCase()} ${year}`;
+
+        // Cabecera de mes
+        const mNum = rowIdx++;
+        WS.mergeCells(`A${mNum}:D${mNum}`);
+        const mRow = WS.getRow(mNum);
+        mRow.height = 19;
+
+        const mA = WS.getCell(`A${mNum}`);
+        mA.value = monthLabel;
+        mA.font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FF1e40af' } };
+        mA.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFdbeafe' } };
+        mA.alignment = { vertical: 'middle', horizontal: 'left' };
+        mA.border = { top: { style: 'thin', color: { argb: 'FFbfdbfe' } }, bottom: { style: 'thin', color: { argb: 'FFbfdbfe' } } };
+
+        const mE = WS.getCell(`E${mNum}`);
+        mE.value = `Apertura  $${group.apertura.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+        mE.font = { name: 'Calibri', size: 8, color: { argb: 'FF4b5563' } };
+        mE.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFdbeafe' } };
+        mE.alignment = { vertical: 'middle', horizontal: 'right' };
+        mE.border = { top: { style: 'thin', color: { argb: 'FFbfdbfe' } }, bottom: { style: 'thin', color: { argb: 'FFbfdbfe' } } };
+
+        const mF = WS.getCell(`F${mNum}`);
+        mF.value = `Cierre  $${group.cierre.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+        mF.font = { name: 'Calibri', size: 8, bold: true, color: { argb: group.cierre < 0 ? 'FFdc2626' : 'FF374151' } };
+        mF.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFdbeafe' } };
+        mF.alignment = { vertical: 'middle', horizontal: 'right' };
+        mF.border = { top: { style: 'thin', color: { argb: 'FFbfdbfe' } }, bottom: { style: 'thin', color: { argb: 'FFbfdbfe' } } };
+
+        // Filas de transacciones (más reciente primero)
+        [...group.rows].sort((a, b) => b.date - a.date).forEach(r => {
+            alt = !alt;
+            const bg = alt ? 'FFFFFFFF' : 'FFfafafa';
+            const tNum = rowIdx++;
+            const tRow = WS.getRow(tNum);
+            tRow.height = 17;
+
+            const set = (col, value, font = {}, align = {}, numFmt = null) => {
+                const cell = tRow.getCell(col);
+                cell.value = value;
+                cell.font = { name: 'Calibri', size: 9, ...font };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+                cell.alignment = { vertical: 'middle', ...align };
+                cell.border = { bottom: { style: 'hair', color: { argb: 'FFe5e7eb' } } };
+                if (numFmt) cell.numFmt = numFmt;
+            };
+
+            set(1, r.date, { color: { argb: 'FF6b7280' } }, { horizontal: 'left', indent: 1 }, 'DD/MM/YYYY');
+            set(2, (r.concept || '').toUpperCase(), { bold: true, color: { argb: 'FF111827' } }, { horizontal: 'left', indent: 1 });
+            set(3, r.txn || '', { name: 'Courier New', size: 8, color: { argb: 'FF6b7280' } }, { horizontal: 'left', indent: 1 });
+            set(4, r.type, { bold: true, size: 8, color: { argb: r.type === 'ENTRADA' ? 'FF16a34a' : 'FFdc2626' } }, { horizontal: 'center' });
+            set(5, r.type === 'SALIDA' ? -r.amount : r.amount, { bold: true, color: { argb: r.type === 'ENTRADA' ? 'FF16a34a' : 'FFdc2626' } }, { horizontal: 'right', indent: 1 }, '"$"#,##0.00');
+            set(6, r.saldo, { bold: true, color: { argb: r.saldo < 0 ? 'FFdc2626' : 'FF374151' } }, { horizontal: 'right', indent: 1 }, '"$"#,##0.00');
+        });
+    });
+
+    // ── PIE DE PÁGINA ────────────────────────────────────────────────
+    const footerNum = rowIdx + 1;
+    WS.mergeCells(`A${footerNum}:F${footerNum}`);
+    WS.getRow(footerNum).height = 16;
+    const footerCell = WS.getCell(`A${footerNum}`);
+    footerCell.value = `  © ${new Date().getFullYear()} Agrigarden Financial Systems — ${new Date().toLocaleDateString('es-MX')}`;
+    footerCell.font = { name: 'Calibri', size: 8, italic: true, color: { argb: 'FF9ca3af' } };
+    footerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFf9fafb' } };
+    footerCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    footerCell.border = { top: { style: 'thin', color: { argb: 'FFe5e7eb' } } };
+
+    // ── DESCARGAR ────────────────────────────────────────────────────
+    const buffer = await WB.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Agrigarden_Efectivo_${sucursal}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 };

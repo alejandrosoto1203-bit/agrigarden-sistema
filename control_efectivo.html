@@ -109,8 +109,12 @@
 
                 <!-- TABLA NORTE -->
                 <div class="card overflow-hidden shadow-sm">
-                    <div class="p-4 border-b border-gray-100 bg-blue-50/10">
+                    <div class="p-4 border-b border-gray-100 bg-blue-50/10 flex justify-between items-center">
                         <h3 class="font-bold text-gray-700 uppercase text-xs tracking-wide">Movimientos Norte</h3>
+                        <button onclick="descargarExcelSucursal('Norte')"
+                            class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-all shadow-sm">
+                            <span class="material-symbols-outlined" style="font-size:14px;">download</span> Excel
+                        </button>
                     </div>
                     <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
                         <table class="w-full text-left">
@@ -163,8 +167,12 @@
 
                 <!-- TABLA SUR -->
                 <div class="card overflow-hidden shadow-sm">
-                    <div class="p-4 border-b border-gray-100 bg-green-50/10">
+                    <div class="p-4 border-b border-gray-100 bg-green-50/10 flex justify-between items-center">
                         <h3 class="font-bold text-gray-700 uppercase text-xs tracking-wide">Movimientos Sur</h3>
+                        <button onclick="descargarExcelSucursal('Sur')"
+                            class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-all shadow-sm">
+                            <span class="material-symbols-outlined" style="font-size:14px;">download</span> Excel
+                        </button>
                     </div>
                     <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
                         <table class="w-full text-left">
@@ -199,7 +207,8 @@
         <script src="auth.js"></script>
         <script src="menu.js"></script>
         <script src="configuracion.js"></script> <!-- Reutilizamos lógica de config -->
-        <script src="control_efectivo.js?v=6"></script>
+        <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+        <script src="control_efectivo.js?v=7"></script>
         <script src="traspasos.js"></script>
         <script>
             window.filtrarVistaSucursal = function(modo) {
