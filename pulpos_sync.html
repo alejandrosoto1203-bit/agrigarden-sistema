@@ -1597,7 +1597,6 @@
             btn.disabled = false;
             const label = MODO_CONFIG[modoActual]?.label || 'Sincronizar';
             btn.innerHTML = `<span class="material-symbols-outlined text-base">sync</span> ${label}`;
-            document.getElementById('btnSincronizarLabel').textContent = label;
             for (let i = 1; i <= 4; i++) {
                 const c = document.getElementById(`step${i}`), ic = document.getElementById(`step${i}-icon`);
                 if (c) c.className = 'step-card border border-gray-100 rounded-xl p-4 flex items-center gap-3';
