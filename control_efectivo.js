@@ -185,7 +185,7 @@ window.cargarControlEfectivo = async function () {
                         : `gastos.html?highlight=${r.id}`;
                     const saldoColor = r.saldo < 0 ? 'text-red-500' : 'text-gray-500';
 
-                    html += `<tr class="border-b border-gray-50 hover:bg-yellow-50/50 cursor-pointer transition-colors" onclick="window.location.href='${linkUrl}'">
+                    html += `<tr class="border-b border-gray-50 hover:bg-yellow-50/50 cursor-pointer transition-colors" onclick="window.open('${linkUrl}', '_blank')">
                         <td class="px-4 py-3 font-bold text-gray-600">${r.date.toLocaleDateString()}</td>
                         <td class="px-4 py-3 uppercase text-gray-800 font-bold max-w-[150px] truncate">${r.concept}</td>
                         <td class="px-4 py-3 text-right font-black ${r.type === 'ENTRADA' ? 'text-green-600' : 'text-red-600'}">
