@@ -130,6 +130,7 @@ function renderizarTablaGastos(datos) {
 
             const filaId = `fila-${principal.id}`;
             const fila = document.createElement('tr');
+            fila.id = `gasto_${principal.id}`;
             fila.className = "hover:bg-gray-50/80 transition-all border-b border-gray-50 font-bold group";
 
             fila.innerHTML = `
@@ -205,6 +206,17 @@ function renderizarTablaGastos(datos) {
     if (elN) elN.textContent = formatMoney(totalNorteVal);
     if (elG) elG.textContent = formatMoney(totalGen);
     if (elT) elT.textContent = totalTxn.toLocaleString('es-MX') + ' reg.';
+
+    // Highlight desde URL (?highlight=ID)
+    const highlightId = new URLSearchParams(window.location.search).get('highlight');
+    if (highlightId) {
+        const targetRow = document.getElementById(`gasto_${highlightId}`);
+        if (targetRow) {
+            targetRow.style.background = '#fef9c3';
+            targetRow.style.outline = '2px solid #eab308';
+            setTimeout(() => targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+        }
+    }
 }
 
 

@@ -35,8 +35,8 @@ window.cargarControlEfectivo = async function () {
     const tablaNorte = document.getElementById('tablaMovimientos_Norte');
     const tablaSur = document.getElementById('tablaMovimientos_Sur');
 
-    if (tablaNorte) tablaNorte.innerHTML = '<tr><td colspan="3" class="p-6 text-center text-gray-400 italic animate-pulse">Cargando...</td></tr>';
-    if (tablaSur) tablaSur.innerHTML = '<tr><td colspan="3" class="p-6 text-center text-gray-400 italic animate-pulse">Cargando...</td></tr>';
+    if (tablaNorte) tablaNorte.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-400 italic animate-pulse">Cargando...</td></tr>';
+    if (tablaSur) tablaSur.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-400 italic animate-pulse">Cargando...</td></tr>';
 
     // DYNAMIC CONFIG FROM GLOBAL SCOPE (Defined in config.js/api.js)
     const API_URL = window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co';
@@ -105,23 +105,21 @@ window.cargarControlEfectivo = async function () {
 
         // Process Transactions (Ingresos)
         efTxs.forEach(t => {
-            const row = { date: new Date(t.created_at), type: 'ENTRADA', amount: t.monto || 0, concept: t.nombre_cliente || 'Venta', sucursal: t.sucursal || 'Norte' };
+            const row = { id: t.id, sourceType: 'transaccion', date: new Date(t.created_at), type: 'ENTRADA', amount: t.monto || 0, concept: t.nombre_cliente || 'Venta', sucursal: t.sucursal || 'Norte' };
             if (row.sucursal === 'Norte' || row.sucursal === 'Matriz') rowsNorte.push(row);
             if (row.sucursal === 'Sur') rowsSur.push(row);
         });
 
         // Process Expenses (Gastos)
         efGxs.forEach(g => {
-            const row = { date: new Date(g.created_at), type: 'SALIDA', amount: g.monto_total || 0, concept: g.proveedor || 'Gasto', sucursal: g.sucursal || 'Norte' };
+            const row = { id: g.id, sourceType: 'gasto', date: new Date(g.created_at), type: 'SALIDA', amount: g.monto_total || 0, concept: g.proveedor || 'Gasto', sucursal: g.sucursal || 'Norte' };
             if (row.sucursal === 'Norte' || row.sucursal === 'Matriz') rowsNorte.push(row);
             if (row.sucursal === 'Sur') rowsSur.push(row);
         });
 
-        // SORT
-        rowsNorte.sort((a, b) => b.date - a.date);
-        rowsSur.sort((a, b) => b.date - a.date);
-
         // RENDER & CALC FUNCTION
+        const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
         const processBranch = (rows, saldoInicial, suffix) => {
             const inTotal = rows.filter(r => r.type === 'ENTRADA').reduce((a, b) => a + b.amount, 0);
             const outTotal = rows.filter(r => r.type === 'SALIDA').reduce((a, b) => a + b.amount, 0);
@@ -131,21 +129,73 @@ window.cargarControlEfectivo = async function () {
             if (document.getElementById(`kpiSalidas_${suffix}`)) document.getElementById(`kpiSalidas_${suffix}`).innerText = `$${outTotal.toLocaleString('es-MX')}`;
             if (document.getElementById(`kpiDisponible_${suffix}`)) document.getElementById(`kpiDisponible_${suffix}`).innerText = `$${(saldoInicial + inTotal - outTotal).toLocaleString('es-MX')}`;
 
-            if (tableEl) {
-                if (rows.length === 0) {
-                    tableEl.innerHTML = '<tr><td colspan="3" class="p-6 text-center text-gray-300 italic">Sin movimientos</td></tr>';
-                } else {
-                    tableEl.innerHTML = rows.map(r => `
-                        <tr class="border-b border-gray-50 hover:bg-gray-50">
-                            <td class="px-4 py-3 font-bold text-gray-600">${r.date.toLocaleDateString()}</td>
-                            <td class="px-4 py-3 uppercase text-gray-800 font-bold max-w-[150px] truncate">${r.concept}</td>
-                            <td class="px-4 py-3 text-right font-black ${r.type === 'ENTRADA' ? 'text-green-600' : 'text-red-600'}">
-                                ${r.type === 'SALIDA' ? '-' : '+'}$${r.amount.toLocaleString('es-MX')}
-                            </td>
-                        </tr>
-                    `).join('');
-                }
+            if (!tableEl) return;
+            if (rows.length === 0) {
+                tableEl.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-300 italic">Sin movimientos</td></tr>';
+                return;
             }
+
+            // 1. Calcular saldo acumulado en orden ascendente
+            const rowsAsc = [...rows].sort((a, b) => a.date - b.date);
+            let runBalance = saldoInicial;
+            rowsAsc.forEach(r => {
+                runBalance += r.type === 'ENTRADA' ? r.amount : -r.amount;
+                r.saldo = runBalance;
+            });
+
+            // 2. Agrupar por mes y calcular apertura/cierre
+            const monthGroups = {};
+            rowsAsc.forEach(r => {
+                const key = `${r.date.getFullYear()}-${String(r.date.getMonth() + 1).padStart(2, '0')}`;
+                if (!monthGroups[key]) monthGroups[key] = { rows: [], apertura: 0, cierre: 0 };
+                monthGroups[key].rows.push(r);
+                monthGroups[key].cierre = r.saldo;
+            });
+
+            let prevCierre = saldoInicial;
+            Object.keys(monthGroups).sort().forEach(key => {
+                monthGroups[key].apertura = prevCierre;
+                prevCierre = monthGroups[key].cierre;
+            });
+
+            // 3. Renderizar (meses más recientes primero)
+            let html = '';
+            Object.keys(monthGroups).sort().reverse().forEach(key => {
+                const group = monthGroups[key];
+                const [year, month] = key.split('-');
+                const monthLabel = `${MESES[parseInt(month) - 1]} ${year}`;
+                const cierreColor = group.cierre < 0 ? 'text-red-600' : 'text-gray-800';
+
+                html += `<tr class="bg-blue-50/40 border-t-2 border-blue-100">
+                    <td colspan="4" class="px-4 py-2">
+                        <div class="flex justify-between items-center flex-wrap gap-2">
+                            <span class="font-black text-[10px] uppercase text-blue-700 tracking-widest">${monthLabel}</span>
+                            <div class="flex gap-4 text-[10px] font-bold">
+                                <span class="text-gray-400">Apertura: <span class="text-gray-600">$${group.apertura.toLocaleString('es-MX')}</span></span>
+                                <span class="text-gray-400">Cierre: <span class="${cierreColor}">$${group.cierre.toLocaleString('es-MX')}</span></span>
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
+
+                const rowsDesc = [...group.rows].sort((a, b) => b.date - a.date);
+                rowsDesc.forEach(r => {
+                    const linkUrl = r.sourceType === 'transaccion'
+                        ? `ingresos.html?highlight=${r.id}`
+                        : `gastos.html?highlight=${r.id}`;
+                    const saldoColor = r.saldo < 0 ? 'text-red-500' : 'text-gray-500';
+
+                    html += `<tr class="border-b border-gray-50 hover:bg-yellow-50/50 cursor-pointer transition-colors" onclick="window.location.href='${linkUrl}'">
+                        <td class="px-4 py-3 font-bold text-gray-600">${r.date.toLocaleDateString()}</td>
+                        <td class="px-4 py-3 uppercase text-gray-800 font-bold max-w-[150px] truncate">${r.concept}</td>
+                        <td class="px-4 py-3 text-right font-black ${r.type === 'ENTRADA' ? 'text-green-600' : 'text-red-600'}">
+                            ${r.type === 'SALIDA' ? '-' : '+'}$${r.amount.toLocaleString('es-MX')}
+                        </td>
+                        <td class="px-4 py-3 text-right font-bold ${saldoColor}">$${r.saldo.toLocaleString('es-MX')}</td>
+                    </tr>`;
+                });
+            });
+            tableEl.innerHTML = html;
         };
 
         processBranch(rowsNorte, saldoNorte, 'Norte');

@@ -186,7 +186,7 @@ function renderizarTablaIngresos(datos) {
         const esReparacion = item.notas?.startsWith('Reparación') || item.orden_reparacion_id;
 
         return `
-            <tr class="hover:bg-gray-50/80 transition-all border-b border-gray-50 font-bold ${esAbono ? 'bg-purple-50/30' : ''} ${esReparacion ? 'border-l-4 border-l-amber-400' : ''}">
+            <tr id="txn_${item.id}" class="hover:bg-gray-50/80 transition-all border-b border-gray-50 font-bold ${esAbono ? 'bg-purple-50/30' : ''} ${esReparacion ? 'border-l-4 border-l-amber-400' : ''}">
                 <td class="px-4 py-3 text-gray-600">${fecha}</td>
                 <td class="px-4 py-3 text-center text-xs text-gray-400 font-mono">${(item.categoria || 'S/N').replace(/^#+/, '#')}</td>
                 <td class="px-4 py-3 text-center">
@@ -244,6 +244,17 @@ function renderizarTablaIngresos(datos) {
     if (elNorte) elNorte.textContent = formatMoney(totalNorteAll);
     if (elGen) elGen.textContent = formatMoney(totalGeneral);
     if (elTxn) elTxn.textContent = txnTotal.toLocaleString('es-MX') + ' reg.';
+
+    // Highlight desde URL (?highlight=ID)
+    const highlightId = new URLSearchParams(window.location.search).get('highlight');
+    if (highlightId) {
+        const targetRow = document.getElementById(`txn_${highlightId}`);
+        if (targetRow) {
+            targetRow.style.background = '#fef9c3';
+            targetRow.style.outline = '2px solid #eab308';
+            setTimeout(() => targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+        }
+    }
 }
 
 // 2. EDICIÓN Y ELIMINACIÓN (CORREGIDO)
