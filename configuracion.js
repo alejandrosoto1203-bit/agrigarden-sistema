@@ -967,7 +967,7 @@ window.guardarConfigCuentas = async function () {
     const i = (id) => parseInt(document.getElementById(id).value) || 0;
 
     const payload = {
-        fecha_inicio: '2026-03-01',
+        fecha_inicio: '2026-04-01',
         bbva_norte:        { saldo_inicial: n('cfg_bbva_norte_saldo') },
         hey_banco_sur:     { saldo_inicial: n('cfg_hey_banco_sur_saldo') },
         bbva_sur:          { saldo_inicial: n('cfg_bbva_sur_saldo') },

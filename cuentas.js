@@ -2,7 +2,7 @@
 // Hardcoded PROD credentials for reliability
 const SB_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
-const FECHA_INICIO = '2026-03-01';
+const FECHA_INICIO = '2026-04-01';
 
 // ============================================================
 // DEFINICIÓN DE CUENTAS
