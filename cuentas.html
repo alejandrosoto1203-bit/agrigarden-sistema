@@ -111,6 +111,47 @@
     </main>
 
     <!-- ================================================
+         MODAL: DETALLE DE MOVIMIENTOS DE CUENTA
+         ================================================ -->
+    <div id="modalDetalleCuenta" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[110] flex items-end lg:items-center justify-center p-0 lg:p-6">
+        <div class="bg-white w-full lg:max-w-4xl h-[92vh] lg:h-[88vh] rounded-t-3xl lg:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+
+            <!-- Header -->
+            <div class="px-6 pt-6 pb-4 flex justify-between items-start border-b border-gray-100 shrink-0">
+                <div>
+                    <h3 class="text-xl font-black" id="detalleNombre">—</h3>
+                    <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5" id="detalleBanco">—</p>
+                </div>
+                <button onclick="cerrarDetalleCuenta()" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <!-- KPIs mini -->
+            <div id="detalleKPIs" class="px-6 py-3 border-b border-gray-100 flex gap-6 shrink-0 overflow-x-auto">
+            </div>
+
+            <!-- Tabla de movimientos -->
+            <div class="flex-1 overflow-y-auto">
+                <table class="w-full text-sm">
+                    <thead class="sticky top-0 bg-gray-50 z-10 border-b border-gray-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-[10px] font-black uppercase text-gray-400 tracking-widest whitespace-nowrap">Fecha</th>
+                            <th class="px-4 py-3 text-left text-[10px] font-black uppercase text-gray-400 tracking-widest">Concepto</th>
+                            <th class="px-4 py-3 text-left text-[10px] font-black uppercase text-gray-400 tracking-widest">Tipo</th>
+                            <th class="px-4 py-3 text-right text-[10px] font-black uppercase text-gray-400 tracking-widest">Monto</th>
+                            <th class="px-4 py-3 text-right text-[10px] font-black uppercase text-gray-400 tracking-widest">Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detalleTabla">
+                        <tr><td colspan="5" class="p-10 text-center text-gray-300 italic">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================
          MODAL: TRASPASO ENTRE CUENTAS
          ================================================ -->
     <div id="modalTraspaso" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
@@ -207,12 +248,15 @@
     <script src="permisos.js"></script>
     <script src="auth.js"></script>
     <script src="menu.js"></script>
-    <script src="cuentas.js?v=1"></script>
+    <script src="cuentas.js?v=2"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             inyectarMenu('cuentas');
 
             // Cerrar modales al click fuera
+            document.getElementById('modalDetalleCuenta').addEventListener('click', (e) => {
+                if (e.target.id === 'modalDetalleCuenta') cerrarDetalleCuenta();
+            });
             document.getElementById('modalTraspaso').addEventListener('click', (e) => {
                 if (e.target.id === 'modalTraspaso') cerrarModalTraspaso();
             });
