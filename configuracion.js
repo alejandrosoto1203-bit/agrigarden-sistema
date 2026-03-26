@@ -918,3 +918,85 @@ window.toggleVendedor = async function (id, estadoActual) {
         alert('Error: ' + e.message);
     }
 }
+
+
+// ---------------------------
+// 7. CUENTAS BANCARIAS
+// ---------------------------
+async function cargarConfigCuentasUI() {
+    try {
+        const client = getClient();
+        if (!client) return;
+
+        const { data, error } = await client
+            .from('sys_config')
+            .select('value')
+            .eq('key', 'banking_accounts_config')
+            .maybeSingle();
+
+        if (error) throw error;
+        const v = data?.value || {};
+
+        // Cuentas regulares
+        document.getElementById('cfg_bbva_norte_saldo').value    = v.bbva_norte?.saldo_inicial ?? '';
+        document.getElementById('cfg_hey_banco_sur_saldo').value = v.hey_banco_sur?.saldo_inicial ?? '';
+        document.getElementById('cfg_bbva_sur_saldo').value      = v.bbva_sur?.saldo_inicial ?? '';
+        document.getElementById('cfg_mp_nofiscal_saldo').value   = v.mp_nofiscal_norte?.saldo_inicial ?? '';
+        document.getElementById('cfg_mp_fiscal_saldo').value     = v.mp_fiscal_norte?.saldo_inicial ?? '';
+
+        // TDC BBVA
+        document.getElementById('cfg_tdc_bbva_limite').value       = v.tdc_bbva?.limite ?? '';
+        document.getElementById('cfg_tdc_bbva_saldo_inicio').value = v.tdc_bbva?.saldo_inicio ?? '';
+        document.getElementById('cfg_tdc_bbva_dia_corte').value    = v.tdc_bbva?.dia_corte ?? '';
+        document.getElementById('cfg_tdc_bbva_dias_pago').value    = v.tdc_bbva?.dias_pago ?? '';
+
+        // TDC Hey Banco
+        document.getElementById('cfg_tdc_hey_limite').value       = v.tdc_hey?.limite ?? '';
+        document.getElementById('cfg_tdc_hey_saldo_inicio').value = v.tdc_hey?.saldo_inicio ?? '';
+        document.getElementById('cfg_tdc_hey_dia_corte').value    = v.tdc_hey?.dia_corte ?? '';
+        document.getElementById('cfg_tdc_hey_dias_pago').value    = v.tdc_hey?.dias_pago ?? '';
+
+    } catch (e) { console.error('Error cargando config cuentas:', e); }
+}
+
+window.guardarConfigCuentas = async function () {
+    const client = getClient();
+    if (!client) return alert('Error de conexión');
+
+    const n = (id) => parseFloat(document.getElementById(id).value) || 0;
+    const i = (id) => parseInt(document.getElementById(id).value) || 0;
+
+    const payload = {
+        fecha_inicio: '2026-03-01',
+        bbva_norte:        { saldo_inicial: n('cfg_bbva_norte_saldo') },
+        hey_banco_sur:     { saldo_inicial: n('cfg_hey_banco_sur_saldo') },
+        bbva_sur:          { saldo_inicial: n('cfg_bbva_sur_saldo') },
+        mp_nofiscal_norte: { saldo_inicial: n('cfg_mp_nofiscal_saldo') },
+        mp_fiscal_norte:   { saldo_inicial: n('cfg_mp_fiscal_saldo') },
+        tdc_bbva: {
+            limite:       n('cfg_tdc_bbva_limite'),
+            saldo_inicio: n('cfg_tdc_bbva_saldo_inicio'),
+            dia_corte:    i('cfg_tdc_bbva_dia_corte'),
+            dias_pago:    i('cfg_tdc_bbva_dias_pago')
+        },
+        tdc_hey: {
+            limite:       n('cfg_tdc_hey_limite'),
+            saldo_inicio: n('cfg_tdc_hey_saldo_inicio'),
+            dia_corte:    i('cfg_tdc_hey_dia_corte'),
+            dias_pago:    i('cfg_tdc_hey_dias_pago')
+        },
+        updated_at: new Date().toISOString()
+    };
+
+    try {
+        const { error } = await client
+            .from('sys_config')
+            .upsert({ key: 'banking_accounts_config', value: payload });
+
+        if (error) throw error;
+        alert('Configuración de cuentas guardada correctamente.');
+    } catch (e) {
+        console.error(e);
+        alert('Error al guardar: ' + e.message);
+    }
+}

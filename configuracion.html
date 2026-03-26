@@ -97,6 +97,10 @@
                 class="tab-btn px-6 py-2 rounded-lg text-sm font-bold text-gray-400 hover:text-black transition-all">
                 Vendedores
             </button>
+            <button onclick="switchTab('cuentas')" id="tab-cuentas"
+                class="tab-btn px-6 py-2 rounded-lg text-sm font-bold text-gray-400 hover:text-black transition-all">
+                Cuentas Bancarias
+            </button>
         </div>
 
         <!-- COMISIONES / MÉTODOS DE PAGO -->
@@ -329,6 +333,102 @@
             </div>
         </div>
 
+        <!-- CUENTAS BANCARIAS -->
+        <div id="content-cuentas" class="tab-content space-y-6 max-w-3xl">
+            <div class="bg-white p-4 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-xl font-bold mb-1">Configuración de Cuentas Bancarias</h3>
+                <p class="text-xs text-gray-400 mb-6">Saldos iniciales al 1 de marzo de 2026. Solo se contarán movimientos a partir de esa fecha.</p>
+
+                <!-- Cuentas regulares -->
+                <div class="mb-8">
+                    <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4">Cuentas y Billeteras</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="p-4 rounded-xl border border-blue-100 bg-blue-50/30">
+                            <p class="text-xs font-black text-blue-700 uppercase mb-2">BBVA Norte</p>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Saldo Inicial ($)</label>
+                            <input type="number" id="cfg_bbva_norte_saldo" class="input-config" placeholder="0.00" step="0.01">
+                        </div>
+                        <div class="p-4 rounded-xl border border-purple-100 bg-purple-50/30">
+                            <p class="text-xs font-black text-purple-700 uppercase mb-2">Hey Banco Sur</p>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Saldo Inicial ($)</label>
+                            <input type="number" id="cfg_hey_banco_sur_saldo" class="input-config" placeholder="0.00" step="0.01">
+                        </div>
+                        <div class="p-4 rounded-xl border border-blue-100 bg-blue-50/30">
+                            <p class="text-xs font-black text-blue-700 uppercase mb-2">BBVA Sur</p>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Saldo Inicial ($)</label>
+                            <input type="number" id="cfg_bbva_sur_saldo" class="input-config" placeholder="0.00" step="0.01">
+                        </div>
+                        <div class="p-4 rounded-xl border border-cyan-100 bg-cyan-50/30">
+                            <p class="text-xs font-black text-cyan-700 uppercase mb-2">Mercado Pago No Fiscal Norte</p>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Saldo Inicial ($)</label>
+                            <input type="number" id="cfg_mp_nofiscal_saldo" class="input-config" placeholder="0.00" step="0.01">
+                        </div>
+                        <div class="p-4 rounded-xl border border-cyan-100 bg-cyan-50/30">
+                            <p class="text-xs font-black text-cyan-700 uppercase mb-2">Mercado Pago Fiscal Norte</p>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Saldo Inicial ($)</label>
+                            <input type="number" id="cfg_mp_fiscal_saldo" class="input-config" placeholder="0.00" step="0.01">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjetas de crédito -->
+                <div class="mb-8">
+                    <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4">Tarjetas de Crédito</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- TDC BBVA -->
+                        <div class="p-4 rounded-xl border border-red-100 bg-red-50/20 space-y-3">
+                            <p class="text-xs font-black text-red-700 uppercase">Tarjeta de Crédito BBVA</p>
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Límite de Crédito ($)</label>
+                                <input type="number" id="cfg_tdc_bbva_limite" class="input-config" placeholder="0.00" step="0.01">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Saldo Gastado al 1 Mar ($)</label>
+                                <input type="number" id="cfg_tdc_bbva_saldo_inicio" class="input-config" placeholder="0.00" step="0.01">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Día de Corte</label>
+                                    <input type="number" id="cfg_tdc_bbva_dia_corte" class="input-config" placeholder="1" min="1" max="31">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Días para Pagar</label>
+                                    <input type="number" id="cfg_tdc_bbva_dias_pago" class="input-config" placeholder="20" min="1" max="60">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- TDC Hey Banco -->
+                        <div class="p-4 rounded-xl border border-red-100 bg-red-50/20 space-y-3">
+                            <p class="text-xs font-black text-red-700 uppercase">Tarjeta de Crédito Hey Banco</p>
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Límite de Crédito ($)</label>
+                                <input type="number" id="cfg_tdc_hey_limite" class="input-config" placeholder="0.00" step="0.01">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Saldo Gastado al 1 Mar ($)</label>
+                                <input type="number" id="cfg_tdc_hey_saldo_inicio" class="input-config" placeholder="0.00" step="0.01">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Día de Corte</label>
+                                    <input type="number" id="cfg_tdc_hey_dia_corte" class="input-config" placeholder="1" min="1" max="31">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Días para Pagar</label>
+                                    <input type="number" id="cfg_tdc_hey_dias_pago" class="input-config" placeholder="20" min="1" max="60">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="guardarConfigCuentas()"
+                    class="bg-black text-white px-6 py-3 rounded-xl text-xs font-bold uppercase hover:bg-gray-800 transition-colors w-full shadow-lg">
+                    Guardar Configuración de Cuentas
+                </button>
+            </div>
+        </div>
+
     </main>
 
     <!-- MODAL USUARIO -->
@@ -446,7 +546,7 @@
     <script src="permisos.js"></script>
     <script src="auth.js"></script>
     <script src="menu.js"></script>
-    <script src="configuracion.js"></script>
+    <script src="configuracion.js?v=2"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             inyectarMenu('configuracion');
@@ -470,6 +570,7 @@
                 if (tabId === 'efectivo') cargarConfigEfectivoUI();
                 if (tabId === 'mecanicos') cargarMecanicosUI();
                 if (tabId === 'vendedores') cargarVendedoresUI();
+                if (tabId === 'cuentas') cargarConfigCuentasUI();
             }
 
             // Init Default

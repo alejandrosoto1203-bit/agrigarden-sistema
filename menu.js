@@ -50,6 +50,7 @@ function inyectarMenu(paginaActiva) {
         },
         { id: 'flotilla', nombre: 'Control de Flotillas', icon: 'directions_car', link: 'flotilla.html' },
         { id: 'efectivo', nombre: 'Control de Efectivo', icon: 'local_atm', link: 'control_efectivo.html' },
+        { id: 'cuentas', nombre: 'Cuentas Bancarias', icon: 'account_balance_wallet', link: 'cuentas.html' },
         { id: 'estado_resultados', nombre: 'Estado de Resultados', icon: 'trending_up', link: 'estado_resultados.html' },
         { id: 'reportes', nombre: 'Reportes', icon: 'bar_chart', link: 'reportes.html' },
         { id: 'ventas_analytics', nombre: 'Análisis de Ventas', icon: 'analytics', link: 'ventas_analytics.html' },

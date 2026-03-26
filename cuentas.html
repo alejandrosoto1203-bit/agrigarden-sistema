@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <script src="config.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuentas Bancarias | Agrigarden</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #FAFAFA; color: #1e293b; }
+        h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; }
+
+        .cuenta-card {
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .cuenta-card:hover {
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+            transform: translateY(-1px);
+        }
+
+        .input-modal {
+            width: 100%;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 0.6rem 0.75rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            background: white;
+        }
+        .input-modal:focus {
+            outline: none;
+            border-color: black;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 0.5rem;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .badge-tipo {
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+
+<body class="flex h-screen overflow-hidden">
+
+    <div id="sidebar-container"></div>
+
+    <main class="pt-20 lg:pt-0 flex-1 p-4 lg:p-10 space-y-8 min-w-0 overflow-y-auto">
+
+        <!-- HEADER -->
+        <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-4xl font-extrabold tracking-tight italic uppercase">Cuentas Bancarias</h1>
+                <p class="text-gray-400 font-medium">Saldos y movimientos desde el 1 de marzo 2026.</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="abrirModalTraspaso()"
+                    class="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase hover:bg-gray-800 transition-colors">
+                    <span class="material-symbols-outlined text-sm">swap_horiz</span> Traspaso
+                </button>
+                <button onclick="cargarDatos()"
+                    class="flex items-center gap-2 bg-white border border-gray-200 text-gray-600 px-5 py-2.5 rounded-xl text-xs font-bold uppercase hover:bg-gray-50 transition-colors">
+                    <span class="material-symbols-outlined text-sm">refresh</span> Actualizar
+                </button>
+            </div>
+        </header>
+
+        <!-- RESUMEN KPI -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="kpiSection">
+            <div class="skeleton h-20"></div>
+            <div class="skeleton h-20"></div>
+            <div class="skeleton h-20"></div>
+            <div class="skeleton h-20"></div>
+        </div>
+
+        <!-- CUENTAS REGULARES -->
+        <section>
+            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4">Cuentas y Billeteras</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" id="gridCuentas">
+                <div class="skeleton h-40"></div>
+                <div class="skeleton h-40"></div>
+                <div class="skeleton h-40"></div>
+            </div>
+        </section>
+
+        <!-- TARJETAS DE CRÉDITO -->
+        <section>
+            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4">Tarjetas de Crédito</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5" id="gridTarjetas">
+                <div class="skeleton h-56"></div>
+                <div class="skeleton h-56"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ================================================
+         MODAL: TRASPASO ENTRE CUENTAS
+         ================================================ -->
+    <div id="modalTraspaso" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+            <div class="p-6 pb-4 flex justify-between items-start border-b border-gray-100">
+                <div>
+                    <h3 class="text-xl font-bold">Traspaso entre Cuentas</h3>
+                    <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Mover dinero entre cuentas bancarias</p>
+                </div>
+                <button onclick="cerrarModalTraspaso()" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Cuenta Origen</label>
+                    <select id="traspasoOrigen" class="input-modal">
+                        <option value="">Seleccionar...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Cuenta Destino</label>
+                    <select id="traspasoDestino" class="input-modal">
+                        <option value="">Seleccionar...</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Monto ($)</label>
+                        <input type="number" id="traspasoMonto" class="input-modal" placeholder="0.00" min="0.01" step="0.01">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Fecha</label>
+                        <input type="date" id="traspasoFecha" class="input-modal">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Notas (opcional)</label>
+                    <input type="text" id="traspasoNotas" class="input-modal" placeholder="Descripción del traspaso...">
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="cerrarModalTraspaso()" class="flex-1 py-3 text-gray-400 font-bold text-xs uppercase hover:bg-gray-50 rounded-xl border border-gray-200">Cancelar</button>
+                    <button onclick="guardarTraspaso()" class="flex-1 py-3 bg-black text-white font-bold text-xs uppercase rounded-xl hover:bg-gray-800">Registrar Traspaso</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================
+         MODAL: PAGO TARJETA DE CRÉDITO
+         ================================================ -->
+    <div id="modalPagoTDC" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+            <div class="p-6 pb-4 flex justify-between items-start border-b border-gray-100">
+                <div>
+                    <h3 class="text-xl font-bold">Pagar Tarjeta de Crédito</h3>
+                    <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1" id="subtitlePagoTDC">—</p>
+                </div>
+                <button onclick="cerrarModalPagoTDC()" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="pagoTarjetaKey">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Cuenta que Realiza el Pago</label>
+                    <select id="pagoCuentaOrigen" class="input-modal">
+                        <option value="">Seleccionar cuenta...</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Monto ($)</label>
+                        <input type="number" id="pagoMonto" class="input-modal" placeholder="0.00" min="0.01" step="0.01">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Fecha</label>
+                        <input type="date" id="pagoFecha" class="input-modal">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Notas (opcional)</label>
+                    <input type="text" id="pagoNotas" class="input-modal" placeholder="Ej: Pago mínimo, Pago total...">
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="cerrarModalPagoTDC()" class="flex-1 py-3 text-gray-400 font-bold text-xs uppercase hover:bg-gray-50 rounded-xl border border-gray-200">Cancelar</button>
+                    <button onclick="guardarPagoTDC()" class="flex-1 py-3 bg-red-600 text-white font-bold text-xs uppercase rounded-xl hover:bg-red-700">Registrar Pago</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js?v=5"></script>
+    <script src="permisos.js"></script>
+    <script src="auth.js"></script>
+    <script src="menu.js"></script>
+    <script src="cuentas.js?v=1"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            inyectarMenu('cuentas');
+
+            // Cerrar modales al click fuera
+            document.getElementById('modalTraspaso').addEventListener('click', (e) => {
+                if (e.target.id === 'modalTraspaso') cerrarModalTraspaso();
+            });
+            document.getElementById('modalPagoTDC').addEventListener('click', (e) => {
+                if (e.target.id === 'modalPagoTDC') cerrarModalPagoTDC();
+            });
+
+            cargarDatos();
+        });
+    </script>
+</body>
+</html>
