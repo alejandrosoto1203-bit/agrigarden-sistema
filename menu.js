@@ -151,8 +151,8 @@ function inyectarMenu(paginaActiva) {
              class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden backdrop-blur-sm transition-opacity opacity-0"></div>
 
         <!-- Sidebar -->
-        <aside id="app-sidebar" 
-               class="w-64 bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 left-0 z-50 transform -translate-x-full lg:translate-x-0 lg:static lg:inset-auto lg:transform-none transition-transform duration-300 shadow-2xl lg:shadow-none">
+        <aside id="app-sidebar"
+               class="w-64 bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 left-0 z-50 transform -translate-x-full lg:translate-x-0 lg:static lg:inset-auto lg:transform-none lg:h-screen transition-transform duration-300 shadow-2xl lg:shadow-none">
             
             <div class="p-6 border-b border-gray-100 flex items-center justify-between h-20 lg:h-auto">
                 <div class="flex items-center gap-3">
