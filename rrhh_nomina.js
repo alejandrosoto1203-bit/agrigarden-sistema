@@ -830,7 +830,8 @@ async function confirmarDisersionPagos() {
                 monto_total: efectivo,
                 sucursal: sucursalEfectivoPago,
                 notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (${pInicio} AL ${pFin}) ABONO #${abonoNum} (EFECTIVO) ID: ${id} | ${obs}`,
-                estado_pago: 'Pagado'
+                estado_pago: 'Pagado',
+                saldo_pendiente: 0
             });
         }
 
@@ -844,7 +845,8 @@ async function confirmarDisersionPagos() {
                 monto_total: transfer,
                 sucursal: sucursalTransfer,
                 notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (${pInicio} AL ${pFin}) ABONO #${abonoNum} (TRANSF ${cuentaInfo?.nombre || ''}) ID: ${id} | ${obs}`,
-                estado_pago: 'Pagado'
+                estado_pago: 'Pagado',
+                saldo_pendiente: 0
             });
         }
     }
@@ -883,10 +885,24 @@ async function confirmarDisersionPagos() {
             if (errAbono) console.error("Error insertando abono_nomina:", errAbono);
         }
 
-        // B. Insertar Gastos
+        // B. Insertar Gastos (fetch directo para evitar diferencias con RLS del cliente JS)
         if (gastosPayload.length > 0) {
-            const { error: errGasto } = await sbClient.from('gastos').insert(gastosPayload);
-            if (errGasto) console.error("Error insertando gastos:", errGasto);
+            const SB_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+            const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+            const resGasto = await fetch(`${SB_URL}/rest/v1/gastos`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SB_KEY,
+                    'Authorization': `Bearer ${SB_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify(gastosPayload)
+            });
+            if (!resGasto.ok) {
+                const errBody = await resGasto.text();
+                throw new Error(`Error insertando gastos (${resGasto.status}): ${errBody}`);
+            }
         }
 
         // C. Registrar abonos de préstamos y actualizar saldos
