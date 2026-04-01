@@ -710,11 +710,11 @@ function prepararEdicion(emp) {
 
 // ---- MÓDULO PRÉSTAMOS A EMPLEADOS ----
 const CUENTAS_PRESTAMO = [
-    { key: 'bbva_norte', nombre: 'BBVA Norte' },
-    { key: 'hey_banco_sur', nombre: 'Hey Banco Sur' },
-    { key: 'bbva_sur', nombre: 'BBVA Sur' },
-    { key: 'mp_nofiscal_norte', nombre: 'Mercado Pago No Fiscal' },
-    { key: 'mp_fiscal_norte', nombre: 'Mercado Pago Fiscal' }
+    { key: 'bbva_norte',       nombre: 'BBVA Norte',              metodo_pago: 'Transferencia BBVA NORTE' },
+    { key: 'hey_banco_sur',    nombre: 'Hey Banco Sur',           metodo_pago: 'Transferencia HEY BANCO SUR' },
+    { key: 'bbva_sur',         nombre: 'BBVA Sur',                metodo_pago: 'Terminal BBVA Pyme Sur' },
+    { key: 'mp_nofiscal_norte',nombre: 'Mercado Pago No Fiscal',  metodo_pago: 'Terminal MERCADO PAGO NO FISCAL NORTE' },
+    { key: 'mp_fiscal_norte',  nombre: 'Mercado Pago Fiscal',     metodo_pago: 'Terminal Mercado Pago Fiscal Norte' }
 ];
 
 async function renderizarModuloPrestamosEmpleado(emp) {
