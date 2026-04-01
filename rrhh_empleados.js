@@ -1012,24 +1012,41 @@ async function guardarNuevoPrestamo(empleadoId) {
 }
 
 async function cancelarPrestamo(prestamoId) {
-    if (!confirm("¿Cancelar este préstamo? El saldo pendiente quedará como cancelado y dejará de descontarse en nómina.")) return;
+    if (!confirm("¿Cancelar este préstamo? Se eliminará el gasto registrado y el dinero regresará a la cuenta de origen.")) return;
 
     const sbUrl = window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co';
     const sbKey = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+    const hdrs = { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`, 'Content-Type': 'application/json' };
 
     try {
-        const res = await fetch(`${sbUrl}/rest/v1/prestamos_empleados?id=eq.${prestamoId}`, {
+        // 1. Obtener el préstamo para saber el empleado y fecha
+        const resPrest = await fetch(`${sbUrl}/rest/v1/prestamos_empleados?id=eq.${prestamoId}&select=empleado_id,fecha_otorgamiento`, { headers: hdrs });
+        const [prestamo] = await resPrest.json();
+        if (!prestamo) throw new Error('Préstamo no encontrado.');
+
+        // 2. Obtener nombre del empleado (para encontrar los gastos)
+        const resEmp = await fetch(`${sbUrl}/rest/v1/empleados?id=eq.${prestamo.empleado_id}&select=nombre_completo`, { headers: hdrs });
+        const [emp] = await resEmp.json();
+        if (!emp) throw new Error('Empleado no encontrado.');
+
+        const proveedor = emp.nombre_completo.toUpperCase();
+        const fechaInicio = `${prestamo.fecha_otorgamiento}T00:00:00`;
+        const fechaFin    = `${prestamo.fecha_otorgamiento}T23:59:59`;
+
+        // 3. Eliminar los gastos del préstamo (restaura saldo en cuentas bancarias)
+        await fetch(
+            `${sbUrl}/rest/v1/gastos?subcategoria=eq.PRESTAMO EMPLEADO&proveedor=eq.${encodeURIComponent(proveedor)}&created_at=gte.${fechaInicio}&created_at=lte.${fechaFin}`,
+            { method: 'DELETE', headers: hdrs }
+        );
+
+        // 4. Marcar préstamo como cancelado
+        await fetch(`${sbUrl}/rest/v1/prestamos_empleados?id=eq.${prestamoId}`, {
             method: 'PATCH',
-            headers: {
-                'apikey': sbKey,
-                'Authorization': `Bearer ${sbKey}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
-            },
+            headers: { ...hdrs, 'Prefer': 'return=minimal' },
             body: JSON.stringify({ estatus: 'cancelado' })
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        alert("Préstamo cancelado.");
+
+        alert("Préstamo cancelado. El dinero fue devuelto a la cuenta de origen.");
         renderizarModuloPrestamosEmpleado(currentEmpleadoSeleccionado);
     } catch (e) {
         alert("Error: " + e.message);
