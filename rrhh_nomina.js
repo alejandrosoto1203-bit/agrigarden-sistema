@@ -703,7 +703,7 @@ async function confirmarDisersionPagos() {
         const sucursalEfectivoPago = document.getElementById(`sucursal_efectivo_${id}`)?.value || document.getElementById('globalSucursal').value;
         const sucursalTransferenciaPago = document.getElementById(`sucursal_transferencia_${id}`)?.value || document.getElementById('globalSucursal').value;
         const frecuenciaPago = document.getElementById('globalFrecuencia').value;
-        const fechaPagoGasto = document.getElementById('globalFechaPago').value || fechaHoy;
+        const fechaPagoGasto = (document.getElementById('globalFechaPago').value || fechaHoy) + 'T12:00:00';
         const pInicio = document.getElementById('globalPeriodoInicio').value;
         const pFin = document.getElementById('globalPeriodoFin').value;
 

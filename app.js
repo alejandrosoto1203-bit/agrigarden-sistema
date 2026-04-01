@@ -495,7 +495,7 @@ async function guardarLoteGastos() {
         const subcatBase = fila.querySelector('.row-subcat').value;
         const subcatExtra = fila.querySelector('.row-subcat-extra').value;
         datosParaEnviar.push({
-            created_at: fila.querySelector('.row-fecha').value,
+            created_at: fila.querySelector('.row-fecha').value + 'T12:00:00',
             proveedor: fila.querySelector('.row-proveedor').value.toUpperCase(),
             categoria: fila.querySelector('.row-categoria').value,
             subcategoria: subcatBase === 'otros:' ? subcatExtra.toUpperCase() : subcatBase,

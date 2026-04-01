@@ -496,7 +496,7 @@ async function confirmarLiquidacion() {
         });
 
         const pagoLiq = {
-            created_at: fechaLiq,
+            created_at: fechaLiq + 'T12:00:00',
             proveedor: prestamoSeleccionado.prestamista,
             categoria: 'Pago de Pasivo',
             subcategoria: 'Liquidación Anticipada',

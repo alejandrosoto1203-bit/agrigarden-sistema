@@ -198,7 +198,7 @@ document.getElementById('formInversion').addEventListener('submit', async (e) =>
 // FUNCIÓN PARA CREAR REGISTRO EN GASTOS (COMPRA DIRECTA)
 async function crearGastoAutomatico(inv, sync) {
     const gasto = {
-        created_at: inv.fecha_adquisicion,
+        created_at: inv.fecha_adquisicion + 'T12:00:00',
         proveedor: sync.proveedor,
         categoria: 'Costo',
         subcategoria: 'Mercancia',
@@ -361,7 +361,7 @@ async function verificarYGenerarDepreciacionMensual() {
             const depMensual = parseFloat(activo.monto) / (años * 12);
 
             gastosDepreciacion.push({
-                created_at: fechaPeriodo,
+                created_at: fechaPeriodo + 'T12:00:00',
                 proveedor: 'DEPRECIACIÓN CONTABLE',
                 categoria: 'Gasto Contable',
                 subcategoria: 'Depreciación',
