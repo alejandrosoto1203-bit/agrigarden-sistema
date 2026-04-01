@@ -5,6 +5,15 @@ let nominaCacheEmp = []; // Cache de empleados
 let sbClient = null; // Cliente local para este módulo
 let prestamosActivosCache = []; // Cache de préstamos activos por empleado
 
+// Cuentas bancarias disponibles para pago de nómina (transferencias)
+const CUENTAS_NOMINA_TRANSFER = [
+    { key: 'bbva_norte',  nombre: 'BBVA Norte',              metodo_pago: 'Transferencia BBVA NORTE',              sucursal: 'Norte' },
+    { key: 'hey_sur',     nombre: 'Hey Banco Sur',           metodo_pago: 'Transferencia HEY BANCO SUR',            sucursal: 'Sur'   },
+    { key: 'bbva_sur',    nombre: 'BBVA Sur',                metodo_pago: 'Terminal BBVA Pyme Sur',                 sucursal: 'Sur'   },
+    { key: 'mp_nofiscal', nombre: 'Mercado Pago No Fiscal',  metodo_pago: 'Terminal MERCADO PAGO NO FISCAL NORTE',  sucursal: 'Norte' },
+    { key: 'mp_fiscal',   nombre: 'Mercado Pago Fiscal',     metodo_pago: 'Terminal Mercado Pago Fiscal Norte',     sucursal: 'Norte' },
+];
+
 // Helper para formatear dinero
 const formatMoney = (amount) => {
     return new Intl.NumberFormat('es-MX', {
@@ -74,7 +83,7 @@ let frecuenciaFiltro = 'Todos';
 
 function cambiarTab(tab) {
     currentTab = tab;
-    estadoFiltro = (tab === 'actual') ? 'Pendiente' : 'Pagado';
+    estadoFiltro = (tab === 'actual') ? 'actual' : 'Pagado';
 
     // Actualizar UI Pestañas
     const tActual = document.getElementById('tabActual');
@@ -152,7 +161,9 @@ function renderizarTablaNomina() {
         if (!emp) return false;
 
         // Filtro Estado
-        if (estadoFiltro !== 'Todos' && n.estado !== estadoFiltro) return false;
+        if (estadoFiltro === 'actual') {
+            if (n.estado !== 'Pendiente' && n.estado !== 'Parcial') return false;
+        } else if (estadoFiltro !== 'Todos' && n.estado !== estadoFiltro) return false;
 
         // Filtro Sucursal
         if (sucursalFiltro !== 'Todos' && emp.sucursal !== sucursalFiltro) return false;
@@ -193,14 +204,22 @@ function renderizarTablaNomina() {
         const bonos = det.bonificaciones || 0;
         const deduc = det.deducciones || 0;
         const totalNeto = base + bonos - deduc;
+        const montoPagado = det.monto_pagado || 0;
+        const saldoNomina = totalNeto - montoPagado;
         const estado = det.estado;
         const fecha = det.periodo || '---';
+
+        const badgeClass = estado === 'Pagado' ? 'bg-green-100 text-green-700' :
+                           estado === 'Parcial' ? 'bg-amber-100 text-amber-700' :
+                           estado === 'Sin Generar' ? 'bg-gray-100 text-gray-400' :
+                           'bg-orange-100 text-orange-700';
+        const badgeLabel = estado === 'Parcial' ? 'Pagada Parcialmente' : estado;
 
         return `
         <tr class="hover:bg-slate-50/50 transition-all font-bold group">
             <td class="px-8 py-5">
                 <div class="flex items-center gap-4">
-                    ${estado === 'Pendiente' ? `<input type="checkbox" onchange="toggleSeleccion('${det.empleado_id}')" class="rounded text-primary focus:ring-primary border-slate-300">` : '<div class="size-4"></div>'}
+                    ${(estado === 'Pendiente' || estado === 'Parcial') ? `<input type="checkbox" onchange="toggleSeleccion('${det.empleado_id}')" class="rounded text-primary focus:ring-primary border-slate-300">` : '<div class="size-4"></div>'}
                     <div class="size-10 rounded-full bg-slate-100 overflow-hidden shadow-sm">
                         <img src="${emp.foto_url || 'https://ui-avatars.com/api/?name=' + emp.nombre_completo}" class="w-full h-full object-cover">
                     </div>
@@ -215,18 +234,21 @@ function renderizarTablaNomina() {
             <td class="px-8 py-5"><span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-black uppercase">Quincenal</span></td>
             <td class="px-8 py-5 text-right text-sm text-slate-600">${formatMoney(base)}</td>
             <td class="px-8 py-5 text-center">
-                <span class="text-green-500">+${formatMoney(bonos)}</span> / 
+                <span class="text-green-500">+${formatMoney(bonos)}</span> /
                 <span class="text-red-400">-${formatMoney(deduc)}</span>
             </td>
-            <td class="px-8 py-5 text-right font-black text-slate-900 text-base">${formatMoney(totalNeto)}</td>
+            <td class="px-8 py-5 text-right font-black text-slate-900 text-base">
+                ${formatMoney(totalNeto)}
+                ${estado === 'Parcial' ? `<p class="text-[9px] font-bold text-amber-600 mt-1">Pagado: ${formatMoney(montoPagado)} · Saldo: ${formatMoney(saldoNomina)}</p>` : ''}
+            </td>
             <td class="px-8 py-5 text-center">
-                <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${estado === 'Pagado' ? 'bg-green-100 text-green-700' : (estado === 'Sin Generar' ? 'bg-gray-100 text-gray-400' : 'bg-orange-100 text-orange-700')}">
-                    ${estado}
+                <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${badgeClass}">
+                    ${badgeLabel}
                 </span>
             </td>
             <td class="px-8 py-5 text-center">
                 <div class="flex justify-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
-                    ${estado === 'Pendiente' ? `
+                    ${(estado === 'Pendiente' || estado === 'Parcial') ? `
                     <button onclick="abrirModalNomina('${det.empleado_id}')" class="p-2 text-slate-400 hover:text-primary transition-colors" title="Editar Montos Manualmente">
                         <span class="material-symbols-outlined text-sm">edit</span>
                     </button>
@@ -263,17 +285,22 @@ function actualizarKPIsNomina(datos) {
     // Dado que hay histórico 'Pagado', sumar todo el histórico daría números gigantes sin sentido.
     // Mejor mostremos los totales de la nómina PENDIENTE (Actual).
 
-    const pendientes = datos.filter(n => n.estado === 'Pendiente');
+    const pendientes = datos.filter(n => n.estado === 'Pendiente' || n.estado === 'Parcial');
 
     const totalNeto = pendientes.reduce((s, n) => s + (n.sueldo_base + (n.bonificaciones || 0) - (n.deducciones || 0)), 0);
     const totalBonos = pendientes.reduce((s, n) => s + (n.bonificaciones || 0), 0);
     const totalDeduc = pendientes.reduce((s, n) => s + (n.deducciones || 0), 0);
+    // Saldo pendiente real (descuenta lo ya pagado en parciales)
+    const totalSaldo = pendientes.reduce((s, n) => {
+        const neto = n.sueldo_base + (n.bonificaciones || 0) - (n.deducciones || 0);
+        return s + (neto - (n.monto_pagado || 0));
+    }, 0);
 
     // Costo Total Nómina (De lo actual)
     document.getElementById('kpiCostoNomina').innerText = formatMoney(totalNeto);
 
-    // Pagos Pendientes (Mismo que costo total si todo está pendiente, o remanente)
-    document.getElementById('kpiPendientes').innerText = formatMoney(totalNeto);
+    // Pagos Pendientes (Saldo real restante)
+    document.getElementById('kpiPendientes').innerText = formatMoney(totalSaldo);
     document.getElementById('empSinPagar').innerText = pendientes.length;
 
     // Nuevos KPIs
@@ -347,13 +374,15 @@ function renderizarTablaPagos() {
     let totalGeneral = 0;
 
     ids.forEach(id => {
-        // Buscar nómina pendiente
-        let record = nominaCache.find(n => n.empleado_id === id && n.estado === 'Pendiente');
+        // Buscar nómina pendiente o parcial
+        let record = nominaCache.find(n => n.empleado_id === id && (n.estado === 'Pendiente' || n.estado === 'Parcial'));
         if (!record) return;
 
         const emp = nominaCacheEmp.find(e => e.id === id);
         const neto = record.sueldo_base + (record.bonificaciones || 0) - (record.deducciones || 0);
-        totalGeneral += neto;
+        const montoPagado = record.monto_pagado || 0;
+        const saldo = neto - montoPagado;
+        totalGeneral += saldo;
 
         const tr = document.createElement('tr');
         tr.className = "cursor-pointer hover:bg-slate-50 transition-colors";
@@ -362,6 +391,11 @@ function renderizarTablaPagos() {
         tr.innerHTML = `
                 <td class="px-6 py-4">
                     <p class="font-bold text-slate-900">${emp ? emp.nombre_completo : 'Empleado'}</p>
+                    ${record.estado === 'Parcial' ? `
+                    <div class="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-2">
+                        <p class="text-[10px] font-black text-amber-700 uppercase">Abono parcial — saldo: ${formatMoney(saldo)}</p>
+                        <p class="text-[10px] text-amber-500">Ya pagado: ${formatMoney(montoPagado)} de ${formatMoney(neto)}</p>
+                    </div>` : ''}
                     ${prestamoActivo ? `
                     <div class="mt-2 bg-orange-50 border border-orange-200 rounded-xl p-3">
                         <p class="text-[10px] font-black text-orange-700 uppercase flex items-center gap-1">⚠ Préstamo activo — Descuento ya incluido</p>
@@ -397,40 +431,49 @@ function renderizarTablaPagos() {
                             <span class="text-[10px] font-black uppercase text-slate-700">Neto:</span>
                             <span id="neto_display_${id}" class="text-sm font-black text-slate-900" data-sueldo="${record.sueldo_base}">$${neto.toFixed(2)}</span>
                         </div>
+                        <div class="border-t border-amber-200 mt-1 pt-2">
+                            <label class="text-[9px] font-black uppercase text-amber-700 block mb-1">Monto de este abono:</label>
+                            <div class="relative">
+                                <span class="absolute left-2 top-1/2 -translate-y-1/2 text-amber-600 font-bold text-[10px]">$</span>
+                                <input type="number" id="monto_abono_${id}"
+                                    value="${saldo.toFixed(2)}"
+                                    data-saldo="${saldo}"
+                                    oninput="actualizarDistribucionAbono('${id}')"
+                                    onclick="event.stopPropagation()"
+                                    class="w-full bg-amber-50 border border-amber-200 rounded-lg pl-6 py-1 font-black text-amber-700 text-center text-[10px]">
+                            </div>
+                        </div>
                     </div>
                 </td>
                 <td class="px-6 py-4">
                     <div class="relative mb-2">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                        <input type="number" 
-                            id="pago_efectivo_${id}" 
-                            data-total="${neto}" 
+                        <input type="number"
+                            id="pago_efectivo_${id}"
+                            data-total="${saldo}"
                             oninput="calcularRestantePago('${id}', 'efectivo')"
                             onclick="event.stopPropagation()"
-                            class="w-full bg-slate-50 border-slate-200 rounded-lg pl-6 py-2 font-bold text-slate-700 text-center" 
+                            class="w-full bg-slate-50 border-slate-200 rounded-lg pl-6 py-2 font-bold text-slate-700 text-center"
                             placeholder="0.00" value="0.00">
                     </div>
                     <select id="sucursal_efectivo_${id}" onclick="event.stopPropagation()" class="w-full bg-slate-50 border-slate-200 rounded-lg text-[9px] font-bold py-1 focus:ring-primary uppercase">
-                        <option value="Matriz" ${emp && emp.sucursal === 'Matriz' ? 'selected' : ''}>Matriz</option>
-                        <option value="Norte" ${emp && emp.sucursal === 'Norte' ? 'selected' : ''}>Norte</option>
-                        <option value="Sur" ${emp && emp.sucursal === 'Sur' ? 'selected' : ''}>Sur</option>
+                        <option value="Norte" ${emp && emp.sucursal?.toUpperCase() === 'NORTE' ? 'selected' : ''}>Norte</option>
+                        <option value="Sur" ${emp && emp.sucursal?.toUpperCase() === 'SUR' ? 'selected' : ''}>Sur</option>
                     </select>
                 </td>
                 <td class="px-6 py-4">
                     <div class="relative mb-2">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                        <input type="number" 
-                            id="pago_transferencia_${id}" 
-                            data-total="${neto}" 
+                        <input type="number"
+                            id="pago_transferencia_${id}"
+                            data-total="${saldo}"
                             oninput="calcularRestantePago('${id}', 'transferencia')"
                             onclick="event.stopPropagation()"
-                            class="w-full bg-blue-50 border-blue-200 rounded-lg pl-6 py-2 font-bold text-blue-700 text-center" 
-                            placeholder="0.00" value="${neto.toFixed(2)}">
+                            class="w-full bg-blue-50 border-blue-200 rounded-lg pl-6 py-2 font-bold text-blue-700 text-center"
+                            placeholder="0.00" value="${saldo.toFixed(2)}">
                     </div>
-                    <select id="sucursal_transferencia_${id}" onclick="event.stopPropagation()" class="w-full bg-blue-50 border-blue-200 rounded-lg text-[9px] font-bold py-1 focus:ring-primary uppercase text-blue-700">
-                        <option value="Matriz" ${emp && emp.sucursal === 'Matriz' ? 'selected' : ''}>Matriz</option>
-                        <option value="Norte" ${emp && emp.sucursal === 'Norte' ? 'selected' : ''}>Norte</option>
-                        <option value="Sur" ${emp && emp.sucursal === 'Sur' ? 'selected' : ''}>Sur</option>
+                    <select id="cuenta_transferencia_${id}" onclick="event.stopPropagation()" class="w-full bg-blue-50 border-blue-200 rounded-lg text-[9px] font-bold py-1 focus:ring-primary text-blue-700">
+                        ${CUENTAS_NOMINA_TRANSFER.map(c => `<option value="${c.key}">${c.nombre}</option>`).join('')}
                     </select>
                 </td>
             `;
@@ -449,7 +492,7 @@ function actualizarPreviewRecibo(id) {
     const container = document.getElementById('previewReciboContainer');
     if (!container) return;
 
-    const record = nominaCache.find(n => n.empleado_id === id && n.estado === 'Pendiente');
+    const record = nominaCache.find(n => n.empleado_id === id && (n.estado === 'Pendiente' || n.estado === 'Parcial'));
     const emp = nominaCacheEmp.find(e => e.id === id);
     if (!record || !emp) return;
 
@@ -469,18 +512,23 @@ function actualizarPreviewRecibo(id) {
     const deduc = inputDeduc ? (parseFloat(inputDeduc.value) || 0) : (record.deducciones || 0);
     
     const neto = base + bonos - deduc;
+    const montoPagadoAntes = record.monto_pagado || 0;
+    const montoAbono = parseFloat(document.getElementById(`monto_abono_${id}`)?.value) || (neto - montoPagadoAntes);
     const efectivo = parseFloat(document.getElementById(`pago_efectivo_${id}`).value) || 0;
     const transfer = parseFloat(document.getElementById(`pago_transferencia_${id}`).value) || 0;
-    const obs = document.getElementById(`obs_${id}`).value;
+    const obs = document.getElementById(`obs_${id}`)?.value || '';
 
-    // Read the selected branches
+    // Cuenta bancaria seleccionada para transferencia
+    const cuentaKey = document.getElementById(`cuenta_transferencia_${id}`)?.value;
+    const cuentaInfo = CUENTAS_NOMINA_TRANSFER.find(c => c.key === cuentaKey);
     const sucursalEfectivo = document.getElementById(`sucursal_efectivo_${id}`)?.value || sucursalPago;
-    const sucursalTransferencia = document.getElementById(`sucursal_transferencia_${id}`)?.value || sucursalPago;
+    const sucursalTransferencia = cuentaInfo ? cuentaInfo.nombre : (sucursalPago);
 
     // Guardamos datos para referencia
     reciboActualData = { id, record, emp, neto };
 
     const fechaHoy = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+    const esParcial = montoAbono < neto - 0.01;
 
     container.innerHTML = `
         <div id="recibo-pdf" class="bg-white p-8 shadow-inner border border-slate-200 max-w-2xl mx-auto text-slate-800 font-sans">
@@ -490,7 +538,7 @@ function actualizarPreviewRecibo(id) {
                     <p class="text-[10px] font-bold text-slate-500">SISTEMA DE GESTIÓN DE CAPITAL HUMANO</p>
                 </div>
                 <div class="text-right">
-                    <p class="text-xs font-black uppercase">Recibo de Nómina</p>
+                    <p class="text-xs font-black uppercase">Recibo de Nómina${esParcial ? ' — Pago Parcial' : ''}</p>
                     <p class="text-[10px] text-slate-400 font-bold uppercase">Folio: ${record.id || 'N/A'}</p>
                     <p class="text-[10px] text-slate-400 font-bold uppercase">Fecha: ${fechaHoy}</p>
                 </div>
@@ -509,8 +557,13 @@ function actualizarPreviewRecibo(id) {
                 </div>
             </div>
 
+            ${esParcial ? `
+            <div class="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+                <p class="text-[9px] font-black uppercase text-amber-700">Pago Parcial — Abono: ${formatMoney(montoAbono)}</p>
+                <p class="text-[8px] text-amber-500 font-bold">Ya pagado antes: ${formatMoney(montoPagadoAntes)} · Saldo restante tras este abono: ${formatMoney(neto - montoPagadoAntes - montoAbono)}</p>
+            </div>` : ''}
             <div class="mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <p class="text-[9px] font-black uppercase text-slate-400 mb-1 text-center">Detalle de Dispersión</p>
+                <p class="text-[9px] font-black uppercase text-slate-400 mb-1 text-center">Detalle de Dispersión${esParcial ? ` (Abono ${formatMoney(montoAbono)})` : ''}</p>
                 <div class="flex justify-around text-center">
                     <div>
                         <p class="text-[8px] font-bold text-slate-500 uppercase">Efectivo (${sucursalEfectivo})</p>
@@ -643,23 +696,42 @@ window.modificarSueldoVariables = function(id) {
     actualizarPreviewRecibo(id);
 };
 
+// Actualiza distribución efectivo/transferencia cuando cambia el monto del abono
+window.actualizarDistribucionAbono = function(id) {
+    const inputAbono = document.getElementById(`monto_abono_${id}`);
+    const inputEfectivo = document.getElementById(`pago_efectivo_${id}`);
+    const inputTransfer = document.getElementById(`pago_transferencia_${id}`);
+    if (!inputAbono || !inputEfectivo || !inputTransfer) return;
+
+    const nuevoTotal = parseFloat(inputAbono.value) || 0;
+    inputEfectivo.setAttribute('data-total', nuevoTotal);
+    inputTransfer.setAttribute('data-total', nuevoTotal);
+
+    // Ajustar: mantener efectivo, recalcular transferencia
+    let efectivo = parseFloat(inputEfectivo.value) || 0;
+    if (efectivo > nuevoTotal) {
+        efectivo = nuevoTotal;
+        inputEfectivo.value = efectivo.toFixed(2);
+    }
+    inputTransfer.value = Math.max(0, nuevoTotal - efectivo).toFixed(2);
+
+    actualizarPreviewRecibo(id);
+};
+
 // Función expuesta globalmente para el oninput
 window.calcularRestantePago = function (id, source) {
     const inputEfectivo = document.getElementById(`pago_efectivo_${id}`);
     const inputTransfer = document.getElementById(`pago_transferencia_${id}`);
-    const total = parseFloat(inputEfectivo.getAttribute('data-total'));
+    const inputAbono = document.getElementById(`monto_abono_${id}`);
+    const total = inputAbono ? (parseFloat(inputAbono.value) || 0) : parseFloat(inputEfectivo.getAttribute('data-total'));
 
     let efectivo = parseFloat(inputEfectivo.value) || 0;
     let transfer = parseFloat(inputTransfer.value) || 0;
 
     if (source === 'efectivo') {
-        // Si cambio efectivo, el resto va a transferencia
         transfer = Math.max(0, total - efectivo);
         inputTransfer.value = transfer.toFixed(2);
     } else {
-        // Si cambio transferencia, el resto va a efectivo? 
-        // Usualmente es mejor priorizar uno. Vamos a dejar que sean libres pero validar?
-        // Mejor: Si edito transf, ajusto efectivo.
         efectivo = Math.max(0, total - transfer);
         inputEfectivo.value = efectivo.toFixed(2);
     }
@@ -682,51 +754,72 @@ async function confirmarDisersionPagos() {
     const fechaHoy = new Date().toISOString().split('T')[0];
 
     let gastosPayload = [];
-    let nominaIdsToUpdate = [];
+    let nominaUpdates = []; // { nominaId, empleadoId, nuevoEstado, nuevoMontoPagado, baseReal, bonosReal, deducReal, montoAbono, abonoNum }
+
+    const frecuenciaPago = document.getElementById('globalFrecuencia').value;
+    const fechaPagoGasto = (document.getElementById('globalFechaPago').value || fechaHoy) + 'T12:00:00';
+    const pInicio = document.getElementById('globalPeriodoInicio').value;
+    const pFin = document.getElementById('globalPeriodoFin').value;
 
     // 1. Recolectar datos y validar
     for (const id of ids) {
         const inputEfectivo = document.getElementById(`pago_efectivo_${id}`);
-        if (!inputEfectivo) continue; // Si no se renderizó
+        if (!inputEfectivo) continue;
 
-        // Obtener registro de nómina
-        let record = nominaCache.find(n => n.empleado_id === id && n.estado === 'Pendiente');
+        let record = nominaCache.find(n => n.empleado_id === id && (n.estado === 'Pendiente' || n.estado === 'Parcial'));
         if (!record) continue;
-
-        // Obtener empleado para sucursal
-        const emp = nominaCacheEmp.find(e => e.id === id);
-
-        const total = parseFloat(inputEfectivo.getAttribute('data-total'));
-        const efectivo = parseFloat(document.getElementById(`pago_efectivo_${id}`).value) || 0;
-        const transfer = parseFloat(document.getElementById(`pago_transferencia_${id}`).value) || 0;
-        const obs = document.getElementById(`obs_${id}`).value;
-        const sucursalEfectivoPago = document.getElementById(`sucursal_efectivo_${id}`)?.value || document.getElementById('globalSucursal').value;
-        const sucursalTransferenciaPago = document.getElementById(`sucursal_transferencia_${id}`)?.value || document.getElementById('globalSucursal').value;
-        const frecuenciaPago = document.getElementById('globalFrecuencia').value;
-        const fechaPagoGasto = (document.getElementById('globalFechaPago').value || fechaHoy) + 'T12:00:00';
-        const pInicio = document.getElementById('globalPeriodoInicio').value;
-        const pFin = document.getElementById('globalPeriodoFin').value;
-
-        if (Math.abs((efectivo + transfer) - total) > 1.0) { // Tolerancia $1
-            return alert(`Error en la distribución de pago para un empleado.\nLa suma no coincide con el total. Verifica los campos en rojo.`);
-        }
 
         const inputBase = document.getElementById(`base_${id}`);
         const inputBonos = document.getElementById(`bonos_${id}`);
         const inputDeduc = document.getElementById(`deducciones_${id}`);
-        
         const baseReal = inputBase ? (parseFloat(inputBase.value) || 0) : record.sueldo_base;
         const bonosReal = inputBonos ? (parseFloat(inputBonos.value) || 0) : (record.bonificaciones || 0);
         const deducReal = inputDeduc ? (parseFloat(inputDeduc.value) || 0) : (record.deducciones || 0);
+        const netoTotal = baseReal + bonosReal - deducReal;
 
-        nominaIdsToUpdate.push({
-            id: id,
-            sueldo_base: baseReal,
-            bonificaciones: bonosReal,
-            deducciones: deducReal
+        const efectivo = parseFloat(document.getElementById(`pago_efectivo_${id}`).value) || 0;
+        const transfer = parseFloat(document.getElementById(`pago_transferencia_${id}`).value) || 0;
+        const montoAbono = parseFloat(document.getElementById(`monto_abono_${id}`)?.value) || (efectivo + transfer);
+        const obs = document.getElementById(`obs_${id}`).value;
+
+        const sucursalEfectivoPago = document.getElementById(`sucursal_efectivo_${id}`)?.value || 'Norte';
+        const cuentaKey = document.getElementById(`cuenta_transferencia_${id}`)?.value;
+        const cuentaInfo = CUENTAS_NOMINA_TRANSFER.find(c => c.key === cuentaKey);
+        const metodoTransfer = cuentaInfo ? cuentaInfo.metodo_pago : 'Transferencia';
+        const sucursalTransfer = cuentaInfo ? cuentaInfo.sucursal : sucursalEfectivoPago;
+
+        if (Math.abs((efectivo + transfer) - montoAbono) > 1.0) {
+            return alert(`Error en la distribución de pago para un empleado.\nLa suma (efectivo + transferencia) no coincide con el monto del abono.`);
+        }
+
+        const montoPagadoAntes = record.monto_pagado || 0;
+        const nuevoMontoPagado = montoPagadoAntes + montoAbono;
+        const nuevoEstado = nuevoMontoPagado >= netoTotal - 0.01 ? 'Pagado' : 'Parcial';
+        // Número de abono (cuántos abonos previos existen + 1)
+        const abonoNum = record.abono_num_siguiente || 1;
+
+        nominaUpdates.push({
+            nominaId: record.id,
+            empleadoId: id,
+            nuevoEstado,
+            nuevoMontoPagado,
+            baseReal,
+            bonosReal,
+            deducReal,
+            montoAbono,
+            abonoNum,
+            cuentaKey,
+            metodoTransfer,
+            sucursalTransfer,
+            sucursalEfectivoPago,
+            efectivo,
+            transfer,
+            obs,
+            frecuenciaPago,
+            pInicio,
+            pFin
         });
 
-        // Generar payload GASTOS - EFECTIVO
         if (efectivo > 0) {
             gastosPayload.push({
                 created_at: fechaPagoGasto,
@@ -736,22 +829,21 @@ async function confirmarDisersionPagos() {
                 metodo_pago: 'Efectivo',
                 monto_total: efectivo,
                 sucursal: sucursalEfectivoPago,
-                notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (${pInicio} AL ${pFin}) (EFECTIVO) ID: ${id} | ${obs}`,
+                notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (${pInicio} AL ${pFin}) ABONO #${abonoNum} (EFECTIVO) ID: ${id} | ${obs}`,
                 estado_pago: 'Pagado'
             });
         }
 
-        // Generar payload GASTOS - TRANSFERENCIA
         if (transfer > 0) {
             gastosPayload.push({
                 created_at: fechaPagoGasto,
                 proveedor: 'NOMINA EMPLEADOS',
                 categoria: 'Costo',
                 subcategoria: 'NOMINA',
-                metodo_pago: 'Transferencia',
+                metodo_pago: metodoTransfer,
                 monto_total: transfer,
-                sucursal: sucursalTransferenciaPago,
-                notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (${pInicio} AL ${pFin}) (TRANSF) ID: ${id} | ${obs}`,
+                sucursal: sucursalTransfer,
+                notas: `PAGO NOMINA ${frecuenciaPago.toUpperCase()} (${pInicio} AL ${pFin}) ABONO #${abonoNum} (TRANSF ${cuentaInfo?.nombre || ''}) ID: ${id} | ${obs}`,
                 estado_pago: 'Pagado'
             });
         }
@@ -762,21 +854,33 @@ async function confirmarDisersionPagos() {
     try {
         if (!sbClient) initNominaClient();
 
-        // A. Actualizar nóminas a Pagado con montos ajustados indiv
-        for (const recordUpdate of nominaIdsToUpdate) {
+        // A. Actualizar nóminas (estado, monto_pagado, montos ajustados)
+        for (const u of nominaUpdates) {
             const { error: errNomina } = await sbClient
                 .from('rrhh_nomina')
-                .update({ 
-                    estado: 'Pagado', 
-                    fecha_pago: fechaHoy,
-                    sueldo_base: recordUpdate.sueldo_base,
-                    bonificaciones: recordUpdate.bonificaciones,
-                    deducciones: recordUpdate.deducciones
+                .update({
+                    estado: u.nuevoEstado,
+                    fecha_pago: u.nuevoEstado === 'Pagado' ? fechaHoy : null,
+                    monto_pagado: u.nuevoMontoPagado,
+                    sueldo_base: u.baseReal,
+                    bonificaciones: u.bonosReal,
+                    deducciones: u.deducReal
                 })
-                .eq('empleado_id', recordUpdate.id)
-                .eq('estado', 'Pendiente');
-            
+                .eq('id', u.nominaId);
             if (errNomina) throw errNomina;
+
+            // A2. Insertar registro en abonos_nomina
+            const { error: errAbono } = await sbClient.from('abonos_nomina').insert({
+                nomina_id: u.nominaId,
+                monto: u.montoAbono,
+                metodo_pago: u.transfer > 0 ? u.metodoTransfer : 'Efectivo',
+                cuenta_origen: u.cuentaKey || null,
+                sucursal: u.transfer > 0 ? u.sucursalTransfer : u.sucursalEfectivoPago,
+                fecha: fechaHoy,
+                abono_num: u.abonoNum,
+                notas: `${u.frecuenciaPago} (${u.pInicio} al ${u.pFin}) | ${u.obs}`
+            });
+            if (errAbono) console.error("Error insertando abono_nomina:", errAbono);
         }
 
         // B. Insertar Gastos
@@ -786,8 +890,8 @@ async function confirmarDisersionPagos() {
         }
 
         // C. Registrar abonos de préstamos y actualizar saldos
-        for (const recordUpdate of nominaIdsToUpdate) {
-            const prestamo = prestamosActivosCache.find(p => p.empleado_id === recordUpdate.id);
+        for (const u of nominaUpdates) {
+            const prestamo = prestamosActivosCache.find(p => p.empleado_id === u.empleadoId);
             if (!prestamo) continue;
 
             const abono = parseFloat(prestamo.monto_por_quincena);
@@ -795,32 +899,26 @@ async function confirmarDisersionPagos() {
             const nuevasQnas = prestamo.quincenas_pagadas + 1;
             const liquidado = nuevasQnas >= prestamo.num_quincenas || nuevoSaldo <= 0;
 
-            // C1. Crear abono (solo para historial, NO suma a ingresos)
             await sbClient.from('abonos_prestamos_empleados').insert({
                 prestamo_id: prestamo.id,
                 monto: abono,
                 fecha: fechaHoy,
                 tipo: 'descuento_nomina',
-                notas: `Descuento vía nómina periodo ${document.getElementById('globalPeriodoInicio')?.value || fechaHoy}`
+                notas: `Descuento vía nómina periodo ${pInicio || fechaHoy}`
             });
 
-            // C2. Actualizar saldo y quincenas del préstamo
             await sbClient.from('prestamos_empleados').update({
                 saldo_pendiente: nuevoSaldo,
                 quincenas_pagadas: nuevasQnas,
                 estatus: liquidado ? 'liquidado' : 'activo'
             }).eq('id', prestamo.id);
-
-            if (liquidado) {
-                console.log(`Préstamo de ${prestamo.empleado_id} liquidado.`);
-            }
         }
 
-        // C. Generar y Descargar PDFs
+        // D. Generar y Descargar PDFs
         alert("Pagos y gastos registrados. Iniciando descarga de recibos...");
-        for (const id of ids) {
-            actualizarPreviewRecibo(id); // Forzar que el preview sea el de este empleado
-            await generarYDescargarPDF(id);
+        for (const u of nominaUpdates) {
+            actualizarPreviewRecibo(u.empleadoId);
+            await generarYDescargarPDF(u.empleadoId);
         }
 
         alert("Proceso completado correctamente.");
@@ -841,9 +939,9 @@ async function generarNominaMasiva() {
     const tbody = document.getElementById('tablaSeleccionGenerarBody');
     tbody.innerHTML = '';
 
-    // Filtrar empleados que NO tengan ya una nómina PENDIENTE
+    // Filtrar empleados que NO tengan ya una nómina PENDIENTE o PARCIAL
     const empleadosDisponibles = nominaCacheEmp.filter(emp => {
-        return !nominaCache.some(n => n.empleado_id === emp.id && n.estado === 'Pendiente');
+        return !nominaCache.some(n => n.empleado_id === emp.id && (n.estado === 'Pendiente' || n.estado === 'Parcial'));
     });
 
     if (empleadosDisponibles.length === 0) {
@@ -1090,8 +1188,8 @@ function verDetalleNomina(id) {
     // Una mejora sería cambiar todas las funciones para usar 'nomina.id' en vez de 'empleado.id'
 
     // Simplificación para no romper mucho: buscamos el registro visible más relevante (Pendiente preferido)
-    let record = nominaCache.find(n => n.empleado_id === id && n.estado === 'Pendiente');
-    if (!record) record = nominaCache.find(n => n.empleado_id === id); // El primero que encuentre si no hay pendiente
+    let record = nominaCache.find(n => n.empleado_id === id && (n.estado === 'Pendiente' || n.estado === 'Parcial'));
+    if (!record) record = nominaCache.find(n => n.empleado_id === id); // El primero que encuentre si no hay pendiente/parcial
 
     if (!record) return alert("No se encontró información de nómina.");
 
