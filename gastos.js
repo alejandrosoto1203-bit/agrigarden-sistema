@@ -127,6 +127,7 @@ function renderizarTablaGastos(datos) {
             if (principal.categoria === 'Gasto Financiero') badgeStyle = 'bg-orange-100 text-orange-700';
             if (principal.categoria === 'Gasto Contable') badgeStyle = 'bg-red-100 text-red-700';
             if (principal.categoria === 'Pago de Pasivo') badgeStyle = 'bg-purple-100 text-purple-700';
+            if (principal.categoria === 'Préstamo Empleado') badgeStyle = 'bg-amber-100 text-amber-700';
 
             const filaId = `fila-${principal.id}`;
             const fila = document.createElement('tr');

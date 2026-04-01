@@ -948,7 +948,7 @@ async function guardarNuevoPrestamo(empleadoId) {
             const gastoPayload = {
                 created_at: fecha,
                 proveedor: emp.nombre_completo.toUpperCase(),
-                categoria: 'Costo',
+                categoria: 'Préstamo Empleado',
                 subcategoria: 'PRESTAMO EMPLEADO',
                 metodo_pago: metodo,
                 monto_total: fuente.monto,
