@@ -767,7 +767,20 @@ async function renderizarModuloPrestamosEmpleado(emp) {
             }).join('');
 
         const opcionesQna = [2, 4, 6, 8, 10, 12].map(n => `<option value="${n}">${n} quincenas</option>`).join('');
-        const opcionesCuentas = CUENTAS_PRESTAMO.map(c => `<option value="${c.key}">${c.nombre}</option>`).join('');
+
+        const fuentesHtml = [
+            { key: 'efectivo', nombre: 'Efectivo' },
+            ...CUENTAS_PRESTAMO
+        ].map(f => `
+            <div class="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 border border-amber-200">
+                <span class="text-[11px] font-black text-slate-600 uppercase flex-1 leading-tight">${f.nombre}</span>
+                <div class="relative w-28">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">$</span>
+                    <input type="number" id="prest_src_${f.key}" data-src-key="${f.key}" data-src-nombre="${f.nombre}"
+                        class="prest-src-input w-full pl-6 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-right font-black text-sm focus:outline-none focus:border-primary"
+                        placeholder="0.00" value="" min="0" step="0.01" oninput="recalcularFuentesPrestamo()">
+                </div>
+            </div>`).join('');
 
         const tienePrestamoActivo = prestamos.some(p => p.estatus === 'activo');
 
@@ -784,7 +797,7 @@ async function renderizarModuloPrestamosEmpleado(emp) {
                     <div class="bg-amber-50 border border-amber-100 rounded-[2rem] p-6 space-y-4">
                         <div>
                             <label class="label-form">Monto a Prestar ($)</label>
-                            <input type="number" id="prest_monto" class="input-form font-black text-right" placeholder="0.00" min="1" step="0.01" oninput="calcularQuincenasPrestamo()">
+                            <input type="number" id="prest_monto" class="input-form font-black text-right" placeholder="0.00" min="1" step="0.01" oninput="calcularQuincenasPrestamo(); recalcularFuentesPrestamo();">
                         </div>
                         <div>
                             <label class="label-form">Número de Quincenas para Pagar</label>
@@ -802,12 +815,20 @@ async function renderizarModuloPrestamosEmpleado(emp) {
                                 <p id="prest_total_display" class="text-base font-black text-amber-700">$0.00</p>
                             </div>
                         </div>
+
                         <div>
-                            <label class="label-form">Sale de la Cuenta Bancaria</label>
-                            <select id="prest_cuenta" class="input-form">
-                                ${opcionesCuentas}
-                            </select>
+                            <label class="label-form">¿De dónde sale el dinero? (puede ser de varias fuentes)</label>
+                            <div class="space-y-2 mt-2">
+                                ${fuentesHtml}
+                            </div>
+                            <div class="flex justify-between items-center mt-3 bg-white rounded-2xl px-4 py-3 border-2 border-amber-300">
+                                <span class="text-[10px] font-black text-slate-500 uppercase">Total distribuido</span>
+                                <span id="prest_distribuido_display" class="text-sm font-black text-slate-900">$0.00</span>
+                            </div>
+                            <p id="prest_fuentes_warning" class="hidden mt-2 text-[10px] font-black text-red-500 uppercase text-center">⚠ La suma no coincide con el monto total</p>
+                            <p id="prest_fuentes_ok" class="hidden mt-2 text-[10px] font-black text-green-600 uppercase text-center">✓ Distribución correcta</p>
                         </div>
+
                         <div>
                             <label class="label-form">Fecha de Otorgamiento</label>
                             <input type="date" id="prest_fecha" class="input-form" value="${new Date().toISOString().split('T')[0]}">
@@ -845,73 +866,124 @@ function calcularQuincenasPrestamo() {
     if (elTotal) elTotal.textContent = `$${monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 }
 
+function recalcularFuentesPrestamo() {
+    const monto = parseFloat(document.getElementById('prest_monto')?.value) || 0;
+    const inputs = document.querySelectorAll('.prest-src-input');
+    let totalDistribuido = 0;
+    inputs.forEach(inp => { totalDistribuido += parseFloat(inp.value) || 0; });
+
+    const elDisp = document.getElementById('prest_distribuido_display');
+    const elWarn = document.getElementById('prest_fuentes_warning');
+    const elOk = document.getElementById('prest_fuentes_ok');
+    if (!elDisp) return;
+
+    elDisp.textContent = `$${totalDistribuido.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+    const diff = Math.abs(totalDistribuido - monto);
+    if (monto > 0 && diff <= 0.05) {
+        elDisp.classList.add('text-green-600');
+        elDisp.classList.remove('text-red-500', 'text-slate-900');
+        elWarn?.classList.add('hidden');
+        elOk?.classList.remove('hidden');
+    } else if (monto > 0 && totalDistribuido > 0) {
+        elDisp.classList.add('text-red-500');
+        elDisp.classList.remove('text-green-600', 'text-slate-900');
+        elWarn?.classList.remove('hidden');
+        elOk?.classList.add('hidden');
+    } else {
+        elDisp.classList.remove('text-green-600', 'text-red-500');
+        elDisp.classList.add('text-slate-900');
+        elWarn?.classList.add('hidden');
+        elOk?.classList.add('hidden');
+    }
+}
+
 async function guardarNuevoPrestamo(empleadoId) {
     const monto = parseFloat(document.getElementById('prest_monto')?.value) || 0;
     const quincenas = parseInt(document.getElementById('prest_quincenas')?.value) || 0;
-    const cuentaKey = document.getElementById('prest_cuenta')?.value;
     const fecha = document.getElementById('prest_fecha')?.value;
     const notas = document.getElementById('prest_notas')?.value || '';
 
     if (monto <= 0) return alert("El monto debe ser mayor a 0.");
     if (!quincenas) return alert("Selecciona el número de quincenas.");
-    if (!cuentaKey) return alert("Selecciona una cuenta bancaria.");
     if (!fecha) return alert("Selecciona una fecha de otorgamiento.");
 
+    // Recolectar fuentes con monto > 0
+    const fuentes = [];
+    document.querySelectorAll('.prest-src-input').forEach(inp => {
+        const val = parseFloat(inp.value) || 0;
+        if (val > 0) fuentes.push({ key: inp.dataset.srcKey, nombre: inp.dataset.srcNombre, monto: val });
+    });
+
+    if (fuentes.length === 0) return alert("Indica de qué cuenta(s) sale el dinero.");
+
+    const totalFuentes = fuentes.reduce((s, f) => s + f.monto, 0);
+    if (Math.abs(totalFuentes - monto) > 0.05) {
+        return alert(`La suma de las fuentes ($${totalFuentes.toFixed(2)}) no coincide con el monto del préstamo ($${monto.toFixed(2)}).`);
+    }
+
     const porQuincena = parseFloat((monto / quincenas).toFixed(2));
-    const cuentaNombre = CUENTAS_PRESTAMO.find(c => c.key === cuentaKey)?.nombre || cuentaKey;
+    const cuentaResumen = fuentes.length === 1 ? fuentes[0].nombre : `Múltiples fuentes (${fuentes.map(f => f.nombre).join(', ')})`;
+    const cuentaKey = fuentes.length === 1 ? fuentes[0].key : 'multiple';
     const emp = currentEmpleadoSeleccionado;
 
-    if (!confirm(`¿Confirmar préstamo de $${monto.toFixed(2)} a ${emp.nombre_completo}?\n${quincenas} quincenas × $${porQuincena.toFixed(2)} por quincena\nSale de: ${cuentaNombre}`)) return;
+    const detalleFuentes = fuentes.map(f => `${f.nombre}: $${f.monto.toFixed(2)}`).join(' | ');
+    if (!confirm(`¿Confirmar préstamo de $${monto.toFixed(2)} a ${emp.nombre_completo}?\n${quincenas} quincenas × $${porQuincena.toFixed(2)} por quincena\n\nOrigen del dinero:\n${detalleFuentes}`)) return;
 
     const sbUrl = window.SUPABASE_URL || 'https://gajhfqfuvzotppnmzbuc.supabase.co';
     const sbKey = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
 
     try {
-        // 1. Crear el gasto (salida de dinero de la cuenta bancaria)
-        const gastoPayload = {
-            created_at: fecha,
-            proveedor: emp.nombre_completo.toUpperCase(),
-            categoria: 'Costo',
-            subcategoria: 'PRESTAMO EMPLEADO',
-            metodo_pago: 'Transferencia',
-            monto_total: monto,
-            sucursal: emp.sucursal || 'MATRIZ',
-            notas: `PRÉSTAMO EMPLEADO: ${emp.nombre_completo.toUpperCase()} | ${quincenas} QNA × $${porQuincena.toFixed(2)}/QNA | CUENTA: ${cuentaNombre}`,
-            estado_pago: 'Pagado'
-        };
+        // 1. Crear un gasto por cada fuente
+        let primerGastoId = null;
+        for (const fuente of fuentes) {
+            const metodo = fuente.key === 'efectivo' ? 'Efectivo' : 'Transferencia';
+            const gastoPayload = {
+                created_at: fecha,
+                proveedor: emp.nombre_completo.toUpperCase(),
+                categoria: 'Costo',
+                subcategoria: 'PRESTAMO EMPLEADO',
+                metodo_pago: metodo,
+                monto_total: fuente.monto,
+                sucursal: emp.sucursal || 'MATRIZ',
+                notas: `PRÉSTAMO EMPLEADO: ${emp.nombre_completo.toUpperCase()} | ${quincenas} QNA × $${porQuincena.toFixed(2)}/QNA | FUENTE: ${fuente.nombre}`,
+                estado_pago: 'Pagado'
+            };
 
-        const resGasto = await fetch(`${sbUrl}/rest/v1/gastos`, {
-            method: 'POST',
-            headers: {
-                'apikey': sbKey,
-                'Authorization': `Bearer ${sbKey}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation'
-            },
-            body: JSON.stringify(gastoPayload)
-        });
+            const resGasto = await fetch(`${sbUrl}/rest/v1/gastos`, {
+                method: 'POST',
+                headers: {
+                    'apikey': sbKey,
+                    'Authorization': `Bearer ${sbKey}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(gastoPayload)
+            });
 
-        if (!resGasto.ok) {
-            const err = await resGasto.json().catch(() => ({}));
-            throw new Error(`Error al registrar gasto: ${err.message || resGasto.status}`);
+            if (!resGasto.ok) {
+                const err = await resGasto.json().catch(() => ({}));
+                throw new Error(`Error al registrar gasto (${fuente.nombre}): ${err.message || resGasto.status}`);
+            }
+            const gastoData = await resGasto.json();
+            if (!primerGastoId) primerGastoId = gastoData[0]?.id || null;
         }
-        const gastoData = await resGasto.json();
-        const gastoId = gastoData[0]?.id || null;
 
         // 2. Crear el registro de préstamo
+        const notaCompleta = [notas, `Fuentes: ${detalleFuentes}`].filter(Boolean).join(' | ');
         const prestamoPayload = {
             empleado_id: empleadoId,
             monto_total: monto,
             num_quincenas: quincenas,
             monto_por_quincena: porQuincena,
             cuenta_origen_key: cuentaKey,
-            cuenta_origen_nombre: cuentaNombre,
+            cuenta_origen_nombre: cuentaResumen,
             fecha_otorgamiento: fecha,
             quincenas_pagadas: 0,
             saldo_pendiente: monto,
             estatus: 'activo',
-            gasto_id: gastoId,
-            notas: notas
+            gasto_id: primerGastoId,
+            notas: notaCompleta
         };
 
         const resPrest = await fetch(`${sbUrl}/rest/v1/prestamos_empleados`, {
@@ -930,7 +1002,7 @@ async function guardarNuevoPrestamo(empleadoId) {
             throw new Error(`Error al crear préstamo: ${err.message || resPrest.status}`);
         }
 
-        alert(`✓ Préstamo registrado correctamente.\nSe registró una salida de $${monto.toFixed(2)} de "${cuentaNombre}" como gasto.\nEl descuento de $${porQuincena.toFixed(2)} se aplicará automáticamente en cada nómina.`);
+        alert(`✓ Préstamo registrado.\n${fuentes.length} gasto(s) registrado(s):\n${detalleFuentes}\n\nDescuento de $${porQuincena.toFixed(2)} se aplicará automáticamente en cada nómina.`);
         renderizarModuloPrestamosEmpleado(emp);
 
     } catch (e) {
