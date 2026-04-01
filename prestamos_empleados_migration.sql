@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS prestamos_empleados (
   quincenas_pagadas   INT DEFAULT 0,
   saldo_pendiente     NUMERIC(12,2) NOT NULL,
   estatus             TEXT DEFAULT 'activo' CHECK (estatus IN ('activo', 'liquidado', 'cancelado')),
-  gasto_id            BIGINT,
+  gasto_id            UUID,
   notas               TEXT,
   created_at          TIMESTAMPTZ DEFAULT NOW()
 );
