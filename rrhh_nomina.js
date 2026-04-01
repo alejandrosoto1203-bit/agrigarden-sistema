@@ -3,6 +3,7 @@ let nominaCache = [];
 let seleccionados = new Set();
 let nominaCacheEmp = []; // Cache de empleados
 let sbClient = null; // Cliente local para este módulo
+let prestamosActivosCache = []; // Cache de préstamos activos por empleado
 
 // Helper para formatear dinero
 const formatMoney = (amount) => {
@@ -50,6 +51,13 @@ async function cargarNomina() {
         if (errNomina) throw new Error("Error fetching nomina: " + errNomina.message);
 
         nominaCache = nominaData || [];
+
+        // Cargar préstamos activos
+        const { data: prestamosData } = await sbClient
+            .from('prestamos_empleados')
+            .select('*')
+            .eq('estatus', 'activo');
+        prestamosActivosCache = prestamosData || [];
 
         renderizarTablaNomina();
         actualizarKPIsNomina(nominaCache);
@@ -200,6 +208,7 @@ function renderizarTablaNomina() {
                         <p class="text-sm font-black text-slate-900 uppercase tracking-tight">${emp.nombre_completo}</p>
                         <p class="text-[9px] font-bold text-slate-400 uppercase">ID: ${emp.id.slice(0, 5)} • ${emp.puesto}</p>
                         <p class="text-[9px] font-bold text-blue-500 uppercase mt-1">Periodo: ${fecha}</p>
+                        ${prestamosActivosCache.some(p => p.empleado_id === det.empleado_id) ? `<span class="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full uppercase mt-1">⚠ Préstamo activo</span>` : ''}
                     </div>
                 </div>
             </td>
@@ -349,9 +358,16 @@ function renderizarTablaPagos() {
         const tr = document.createElement('tr');
         tr.className = "cursor-pointer hover:bg-slate-50 transition-colors";
         tr.onclick = () => actualizarPreviewRecibo(id);
+        const prestamoActivo = prestamosActivosCache.find(p => p.empleado_id === id);
         tr.innerHTML = `
                 <td class="px-6 py-4">
                     <p class="font-bold text-slate-900">${emp ? emp.nombre_completo : 'Empleado'}</p>
+                    ${prestamoActivo ? `
+                    <div class="mt-2 bg-orange-50 border border-orange-200 rounded-xl p-3">
+                        <p class="text-[10px] font-black text-orange-700 uppercase flex items-center gap-1">⚠ Préstamo activo — Descuento ya incluido</p>
+                        <p class="text-[10px] font-bold text-orange-600">Descuento: $${parseFloat(prestamoActivo.monto_por_quincena).toFixed(2)} · Saldo: $${parseFloat(prestamoActivo.saldo_pendiente).toFixed(2)}</p>
+                        <p class="text-[10px] text-orange-400">${prestamoActivo.quincenas_pagadas}/${prestamoActivo.num_quincenas} quincenas pagadas</p>
+                    </div>` : ''}
                     <textarea id="obs_${id}" oninput="actualizarPreviewRecibo('${id}')" placeholder="Observaciones..." class="text-[10px] w-full bg-slate-50 border border-slate-200 rounded-lg focus:border-primary outline-none py-2 px-3 mt-2 resize-none" rows="2" onclick="event.stopPropagation()"></textarea>
                 </td>
                 <td class="px-6 py-4">
@@ -769,6 +785,37 @@ async function confirmarDisersionPagos() {
             if (errGasto) console.error("Error insertando gastos:", errGasto);
         }
 
+        // C. Registrar abonos de préstamos y actualizar saldos
+        for (const recordUpdate of nominaIdsToUpdate) {
+            const prestamo = prestamosActivosCache.find(p => p.empleado_id === recordUpdate.id);
+            if (!prestamo) continue;
+
+            const abono = parseFloat(prestamo.monto_por_quincena);
+            const nuevoSaldo = Math.max(0, parseFloat(prestamo.saldo_pendiente) - abono);
+            const nuevasQnas = prestamo.quincenas_pagadas + 1;
+            const liquidado = nuevasQnas >= prestamo.num_quincenas || nuevoSaldo <= 0;
+
+            // C1. Crear abono (solo para historial, NO suma a ingresos)
+            await sbClient.from('abonos_prestamos_empleados').insert({
+                prestamo_id: prestamo.id,
+                monto: abono,
+                fecha: fechaHoy,
+                tipo: 'descuento_nomina',
+                notas: `Descuento vía nómina periodo ${document.getElementById('globalPeriodoInicio')?.value || fechaHoy}`
+            });
+
+            // C2. Actualizar saldo y quincenas del préstamo
+            await sbClient.from('prestamos_empleados').update({
+                saldo_pendiente: nuevoSaldo,
+                quincenas_pagadas: nuevasQnas,
+                estatus: liquidado ? 'liquidado' : 'activo'
+            }).eq('id', prestamo.id);
+
+            if (liquidado) {
+                console.log(`Préstamo de ${prestamo.empleado_id} liquidado.`);
+            }
+        }
+
         // C. Generar y Descargar PDFs
         alert("Pagos y gastos registrados. Iniciando descarga de recibos...");
         for (const id of ids) {
@@ -885,6 +932,10 @@ async function ejecutarGeneracionSelectiva() {
             const sBaseRaw = emp.sueldo_base || 0;
             const sueldoQuincenal = parseFloat(sBaseRaw) / 2;
 
+            // Aplicar descuento de préstamo activo si existe
+            const prestamo = prestamosActivosCache.find(p => p.empleado_id === emp.id);
+            const deduccionPrestamo = prestamo ? parseFloat(prestamo.monto_por_quincena) : 0;
+
             return {
                 empleado_id: emp.id,
                 periodo: fechaHoy,
@@ -892,7 +943,7 @@ async function ejecutarGeneracionSelectiva() {
                 periodo_fin: fechaFin,
                 sueldo_base: sueldoQuincenal,
                 bonificaciones: 0,
-                deducciones: 0,
+                deducciones: deduccionPrestamo,
                 estado: 'Pendiente'
             };
         });
