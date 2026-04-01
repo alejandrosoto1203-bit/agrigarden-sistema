@@ -121,13 +121,21 @@ window.cargarControlEfectivo = async function () {
         const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
         const processBranch = (rows, saldoInicial, suffix) => {
-            const inTotal = rows.filter(r => r.type === 'ENTRADA').reduce((a, b) => a + b.amount, 0);
-            const outTotal = rows.filter(r => r.type === 'SALIDA').reduce((a, b) => a + b.amount, 0);
+            const ahora = new Date();
+            const mesActual = ahora.getMonth();
+            const añoActual = ahora.getFullYear();
+            const rowsMes = rows.filter(r => { const d = new Date(r.date); return d.getMonth() === mesActual && d.getFullYear() === añoActual; });
+            const inTotal  = rowsMes.filter(r => r.type === 'ENTRADA').reduce((a, b) => a + b.amount, 0);
+            const outTotal = rowsMes.filter(r => r.type === 'SALIDA').reduce((a, b) => a + b.amount, 0);
+            const inTotalAll  = rows.filter(r => r.type === 'ENTRADA').reduce((a, b) => a + b.amount, 0);
+            const outTotalAll = rows.filter(r => r.type === 'SALIDA').reduce((a, b) => a + b.amount, 0);
             const tableEl = document.getElementById(`tablaMovimientos_${suffix}`);
 
+            const mesLabel = MESES[mesActual];
+            [`kpiMesLabel_${suffix}`, `kpiMesLabel2_${suffix}`].forEach(id => { const el = document.getElementById(id); if (el) el.innerText = mesLabel; });
             if (document.getElementById(`kpiEntradas_${suffix}`)) document.getElementById(`kpiEntradas_${suffix}`).innerText = `$${inTotal.toLocaleString('es-MX')}`;
             if (document.getElementById(`kpiSalidas_${suffix}`)) document.getElementById(`kpiSalidas_${suffix}`).innerText = `$${outTotal.toLocaleString('es-MX')}`;
-            if (document.getElementById(`kpiDisponible_${suffix}`)) document.getElementById(`kpiDisponible_${suffix}`).innerText = `$${(saldoInicial + inTotal - outTotal).toLocaleString('es-MX')}`;
+            if (document.getElementById(`kpiDisponible_${suffix}`)) document.getElementById(`kpiDisponible_${suffix}`).innerText = `$${(saldoInicial + inTotalAll - outTotalAll).toLocaleString('es-MX')}`;
 
             if (!tableEl) return;
             if (rows.length === 0) {

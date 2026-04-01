@@ -88,21 +88,17 @@
                 </div>
 
                 <!-- KPIs NORTE -->
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="card p-4 shadow-sm bg-gray-50">
-                        <p class="text-gray-400 font-bold text-[9px] uppercase tracking-widest mb-1">Saldo Inicial</p>
-                        <span id="kpiSaldo_Norte" class="text-lg font-extrabold text-gray-600">$0.00</span>
-                    </div>
+                <div class="grid grid-cols-3 gap-3">
                     <div class="card p-4 shadow-sm bg-gray-900">
                         <p class="text-white/60 font-bold text-[9px] uppercase tracking-widest mb-1">Disponible Real</p>
                         <span id="kpiDisponible_Norte" class="text-lg font-black text-primary">$0.00</span>
                     </div>
                     <div class="card p-4 shadow-sm border-green-100 bg-green-50/30">
-                        <p class="text-green-600 font-bold text-[9px] uppercase tracking-widest mb-1">Entradas</p>
+                        <p class="text-green-600 font-bold text-[9px] uppercase tracking-widest mb-1">Entradas <span id="kpiMesLabel_Norte" class="normal-case"></span></p>
                         <span id="kpiEntradas_Norte" class="text-lg font-extrabold text-green-700">$0.00</span>
                     </div>
                     <div class="card p-4 shadow-sm border-red-100 bg-red-50/30">
-                        <p class="text-red-600 font-bold text-[9px] uppercase tracking-widest mb-1">Salidas</p>
+                        <p class="text-red-600 font-bold text-[9px] uppercase tracking-widest mb-1">Salidas <span id="kpiMesLabel2_Norte" class="normal-case"></span></p>
                         <span id="kpiSalidas_Norte" class="text-lg font-extrabold text-red-700">$0.00</span>
                     </div>
                 </div>
@@ -146,21 +142,17 @@
                 </div>
 
                 <!-- KPIs SUR -->
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="card p-4 shadow-sm bg-gray-50">
-                        <p class="text-gray-400 font-bold text-[9px] uppercase tracking-widest mb-1">Saldo Inicial</p>
-                        <span id="kpiSaldo_Sur" class="text-lg font-extrabold text-gray-600">$0.00</span>
-                    </div>
+                <div class="grid grid-cols-3 gap-3">
                     <div class="card p-4 shadow-sm bg-gray-900">
                         <p class="text-white/60 font-bold text-[9px] uppercase tracking-widest mb-1">Disponible Real</p>
                         <span id="kpiDisponible_Sur" class="text-lg font-black text-primary">$0.00</span>
                     </div>
                     <div class="card p-4 shadow-sm border-green-100 bg-green-50/30">
-                        <p class="text-green-600 font-bold text-[9px] uppercase tracking-widest mb-1">Entradas</p>
+                        <p class="text-green-600 font-bold text-[9px] uppercase tracking-widest mb-1">Entradas <span id="kpiMesLabel_Sur" class="normal-case"></span></p>
                         <span id="kpiEntradas_Sur" class="text-lg font-extrabold text-green-700">$0.00</span>
                     </div>
                     <div class="card p-4 shadow-sm border-red-100 bg-red-50/30">
-                        <p class="text-red-600 font-bold text-[9px] uppercase tracking-widest mb-1">Salidas</p>
+                        <p class="text-red-600 font-bold text-[9px] uppercase tracking-widest mb-1">Salidas <span id="kpiMesLabel2_Sur" class="normal-case"></span></p>
                         <span id="kpiSalidas_Sur" class="text-lg font-extrabold text-red-700">$0.00</span>
                     </div>
                 </div>
@@ -208,7 +200,7 @@
         <script src="menu.js"></script>
         <script src="configuracion.js"></script> <!-- Reutilizamos lógica de config -->
         <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-        <script src="control_efectivo.js?v=7"></script>
+        <script src="control_efectivo.js?v=8"></script>
         <script src="traspasos.js"></script>
         <script>
             window.filtrarVistaSucursal = function(modo) {
