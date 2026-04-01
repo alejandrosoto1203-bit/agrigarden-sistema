@@ -946,7 +946,7 @@ async function guardarNuevoPrestamo(empleadoId) {
         for (const fuente of fuentes) {
             const metodo = fuente.key === 'efectivo' ? 'Efectivo' : (CUENTAS_PRESTAMO.find(c => c.key === fuente.key)?.metodo_pago || 'Transferencia');
             const gastoPayload = {
-                created_at: fecha,
+                created_at: fecha + 'T12:00:00',
                 proveedor: emp.nombre_completo.toUpperCase(),
                 categoria: 'Préstamo Empleado',
                 subcategoria: 'PRESTAMO EMPLEADO',
