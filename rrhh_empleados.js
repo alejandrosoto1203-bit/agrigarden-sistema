@@ -834,6 +834,13 @@ async function renderizarModuloPrestamosEmpleado(emp) {
                             <input type="date" id="prest_fecha" class="input-form" value="${new Date().toISOString().split('T')[0]}">
                         </div>
                         <div>
+                            <label class="label-form">Sucursal donde se registra el gasto</label>
+                            <select id="prest_sucursal" class="input-form">
+                                <option value="Norte" ${emp.sucursal?.toUpperCase() !== 'SUR' ? 'selected' : ''}>Norte</option>
+                                <option value="Sur" ${emp.sucursal?.toUpperCase() === 'SUR' ? 'selected' : ''}>Sur</option>
+                            </select>
+                        </div>
+                        <div>
                             <label class="label-form">Notas (Opcional)</label>
                             <input type="text" id="prest_notas" class="input-form" placeholder="Ej: Emergencia médica">
                         </div>
@@ -945,7 +952,7 @@ async function guardarNuevoPrestamo(empleadoId) {
                 subcategoria: 'PRESTAMO EMPLEADO',
                 metodo_pago: metodo,
                 monto_total: fuente.monto,
-                sucursal: emp.sucursal?.toUpperCase() === 'SUR' ? 'Sur' : 'Norte',
+                sucursal: document.getElementById('prest_sucursal')?.value || 'Norte',
                 notas: `PRÉSTAMO EMPLEADO: ${emp.nombre_completo.toUpperCase()} | ${quincenas} QNA × $${porQuincena.toFixed(2)}/QNA | FUENTE: ${fuente.nombre}`,
                 estado_pago: 'Pagado'
             };
