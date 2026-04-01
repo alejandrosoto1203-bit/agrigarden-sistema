@@ -76,7 +76,7 @@ async function cargarNomina() {
     }
 }
 
-let estadoFiltro = 'Pendiente'; // Por defecto Nómina Actual
+let estadoFiltro = 'actual'; // Muestra Pendiente + Parcial en Nómina Actual
 let currentTab = 'actual';
 let sucursalFiltro = 'Todos';
 let frecuenciaFiltro = 'Todos';
@@ -949,6 +949,9 @@ async function confirmarDisersionPagos() {
         cerrarModalPago();
         seleccionados.clear();
         document.getElementById('barAccionesMasivas').classList.add('hidden');
+        // Volver siempre a Nómina Actual para ver registros Parciales
+        currentTab = 'actual';
+        estadoFiltro = 'actual';
         cargarNomina();
 
     } catch (e) {
