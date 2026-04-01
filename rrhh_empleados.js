@@ -945,7 +945,7 @@ async function guardarNuevoPrestamo(empleadoId) {
                 subcategoria: 'PRESTAMO EMPLEADO',
                 metodo_pago: metodo,
                 monto_total: fuente.monto,
-                sucursal: emp.sucursal || 'MATRIZ',
+                sucursal: emp.sucursal?.toUpperCase() === 'SUR' ? 'Sur' : 'Norte',
                 notas: `PRÉSTAMO EMPLEADO: ${emp.nombre_completo.toUpperCase()} | ${quincenas} QNA × $${porQuincena.toFixed(2)}/QNA | FUENTE: ${fuente.nombre}`,
                 estado_pago: 'Pagado'
             };
