@@ -729,9 +729,13 @@ window.calcularRestantePago = function (id, source) {
     let transfer = parseFloat(inputTransfer.value) || 0;
 
     if (source === 'efectivo') {
+        // Tope: efectivo no puede superar el total del abono
+        if (efectivo > total) { efectivo = total; inputEfectivo.value = total.toFixed(2); }
         transfer = Math.max(0, total - efectivo);
         inputTransfer.value = transfer.toFixed(2);
     } else {
+        // Tope: transferencia no puede superar el total del abono
+        if (transfer > total) { transfer = total; inputTransfer.value = total.toFixed(2); }
         efectivo = Math.max(0, total - transfer);
         inputEfectivo.value = efectivo.toFixed(2);
     }
@@ -788,8 +792,12 @@ async function confirmarDisersionPagos() {
         const metodoTransfer = cuentaInfo ? cuentaInfo.metodo_pago : 'Transferencia';
         const sucursalTransfer = cuentaInfo ? cuentaInfo.sucursal : sucursalEfectivoPago;
 
-        if (Math.abs((efectivo + transfer) - montoAbono) > 1.0) {
-            return alert(`Error en la distribución de pago para un empleado.\nLa suma (efectivo + transferencia) no coincide con el monto del abono.`);
+        // Auto-corregir distribución si no cuadra con el monto del abono
+        // (puede pasar si el usuario cambia monto_abono sin que los campos se actualicen)
+        if (Math.abs((efectivo + transfer) - montoAbono) > 0.01) {
+            // Mantener efectivo y ajustar transferencia al residuo
+            transfer = Math.max(0, montoAbono - efectivo);
+            efectivo = Math.max(0, montoAbono - transfer);
         }
 
         const montoPagadoAntes = record.monto_pagado || 0;
