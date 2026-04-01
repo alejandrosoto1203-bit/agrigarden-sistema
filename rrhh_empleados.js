@@ -937,7 +937,7 @@ async function guardarNuevoPrestamo(empleadoId) {
         // 1. Crear un gasto por cada fuente
         let primerGastoId = null;
         for (const fuente of fuentes) {
-            const metodo = fuente.key === 'efectivo' ? 'Efectivo' : 'Transferencia';
+            const metodo = fuente.key === 'efectivo' ? 'Efectivo' : (CUENTAS_PRESTAMO.find(c => c.key === fuente.key)?.metodo_pago || 'Transferencia');
             const gastoPayload = {
                 created_at: fecha,
                 proveedor: emp.nombre_completo.toUpperCase(),
