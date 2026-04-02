@@ -65,15 +65,30 @@
     <div id="sidebar-container"></div>
 
     <main class="pt-20 lg:pt-0 flex-1  p-4 lg:p-10 space-y-8 min-w-0">
-        <header class="flex justify-between items-center">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight italic uppercase">Cuentas por Pagar</h1>
                 <p class="text-gray-400 font-medium">Administra y rastrea las obligaciones financieras de tu empresa</p>
             </div>
-            <div>
-                <button onclick="sincronizarPagosHistoricos()" id="btnSyncHistory"
-                    class="bg-black text-white px-5 py-3 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-gray-800 transition-all shadow-lg shadow-black/20">
-                    <span class="material-symbols-outlined text-lg">history</span> Sincronizar Historial
+            <div class="flex flex-wrap gap-2 w-full lg:w-auto">
+                <button onclick="abrirModalNuevaCxP()"
+                    class="flex-1 lg:flex-none bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg hover:bg-emerald-700 transition-all">
+                    <span class="material-symbols-outlined text-base">add_circle</span>
+                    Nueva CxP
+                </button>
+                <button onclick="abrirModalImportarExcelCxP()"
+                    class="flex-1 lg:flex-none bg-white border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 text-xs hover:bg-gray-50 transition-all">
+                    <span class="material-symbols-outlined text-base">upload_file</span> Importar
+                </button>
+                <button id="btnDeshacerResetCxP" onclick="deshacerResetCxP()"
+                    class="hidden flex-1 lg:flex-none bg-amber-500 text-white px-4 py-2.5 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg hover:bg-amber-600 transition-all animate-pulse">
+                    <span class="material-symbols-outlined text-base">undo</span>
+                    Deshacer Reset
+                </button>
+                <button onclick="abrirModalResetCxP()"
+                    class="flex-1 lg:flex-none bg-red-600 text-white px-4 py-2.5 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg hover:bg-red-700 transition-all">
+                    <span class="material-symbols-outlined text-base">restart_alt</span>
+                    Reset CxP
                 </button>
             </div>
         </header>
@@ -239,6 +254,195 @@
         </div>
     </div>
 
+    <!-- MODAL: Reset CxP -->
+    <div id="modalResetCxP"
+        class="fixed inset-0 bg-black/60 hidden z-[120] flex items-center justify-center backdrop-blur-sm transition-all">
+        <div class="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden p-6 space-y-5">
+            <div class="text-center">
+                <div class="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-3xl text-red-600">warning</span>
+                </div>
+                <h3 class="text-lg font-black uppercase italic text-red-600">Reset de Cuentas por Pagar</h3>
+                <p class="text-sm text-gray-500 font-medium mt-2 leading-relaxed">
+                    Esta acción marcará <strong>TODAS</strong> las cuentas por pagar pendientes como <strong>"Pagado"</strong>.
+                    <br><span class="text-primary font-black">Los pagos de préstamos NO se tocarán.</span>
+                </p>
+                <p class="text-xs text-gray-400 mt-2 italic">Se guardará un respaldo automático para poder deshacer.</p>
+            </div>
+            <div>
+                <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Escribe RESET para confirmar</label>
+                <input type="text" id="inputConfirmResetCxP"
+                    class="w-full bg-gray-50 border-2 border-red-200 rounded-2xl py-4 text-center text-xl font-black uppercase focus:ring-2 focus:ring-red-400 focus:border-red-400"
+                    placeholder="RESET" autocomplete="off">
+            </div>
+            <div class="flex gap-3">
+                <button onclick="cerrarModalResetCxP()"
+                    class="flex-1 py-4 text-[10px] font-black uppercase text-gray-400 hover:text-gray-600">Cancelar</button>
+                <button onclick="ejecutarResetCxP()"
+                    class="flex-1 bg-red-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-red-700 transition-all">Aplicar Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Nueva CxP Manual -->
+    <div id="modalNuevaCxP"
+        class="fixed inset-0 bg-black/60 hidden z-[120] flex items-center justify-center backdrop-blur-sm transition-all">
+        <div class="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-100 bg-gray-50/50">
+                <h3 class="text-lg font-black uppercase italic tracking-tight">Nueva Cuenta por Pagar</h3>
+                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Registro manual de CxP</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Fecha</label>
+                        <input type="date" id="manualCxpFecha"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Proveedor</label>
+                        <input type="text" id="manualCxpProveedor"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary uppercase"
+                            placeholder="Nombre del proveedor">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Categoría</label>
+                        <input type="text" id="manualCxpCategoria"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary uppercase"
+                            placeholder="Ej: Mercancía">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Sucursal</label>
+                        <select id="manualCxpSucursal"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary">
+                            <option value="Norte">Norte</option>
+                            <option value="Sur">Sur</option>
+                            <option value="Matriz">Matriz</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Monto Total</label>
+                        <input type="number" step="0.01" id="manualCxpMontoTotal"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-black focus:ring-2 focus:ring-primary"
+                            placeholder="0.00">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Saldo Pendiente</label>
+                        <input type="number" step="0.01" id="manualCxpSaldoPendiente"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-black focus:ring-2 focus:ring-primary"
+                            placeholder="0.00">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Días de Crédito</label>
+                        <input type="number" id="manualCxpDiasCredito"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary"
+                            placeholder="30" value="30">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Estado</label>
+                        <select id="manualCxpEstado"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary">
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Pagado">Pagado</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Notas (opcional)</label>
+                    <input type="text" id="manualCxpNotas"
+                        class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary uppercase"
+                        placeholder="Observaciones">
+                </div>
+            </div>
+            <div class="p-6 bg-gray-50/50 border-t border-gray-100 flex gap-3">
+                <button onclick="cerrarModalNuevaCxP()"
+                    class="flex-1 py-4 text-[10px] font-black uppercase text-gray-400 hover:text-gray-600">Cancelar</button>
+                <button onclick="guardarCxPManual()"
+                    class="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-emerald-700 transition-all">Guardar CxP</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Importar Excel CxP -->
+    <div id="modalImportarExcelCxP"
+        class="fixed inset-0 bg-black/60 hidden z-[120] flex items-center justify-center backdrop-blur-sm transition-all">
+        <div class="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-black uppercase italic tracking-tight">Importar CxP desde Excel</h3>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Carga masiva de cuentas por pagar</p>
+                </div>
+                <button onclick="cerrarModalImportarExcelCxP()"
+                    class="size-10 rounded-full hover:bg-gray-200 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-gray-400">close</span>
+                </button>
+            </div>
+            <div class="p-6 space-y-5 overflow-y-auto flex-1">
+                <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                    <p class="text-[10px] font-black uppercase text-blue-600 tracking-widest mb-2">Formato Requerido del Excel</p>
+                    <p class="text-xs text-blue-700 font-medium">El archivo debe tener estas columnas en la primera fila:</p>
+                    <div class="flex flex-wrap gap-1.5 mt-2">
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Fecha</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Proveedor</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Categoría</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Sucursal</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Monto Total</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Saldo Pendiente</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Días Crédito</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Estado</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <label class="flex-1 cursor-pointer">
+                        <div class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:bg-gray-100 hover:border-gray-300 transition-all">
+                            <span class="material-symbols-outlined text-4xl text-gray-300 mb-2">cloud_upload</span>
+                            <p class="text-sm font-bold text-gray-500">Click para seleccionar archivo .xlsx</p>
+                            <p id="nombreArchivoExcelCxP" class="text-[10px] text-primary font-black mt-1 hidden"></p>
+                        </div>
+                        <input type="file" id="inputExcelCxP" accept=".xlsx,.xls" class="hidden" onchange="previsualizarExcelCxP(this)">
+                    </label>
+                </div>
+                <div id="previewExcelContainerCxP" class="hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">
+                            Preview: <span id="contadorPreviewExcelCxP" class="text-primary">0</span> registros
+                        </p>
+                        <p id="erroresPreviewExcelCxP" class="text-[10px] font-black text-red-500 hidden"></p>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-gray-100">
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-50/60 text-gray-400 text-[9px] font-black uppercase tracking-[0.15em] border-b border-gray-100">
+                                <tr>
+                                    <th class="px-3 py-2">Fecha</th>
+                                    <th class="px-3 py-2">Proveedor</th>
+                                    <th class="px-3 py-2">Categoría</th>
+                                    <th class="px-3 py-2">Sucursal</th>
+                                    <th class="px-3 py-2 text-right">Monto Total</th>
+                                    <th class="px-3 py-2 text-right">Saldo Pend.</th>
+                                    <th class="px-3 py-2">Días Créd.</th>
+                                    <th class="px-3 py-2">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaPreviewExcelCxP" class="divide-y divide-gray-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 bg-gray-50/50 border-t border-gray-100 flex gap-3">
+                <button onclick="cerrarModalImportarExcelCxP()"
+                    class="flex-1 py-4 text-[10px] font-black uppercase text-gray-400 hover:text-gray-600">Cancelar</button>
+                <button id="btnConfirmarImportacionCxP" onclick="confirmarImportacionExcelCxP()" disabled
+                    class="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed">Importar Registros</button>
+            </div>
+        </div>
+    </div>
+
     <script src="api.js?v=5"></script>
     <script src="auth.js"></script>
     <script src="menu.js"></script>
@@ -247,7 +451,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             inyectarMenu('pagar');
-            // Esperar a que los métodos de pago estén completamente cargados desde PROD
             if (window.cargarConfiguracionSistema) await window.cargarConfiguracionSistema();
             if (typeof poblarSelectoresMetodoPago === 'function') {
                 poblarSelectoresMetodoPago(['metodoPagoProv'], {});
@@ -261,6 +464,12 @@
             document.getElementById('modalAbonoProv').classList.add('hidden');
         }
         function cerrarBitacoraProv() { document.getElementById('modalBitacoraProv').classList.add('hidden'); }
+        function abrirModalResetCxP() { document.getElementById('inputConfirmResetCxP').value = ''; document.getElementById('modalResetCxP').classList.remove('hidden'); }
+        function cerrarModalResetCxP() { document.getElementById('modalResetCxP').classList.add('hidden'); }
+        function abrirModalNuevaCxP() { inicializarFormularioCxP(); document.getElementById('modalNuevaCxP').classList.remove('hidden'); }
+        function cerrarModalNuevaCxP() { document.getElementById('modalNuevaCxP').classList.add('hidden'); }
+        function abrirModalImportarExcelCxP() { resetearModalImportacionCxP(); document.getElementById('modalImportarExcelCxP').classList.remove('hidden'); }
+        function cerrarModalImportarExcelCxP() { document.getElementById('modalImportarExcelCxP').classList.add('hidden'); }
     </script>
 </body>
 

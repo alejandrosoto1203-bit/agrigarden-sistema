@@ -275,6 +275,7 @@ async function cargarCuentasPorPagar() {
         datosCachePagos = await res.json();
         aplicarFiltrosPagos();
         actualizarKPIsPagos(datosCachePagos);
+        verificarSnapshotResetCxP();
     } catch (e) { console.error("Error Cuentas Pagar:", e); }
 }
 
@@ -422,6 +423,11 @@ function renderizarTablaPagos(datos) {
                         <button onclick="abrirModalProrroga('${principal.id}', '${principal.proveedor}', '${fechaLimite.toISOString().split('T')[0]}')" class="p-2 bg-orange-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm flex items-center justify-center">
                             <span class="material-symbols-outlined text-sm font-bold">calendar_month</span>
                         </button>
+                        ${!(principal.notas && principal.notas.includes('PRÉSTAMO:')) ? `
+                        <button onclick="eliminarCxP('${principal.id}', '${principal.proveedor}')" class="p-2 bg-red-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm flex items-center justify-center" title="Eliminar CxP">
+                            <span class="material-symbols-outlined text-sm font-bold">delete</span>
+                        </button>
+                        ` : ''}
                     ` : ''}
                     <button onclick="abrirBitacoraProv('${principal.id}', '${principal.proveedor}')" class="p-2 bg-gray-900 text-white rounded-lg hover:scale-105 transition-all shadow-sm flex items-center justify-center">
                         <span class="material-symbols-outlined text-sm font-bold">event_note</span>
@@ -1509,6 +1515,410 @@ async function confirmarImportacionExcel() {
             const err = await res.text();
             console.error('Error importando:', err);
             alert('Error al importar los registros.');
+        }
+    } catch (e) {
+        console.error('Error:', e);
+        alert('Error al importar: ' + e.message);
+    }
+}
+
+// ============================================================
+// RESET DE CUENTAS POR PAGAR (SIN TOCAR PRÉSTAMOS)
+// ============================================================
+
+async function verificarSnapshotResetCxP() {
+    const btn = document.getElementById('btnDeshacerResetCxP');
+    if (!btn) return;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/sys_config?key=eq.cxp_reset_snapshot&select=value`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const data = await res.json();
+        if (data && data.length > 0 && data[0].value && data[0].value.registros && data[0].value.registros.length > 0) {
+            btn.classList.remove('hidden');
+            btn.style.display = '';
+        } else {
+            btn.classList.add('hidden');
+        }
+    } catch (e) {
+        btn.classList.add('hidden');
+    }
+}
+
+async function ejecutarResetCxP() {
+    const inputConfirm = document.getElementById('inputConfirmResetCxP');
+    if (!inputConfirm || inputConfirm.value.trim().toUpperCase() !== 'RESET') {
+        return alert('Debes escribir "RESET" exactamente para confirmar.');
+    }
+
+    try {
+        // 1. Obtener CxP pendientes EXCLUYENDO préstamos
+        const resPendientes = await fetch(`${SUPABASE_URL}/rest/v1/gastos?metodo_pago=eq.Crédito&estado_pago=eq.Pendiente&select=id,estado_pago,saldo_pendiente,monto_total,notas`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const todosPendientes = await resPendientes.json();
+
+        // FILTRAR: excluir los que son de préstamos
+        const pendientes = todosPendientes.filter(p => !(p.notas && p.notas.includes('PRÉSTAMO:')));
+
+        if (!pendientes || pendientes.length === 0) {
+            cerrarModalResetCxP();
+            return alert('No hay cuentas por pagar pendientes para resetear (excluyendo préstamos).');
+        }
+
+        // 2. Guardar snapshot
+        const snapshot = {
+            fecha_reset: new Date().toISOString(),
+            registros: pendientes.map(p => ({
+                id: p.id,
+                estado_pago: p.estado_pago,
+                saldo_pendiente: p.saldo_pendiente !== null ? p.saldo_pendiente : p.monto_total
+            }))
+        };
+
+        const resSnapshot = await fetch(`${SUPABASE_URL}/rest/v1/sys_config`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({ key: 'cxp_reset_snapshot', value: snapshot, description: 'Snapshot de CxP antes del último reset' })
+        });
+
+        if (!resSnapshot.ok) {
+            return alert('Error al guardar respaldo. El reset NO se aplicó.');
+        }
+
+        // 3. PATCH masivo
+        let patchedCount = 0;
+        for (const item of pendientes) {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/gastos?id=eq.${item.id}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado_pago: 'Pagado', saldo_pendiente: 0 })
+            });
+            if (res.ok) patchedCount++;
+        }
+
+        // 4. Bitácora
+        for (const item of pendientes) {
+            await fetch(`${SUPABASE_URL}/rest/v1/bitacora_proveedores`, {
+                method: 'POST',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    gasto_id: item.id,
+                    nota: `RESET CXP APLICADO. Saldo original: ${formatMoney(item.saldo_pendiente !== null ? item.saldo_pendiente : item.monto_total)}`
+                })
+            });
+        }
+
+        cerrarModalResetCxP();
+        cargarCuentasPorPagar();
+        alert(`✅ Reset completado. ${patchedCount} cuentas por pagar marcadas como pagadas.\n(Los préstamos NO fueron afectados)\n\nPuedes usar "Deshacer Reset" para revertir.`);
+
+    } catch (e) {
+        console.error('Error en reset CxP:', e);
+        alert('Error al ejecutar el reset: ' + e.message);
+    }
+}
+
+async function deshacerResetCxP() {
+    if (!confirm('¿Deshacer el último reset de CxP?\n\nTodas las cuentas volverán a su estado anterior.')) return;
+
+    try {
+        const resSnapshot = await fetch(`${SUPABASE_URL}/rest/v1/sys_config?key=eq.cxp_reset_snapshot&select=value`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const snapData = await resSnapshot.json();
+        if (!snapData || snapData.length === 0 || !snapData[0].value || !snapData[0].value.registros) {
+            return alert('No se encontró respaldo para deshacer.');
+        }
+
+        const registros = snapData[0].value.registros;
+        let restaurados = 0;
+
+        for (const reg of registros) {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/gastos?id=eq.${reg.id}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado_pago: reg.estado_pago, saldo_pendiente: reg.saldo_pendiente })
+            });
+            if (res.ok) restaurados++;
+        }
+
+        await fetch(`${SUPABASE_URL}/rest/v1/sys_config?key=eq.cxp_reset_snapshot`, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+
+        for (const reg of registros) {
+            await fetch(`${SUPABASE_URL}/rest/v1/bitacora_proveedores`, {
+                method: 'POST',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    gasto_id: reg.id,
+                    nota: `RESET CXP DESHECHO. Estado restaurado: ${reg.estado_pago}, Saldo: ${formatMoney(reg.saldo_pendiente)}`
+                })
+            });
+        }
+
+        cargarCuentasPorPagar();
+        alert(`✅ Reset deshecho. ${restaurados} cuentas restauradas.`);
+
+    } catch (e) {
+        console.error('Error deshaciendo reset CxP:', e);
+        alert('Error al deshacer: ' + e.message);
+    }
+}
+
+// ============================================================
+// CREAR CxP MANUAL
+// ============================================================
+
+function inicializarFormularioCxP() {
+    const hoyLocal = new Date();
+    const offset = hoyLocal.getTimezoneOffset() * 60000;
+    const fechaLocal = new Date(hoyLocal.getTime() - offset).toISOString().split('T')[0];
+    const campoFecha = document.getElementById('manualCxpFecha');
+    if (campoFecha) campoFecha.value = fechaLocal;
+
+    ['manualCxpProveedor', 'manualCxpCategoria', 'manualCxpMontoTotal', 'manualCxpSaldoPendiente', 'manualCxpNotas'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const selectSuc = document.getElementById('manualCxpSucursal');
+    if (selectSuc) selectSuc.value = 'Norte';
+    const selectEstado = document.getElementById('manualCxpEstado');
+    if (selectEstado) selectEstado.value = 'Pendiente';
+    const diasInput = document.getElementById('manualCxpDiasCredito');
+    if (diasInput) diasInput.value = '30';
+}
+
+async function guardarCxPManual() {
+    const fecha = document.getElementById('manualCxpFecha')?.value;
+    const proveedor = document.getElementById('manualCxpProveedor')?.value?.toUpperCase();
+    const categoria = document.getElementById('manualCxpCategoria')?.value?.toUpperCase() || 'GENERAL';
+    const sucursal = document.getElementById('manualCxpSucursal')?.value;
+    const montoTotal = parseFloat(document.getElementById('manualCxpMontoTotal')?.value) || 0;
+    const saldoPendiente = parseFloat(document.getElementById('manualCxpSaldoPendiente')?.value) || 0;
+    const diasCredito = parseInt(document.getElementById('manualCxpDiasCredito')?.value) || 30;
+    const estado = document.getElementById('manualCxpEstado')?.value || 'Pendiente';
+    const notas = document.getElementById('manualCxpNotas')?.value?.toUpperCase() || 'CXP MANUAL';
+
+    if (!fecha) return alert('Selecciona una fecha.');
+    if (!proveedor) return alert('Ingresa el proveedor.');
+    if (montoTotal <= 0) return alert('El monto debe ser mayor a 0.');
+
+    try {
+        const [year, month, day] = fecha.split('-').map(Number);
+        const fechaISO = new Date(year, month - 1, day, 12, 0, 0).toISOString();
+
+        const registro = {
+            created_at: fechaISO,
+            proveedor: proveedor,
+            categoria: categoria,
+            metodo_pago: 'Crédito',
+            monto_total: montoTotal,
+            saldo_pendiente: saldoPendiente,
+            estado_pago: estado,
+            dias_credito: diasCredito,
+            sucursal: sucursal,
+            notas: notas
+        };
+
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/gastos`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(registro)
+        });
+
+        if (res.ok) {
+            cerrarModalNuevaCxP();
+            cargarCuentasPorPagar();
+            alert('✅ Cuenta por pagar creada exitosamente.');
+        } else {
+            alert('Error al crear la cuenta por pagar.');
+        }
+    } catch (e) {
+        console.error('Error:', e);
+        alert('Error al guardar: ' + e.message);
+    }
+}
+
+// ============================================================
+// ELIMINAR CxP INDIVIDUAL
+// ============================================================
+
+async function eliminarCxP(id, proveedor) {
+    if (!confirm(`¿Eliminar la cuenta por pagar de "${proveedor}"?\n\nSe marcará como Pagado.`)) return;
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/gastos?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado_pago: 'Pagado', saldo_pendiente: 0 })
+        });
+
+        if (res.ok) {
+            await fetch(`${SUPABASE_URL}/rest/v1/bitacora_proveedores`, {
+                method: 'POST',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gasto_id: id, nota: 'CXP ELIMINADA MANUALMENTE POR USUARIO' })
+            });
+            cargarCuentasPorPagar();
+            alert('✅ Cuenta por pagar eliminada.');
+        }
+    } catch (e) {
+        console.error('Error eliminando CxP:', e);
+        alert('Error al eliminar.');
+    }
+}
+
+// ============================================================
+// IMPORTAR EXCEL CxP
+// ============================================================
+
+let _datosExcelParseadosCxP = [];
+
+function resetearModalImportacionCxP() {
+    _datosExcelParseadosCxP = [];
+    const fileInput = document.getElementById('inputExcelCxP');
+    if (fileInput) fileInput.value = '';
+    const nombreEl = document.getElementById('nombreArchivoExcelCxP');
+    if (nombreEl) { nombreEl.textContent = ''; nombreEl.classList.add('hidden'); }
+    const previewContainer = document.getElementById('previewExcelContainerCxP');
+    if (previewContainer) previewContainer.classList.add('hidden');
+    const btnConfirmar = document.getElementById('btnConfirmarImportacionCxP');
+    if (btnConfirmar) btnConfirmar.disabled = true;
+    const erroresEl = document.getElementById('erroresPreviewExcelCxP');
+    if (erroresEl) erroresEl.classList.add('hidden');
+}
+
+function previsualizarExcelCxP(fileInput) {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const nombreEl = document.getElementById('nombreArchivoExcelCxP');
+    if (nombreEl) { nombreEl.textContent = `📄 ${file.name}`; nombreEl.classList.remove('hidden'); }
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        try {
+            const workbook = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+
+            if (!rawData || rawData.length === 0) return alert('El archivo no contiene datos.');
+
+            const mapCol = (row, options) => {
+                for (const opt of options) {
+                    const key = Object.keys(row).find(k => k.toLowerCase().trim() === opt.toLowerCase());
+                    if (key !== undefined) return row[key];
+                }
+                return '';
+            };
+
+            const parseFecha = (val) => {
+                if (!val) return '';
+                if (val instanceof Date) return val.toISOString().split('T')[0];
+                const str = String(val).trim();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+                const parts = str.split(/[\/\-]/);
+                if (parts.length === 3) {
+                    if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                }
+                return str;
+            };
+
+            _datosExcelParseadosCxP = rawData.map(row => ({
+                fecha: parseFecha(mapCol(row, ['fecha', 'date'])),
+                proveedor: String(mapCol(row, ['proveedor', 'supplier', 'nombre proveedor']) || '').toUpperCase(),
+                categoria: String(mapCol(row, ['categoria', 'categoría', 'category', 'tipo']) || 'GENERAL').toUpperCase(),
+                sucursal: String(mapCol(row, ['sucursal', 'branch', 'tienda']) || 'Norte'),
+                montoTotal: parseFloat(mapCol(row, ['monto total', 'monto', 'total', 'amount'])) || 0,
+                saldoPendiente: parseFloat(mapCol(row, ['saldo pendiente', 'pendiente', 'saldo', 'balance'])) || 0,
+                diasCredito: parseInt(mapCol(row, ['dias credito', 'días crédito', 'dias', 'credit days'])) || 30,
+                estado: String(mapCol(row, ['estado', 'status', 'estatus']) || 'Pendiente')
+            }));
+
+            const tbody = document.getElementById('tablaPreviewExcelCxP');
+            const contadorEl = document.getElementById('contadorPreviewExcelCxP');
+            const erroresEl = document.getElementById('erroresPreviewExcelCxP');
+            let errores = 0;
+
+            if (contadorEl) contadorEl.textContent = _datosExcelParseadosCxP.length;
+
+            tbody.innerHTML = _datosExcelParseadosCxP.map(d => {
+                const hasError = !d.fecha || !d.proveedor || d.montoTotal <= 0;
+                if (hasError) errores++;
+                return `<tr class="${hasError ? 'bg-red-50' : ''} border-b border-gray-50">
+                    <td class="px-3 py-2 text-xs font-medium ${!d.fecha ? 'text-red-500' : ''}">${d.fecha || '❌'}</td>
+                    <td class="px-3 py-2 text-xs font-bold ${!d.proveedor ? 'text-red-500' : ''}">${d.proveedor || '❌'}</td>
+                    <td class="px-3 py-2 text-xs">${d.categoria}</td>
+                    <td class="px-3 py-2 text-xs">${d.sucursal}</td>
+                    <td class="px-3 py-2 text-xs text-right font-bold ${d.montoTotal <= 0 ? 'text-red-500' : ''}">${formatMoney(d.montoTotal)}</td>
+                    <td class="px-3 py-2 text-xs text-right font-bold">${formatMoney(d.saldoPendiente)}</td>
+                    <td class="px-3 py-2 text-xs text-center">${d.diasCredito}</td>
+                    <td class="px-3 py-2 text-xs"><span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${d.estado === 'Pagado' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">${d.estado}</span></td>
+                </tr>`;
+            }).join('');
+
+            if (errores > 0 && erroresEl) {
+                erroresEl.textContent = `⚠ ${errores} registro(s) con errores`;
+                erroresEl.classList.remove('hidden');
+            } else if (erroresEl) { erroresEl.classList.add('hidden'); }
+
+            document.getElementById('previewExcelContainerCxP')?.classList.remove('hidden');
+            const btnConfirmar = document.getElementById('btnConfirmarImportacionCxP');
+            if (btnConfirmar) btnConfirmar.disabled = false;
+
+        } catch (err) {
+            console.error('Error parseando Excel CxP:', err);
+            alert('Error al leer el archivo: ' + err.message);
+        }
+    };
+    reader.readAsBinaryString(file);
+}
+
+async function confirmarImportacionExcelCxP() {
+    if (_datosExcelParseadosCxP.length === 0) return alert('No hay datos.');
+
+    const validos = _datosExcelParseadosCxP.filter(d => d.fecha && d.proveedor && d.montoTotal > 0);
+    if (validos.length === 0) return alert('No hay registros válidos.');
+
+    if (!confirm(`¿Importar ${validos.length} cuentas por pagar?`)) return;
+
+    try {
+        const registros = validos.map(d => {
+            const [year, month, day] = d.fecha.split('-').map(Number);
+            const fechaISO = new Date(year, month - 1, day, 12, 0, 0).toISOString();
+            return {
+                created_at: fechaISO,
+                proveedor: d.proveedor,
+                categoria: d.categoria || 'GENERAL',
+                metodo_pago: 'Crédito',
+                monto_total: d.montoTotal,
+                saldo_pendiente: d.saldoPendiente || d.montoTotal,
+                estado_pago: d.estado || 'Pendiente',
+                dias_credito: d.diasCredito || 30,
+                sucursal: d.sucursal || 'Norte',
+                notas: 'CXP IMPORTADA DESDE EXCEL'
+            };
+        });
+
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/gastos`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(registros)
+        });
+
+        if (res.ok) {
+            cerrarModalImportarExcelCxP();
+            cargarCuentasPorPagar();
+            alert(`✅ ${registros.length} cuentas por pagar importadas.`);
+        } else {
+            alert('Error al importar.');
         }
     } catch (e) {
         console.error('Error:', e);
