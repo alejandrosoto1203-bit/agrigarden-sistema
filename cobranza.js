@@ -533,6 +533,15 @@ async function prepararAbonoPago(id, nombre, saldo, modo) {
     }
     if (elTitulo) elTitulo.innerText = (modo === 'liquidacion') ? "Liquidar Cuenta" : "Registrar Abono";
 
+    // Inicializar fecha efectiva con el día de hoy ajustado a zona horaria local
+    const inputFechaCobro = document.getElementById('fechaEfectivaCobro');
+    if (inputFechaCobro) {
+        const hoyLocal = new Date();
+        const offset = hoyLocal.getTimezoneOffset() * 60000;
+        const fechaLocal = new Date(hoyLocal.getTime() - offset).toISOString().split('T')[0];
+        inputFechaCobro.value = fechaLocal;
+    }
+
     // Poblar métodos de pago directo desde PROD en el momento exacto que se abre el modal
     const selectMetodo = document.getElementById('metodoPagoCobro');
     if (selectMetodo) {
@@ -557,6 +566,7 @@ async function prepararAbonoPago(id, nombre, saldo, modo) {
 async function guardarAbono() {
     const montoInput = document.getElementById('montoAbono').value;
     const monto = parseFloat(montoInput);
+    const rawFechaCobro = document.getElementById('fechaEfectivaCobro')?.value;
     let metodo = document.getElementById('metodoPagoCobro').value;
     if (metodo === 'Otros') {
         const otroVal = document.getElementById('otroMetodoCobro')?.value;
@@ -565,6 +575,13 @@ async function guardarAbono() {
     }
     if (!monto || monto <= 0) return alert("Ingresa un monto válido.");
     if (monto > (saldoMaximoAbono + 0.01)) return alert("El abono no puede ser mayor al saldo pendiente.");
+    if (!rawFechaCobro) return alert("Seleccione la fecha efectiva del pago.");
+
+    // Corrección de Fecha: Leer de forma literal YYYY, MM, DD para evitar desfase UTC
+    const [year, month, day] = rawFechaCobro.split('-').map(Number);
+    const fechaISO = new Date(year, month - 1, day, 12, 0, 0).toISOString();
+    const fechaLegible = new Date(year, month - 1, day).toLocaleDateString('es-MX');
+
     try {
         // 1. Obtener datos originales de la transacción para heredar sucursal
         const resOriginal = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${idTransaccionAbono}&select=sucursal,nombre_cliente`, {
@@ -584,18 +601,18 @@ async function guardarAbono() {
         });
 
         if (res.ok) {
-            // 3. Registrar en bitácora
+            // 3. Registrar en bitácora con fecha efectiva
             await fetch(`${SUPABASE_URL}/rest/v1/bitacora_cobranza`, {
                 method: 'POST',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     transaccion_id: idTransaccionAbono,
-                    nota: `PAGO RECIBIDO: ${formatMoney(monto)} vía ${metodo}. Saldo restante: ${formatMoney(nuevoSaldo)}`,
-                    created_at: new Date().toISOString()
+                    nota: `PAGO RECIBIDO (FECHA EFECTIVA: ${fechaLegible}): ${formatMoney(monto)} vía ${metodo}. Saldo restante: ${formatMoney(nuevoSaldo)}`,
+                    created_at: fechaISO
                 })
             });
 
-            // 4. Registrar Transacción de Ingreso (Abono) con sucursal CORRECTA
+            // 4. Registrar Transacción de Ingreso (Abono) con sucursal CORRECTA y fecha efectiva
             const resAbono = await fetch(`${SUPABASE_URL}/rest/v1/transacciones`, {
                 method: 'POST',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
@@ -607,7 +624,8 @@ async function guardarAbono() {
                     metodo_pago: metodo,
                     nombre_cliente: clienteOriginal,
                     sucursal: sucursalOriginal, // ✅ Heredar sucursal correcta
-                    notas: `ABONO A CUENTA (REF: ${idTransaccionAbono})`
+                    notas: `ABONO A CUENTA (REF: ${idTransaccionAbono})`,
+                    created_at: fechaISO // ✅ Fecha efectiva seleccionada
                 })
             });
 
