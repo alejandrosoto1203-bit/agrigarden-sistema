@@ -267,12 +267,6 @@
                                 <select id="metodoPagoSync" class="input-inv"
                                     onchange="verificarMetodoSync(this.value)">
                                     <option value="Efectivo">Efectivo</option>
-                                    <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
-                                    <option value="Transferencia BBVA">Transferencia BBVA</option>
-                                    <option value="Tarjeta de credito Hey Banco">Tarjeta de credito Hey Banco</option>
-                                    <option value="Tarjeta de credito BBVA">Tarjeta de credito BBVA</option>
-                                    <option value="Crédito">Crédito</option>
-                                    <option value="Otros">Otros</option>
                                 </select>
                             </div>
 
@@ -296,7 +290,7 @@
     <script src="auth.js"></script>
     <script src="menu.js"></script>
     <script src="export_helper.js"></script>
-    <script src="inversiones.js?v=2"></script>
+    <script src="inversiones.js?v=3"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             if (typeof inyectarMenu === 'function') inyectarMenu('inversiones');

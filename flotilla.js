@@ -712,10 +712,21 @@ window.abrirModalUsoVehiculo = async function(vehiculo) {
                         <div><label class="label-form text-red-600">Monto ($)</label><input type="number" step="0.01" id="uso_comb_monto" class="input-form bg-red-50 focus:bg-white" placeholder="0.00"></div>
                         <div><label class="label-form">Precio/Lt ($)</label><input type="number" step="0.01" id="uso_comb_preciolitro" class="input-form" placeholder="24.50"></div>
                         <div><label class="label-form">Sucursal</label><select id="uso_comb_sucursal" class="input-form"><option value="Sur">Sur</option><option value="Norte">Norte</option><option value="Matriz">Matriz</option></select></div>
-                        <div><label class="label-form">Pago</label><select id="uso_comb_pago" class="input-form"><option value="Efectivo">Efectivo</option><option value="Tarjeta Hey Banco">TDC Hey Banco</option><option value="Transferencia Hey Banco">Transferencia Hey</option><option value="Tarjeta de Credito BBVA">TC BBVA</option></select></div>
+                        <div><label class="label-form">Pago</label><select id="uso_comb_pago" class="input-form"><option value="Efectivo">Efectivo</option></select></div>
                     </div>
                 `;
                 formEntregar.insertBefore(extras, document.getElementById('btnEntregarTurno'));
+                try {
+                    const _U = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+                    const _K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+                    const r = await fetch(`${_U}/rest/v1/sys_metodos_pago?select=nombre&activo=eq.true&order=orden.asc`, { headers: { 'apikey': _K, 'Authorization': `Bearer ${_K}` } });
+                    if (r.ok) {
+                        const metodos = await r.json();
+                        if (metodos && metodos.length > 0) {
+                            document.getElementById('uso_comb_pago').innerHTML = metodos.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('');
+                        }
+                    }
+                } catch(e) {}
             }
             toggleCombustibleUI();
         } else {

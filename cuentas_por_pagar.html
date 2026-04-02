@@ -169,11 +169,6 @@
                     <select id="metodoPagoProv" onchange="checkMetodoPagoProv(this.value)"
                         class="w-full bg-gray-50 border-none rounded-2xl py-4 text-sm font-bold focus:ring-2 focus:ring-emerald-500">
                         <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia Hey Banco">Transferencia Hey Banco</option>
-                        <option value="Transferencia BBVA">Transferencia BBVA</option>
-                        <option value="Tarjeta de credito Hey Banco">Tarjeta de credito Hey Banco</option>
-                        <option value="Tarjeta de credito BBVA">Tarjeta de credito BBVA</option>
-                        <option value="Otros">Otros (Escribir)</option>
                     </select>
                 </div>
 
@@ -248,7 +243,7 @@
     <script src="auth.js"></script>
     <script src="menu.js"></script>
     <script src="export_helper.js"></script>
-    <script src="cobranza.js?v=2"></script>
+    <script src="cobranza.js?v=3"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             inyectarMenu('pagar');

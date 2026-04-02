@@ -15,8 +15,8 @@ const CUENTAS = [
         banco: 'BBVA',
         sucursal: 'Norte',
         colorClase: 'blue',
-        metodos_tx: ['Transferencia BBVA NORTE', 'Terminal BBVA NORTE', 'Cheque BBVA NORTE'],
-        metodos_gasto: ['Transferencia BBVA NORTE', 'Terminal BBVA NORTE', 'Cheque BBVA NORTE']
+        metodos_tx: ['Transferencia BBVA NORTE', 'Terminal BBVA NORTE', 'Cheque BBVA NORTE', 'Transferencia BBVA', 'Cheque BBVA Norte'],
+        metodos_gasto: ['Transferencia BBVA NORTE', 'Terminal BBVA NORTE', 'Cheque BBVA NORTE', 'Transferencia BBVA', 'Cheque BBVA Norte']
     },
     {
         key: 'hey_banco_sur',
@@ -25,8 +25,8 @@ const CUENTAS = [
         banco: 'Hey Banco',
         sucursal: 'Sur',
         colorClase: 'purple',
-        metodos_tx: ['Transferencia HEY BANCO SUR', 'Terminal HEY BANCO SUR', 'CHEQUE HEY BANCO SUR'],
-        metodos_gasto: ['Transferencia HEY BANCO SUR', 'Terminal HEY BANCO SUR', 'CHEQUE HEY BANCO SUR']
+        metodos_tx: ['Transferencia HEY BANCO SUR', 'Terminal HEY BANCO SUR', 'CHEQUE HEY BANCO SUR', 'Transferencia Hey Banco', 'Cheque Hey Banco Sur'],
+        metodos_gasto: ['Transferencia HEY BANCO SUR', 'Terminal HEY BANCO SUR', 'CHEQUE HEY BANCO SUR', 'Transferencia Hey Banco', 'Cheque Hey Banco Sur']
     },
     {
         key: 'bbva_sur',
@@ -45,8 +45,8 @@ const CUENTAS = [
         banco: 'Mercado Pago',
         sucursal: 'Norte',
         colorClase: 'cyan',
-        metodos_tx: ['Terminal MERCADO PAGO NO FISCAL NORTE'],
-        metodos_gasto: ['Terminal MERCADO PAGO NO FISCAL NORTE']
+        metodos_tx: ['Terminal MERCADO PAGO NO FISCAL NORTE', 'Tarjeta Mercado Pago No Fiscal Norte', 'Tarjeta Mercado Pago'],
+        metodos_gasto: ['Terminal MERCADO PAGO NO FISCAL NORTE', 'Tarjeta Mercado Pago No Fiscal Norte', 'Tarjeta Mercado Pago']
     },
     {
         key: 'mp_fiscal_norte',
@@ -55,8 +55,8 @@ const CUENTAS = [
         banco: 'Mercado Pago',
         sucursal: 'Norte',
         colorClase: 'cyan',
-        metodos_tx: ['Terminal Mercado Pago Fiscal Norte'],
-        metodos_gasto: ['Terminal Mercado Pago Fiscal Norte']
+        metodos_tx: ['Terminal Mercado Pago Fiscal Norte', 'Tarjeta Mercado Pago Fiscal Norte'],
+        metodos_gasto: ['Terminal Mercado Pago Fiscal Norte', 'Tarjeta Mercado Pago Fiscal Norte']
     },
     {
         key: 'tdc_bbva',
@@ -66,7 +66,7 @@ const CUENTAS = [
         banco: 'BBVA',
         sucursal: 'Norte',
         colorClase: 'red',
-        metodos_gasto: ['Tarjeta de Credito BBVA Norte']
+        metodos_gasto: ['Tarjeta de Credito BBVA Norte', 'Tarjeta BBVA']
     },
     {
         key: 'tdc_hey',
