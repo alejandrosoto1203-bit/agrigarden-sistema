@@ -76,7 +76,7 @@ const CUENTAS = [
         banco: 'Hey Banco',
         sucursal: 'Sur',
         colorClase: 'rose',
-        metodos_gasto: ['Tarjeta de credito Hey Banco', 'Tarjeta Hey Banco']
+        metodos_gasto: ['Tarjeta de credito Hey Banco', 'Tarjeta Hey Banco', 'Tarjeta de crédito HEY BANCO SUR']
     }
 ];
 
