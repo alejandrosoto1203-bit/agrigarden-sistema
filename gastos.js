@@ -403,13 +403,15 @@ async function initGastosRegistro() {
 
 // Inicializar si estamos en la vista de registro
 if (window.location.pathname.includes('registro_gastos.html')) {
-    initGastosRegistro().then(() => {
-        // Remove the existing empty row that may have loaded sync
+    (async () => {
+        // Esperar a que los métodos de pago se carguen ANTES de crear la primera fila
+        if (window.cargarConfiguracionSistema) await window.cargarConfiguracionSistema();
+        await initGastosRegistro();
         const tbody = document.getElementById('filasCapturaGastos');
         if (tbody) tbody.innerHTML = '';
         rowIdCounter = 0;
         agregarFilaGasto();
-    });
+    })();
 }
 
 let rowIdCounter = 0;
