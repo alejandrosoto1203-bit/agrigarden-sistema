@@ -77,7 +77,18 @@ function checkMetodoPagoProv(val) {
     if (extra) extra.classList.toggle('hidden', val !== 'Otros');
 }
 
-// 1. GESTIÓN DE CUENTAS POR COBRAR (CLIENTES) - SE MANTIENE ÍNTEGRO
+// Helper: obtener fecha de vencimiento (usa fecha_vencimiento si existe, sino created_at + 30)
+function obtenerFechaVencimiento(item) {
+    if (item.fecha_vencimiento) {
+        const [y, m, d] = item.fecha_vencimiento.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+    const fv = new Date(item.created_at);
+    fv.setDate(fv.getDate() + 30);
+    return fv;
+}
+
+// 1. GESTIÓN DE CUENTAS POR COBRAR (CLIENTES)
 async function cargarCuentasPorCobrar() {
     const tabla = document.getElementById('tablaCobranza');
     if (!tabla) return;
@@ -94,7 +105,7 @@ async function cargarCuentasPorCobrar() {
             const montoOriginal = item.monto || 0;
             const saldoPendiente = (item.saldo_pendiente !== null) ? item.saldo_pendiente : montoOriginal;
             const estadoActual = item.estado_cobro || 'Pendiente';
-            const fechaVencimiento = new Date(item.created_at); fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+            const fechaVencimiento = obtenerFechaVencimiento(item);
 
             if (estadoActual === 'Pendiente') {
                 totalOutstanding += saldoPendiente;
@@ -105,10 +116,14 @@ async function cargarCuentasPorCobrar() {
 
         if (document.getElementById('totalPorCobrar')) document.getElementById('totalPorCobrar').innerText = formatMoney(totalOutstanding);
         if (document.getElementById('totalVencido')) document.getElementById('totalVencido').innerText = formatMoney(totalVencidoSuma);
-        if (document.getElementById('cuentasVencidas')) document.getElementById('cuentasVencidas').innerText = datosCacheCobros.filter(i => (hoy > new Date(new Date(i.created_at).setDate(new Date(i.created_at).getDate() + 30))) && (i.estado_cobro !== 'Pagado')).length;
+        if (document.getElementById('cuentasVencidas')) document.getElementById('cuentasVencidas').innerText = datosCacheCobros.filter(i => {
+            const fv = obtenerFechaVencimiento(i);
+            return (hoy > fv) && (i.estado_cobro !== 'Pagado');
+        }).length;
         if (document.getElementById('recuperadoMes')) document.getElementById('recuperadoMes').innerText = formatMoney(totalRecuperado);
 
         aplicarFiltrosCobros();
+        verificarSnapshotReset();
     } catch (error) { console.error("Error cobranza:", error); }
 }
 
@@ -133,7 +148,7 @@ function renderizarTablaCobros(datosFiltrados) {
         const saldoPendiente = (item.saldo_pendiente !== null) ? item.saldo_pendiente : montoOriginal;
         const estadoActual = item.estado_cobro || 'Pendiente';
         const fechaCompra = new Date(item.created_at);
-        const fechaVencimiento = new Date(item.created_at); fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+        const fechaVencimiento = obtenerFechaVencimiento(item);
         const esVencido = hoy > fechaVencimiento;
 
         const nivelActual = item.nivel_cobranza || 0;
@@ -178,6 +193,9 @@ function renderizarTablaCobros(datosFiltrados) {
                         <button onclick="prepararAbonoPago('${item.id}', '${item.nombre_cliente}', ${saldoPendiente}, 'liquidacion')" class="p-2 bg-blue-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm flex items-center justify-center">
                             <span class="material-symbols-outlined text-sm font-bold">check_circle</span>
                         </button>
+                        <button onclick="eliminarCxC('${item.id}', '${item.nombre_cliente}')" class="p-2 bg-red-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm flex items-center justify-center" title="Eliminar CxC">
+                            <span class="material-symbols-outlined text-sm font-bold">delete</span>
+                        </button>
                     ` : ''}
                     <button onclick="abrirBitacora('${item.id}', '${item.nombre_cliente}')" class="p-2 bg-gray-900 text-white rounded-lg hover:scale-105 transition-all shadow-sm flex items-center justify-center">
                         <span class="material-symbols-outlined text-sm font-bold">event_note</span>
@@ -197,7 +215,7 @@ async function enviarWhatsAppCobranza(item, esVencido) {
     if (!telefono) return alert("El cliente no tiene teléfono registrado.");
 
     const montoStr = formatMoney(item.saldo_pendiente || item.monto);
-    const fechaVenc = new Date(new Date(item.created_at).setDate(new Date(item.created_at).getDate() + 30)).toLocaleDateString();
+    const fechaVenc = obtenerFechaVencimiento(item).toLocaleDateString();
     let mensaje = "";
     let nuevoNivel = item.nivel_cobranza || 0;
     let diasSiguiente = 3;
@@ -918,8 +936,7 @@ function renderizarAlertasCobranza(datos) {
 
     const vencidos = datos.filter(item => {
         if (item.estado_cobro === 'Pagado') return false;
-        const fechaVenc = new Date(item.created_at);
-        fechaVenc.setDate(fechaVenc.getDate() + 30);
+        const fechaVenc = obtenerFechaVencimiento(item);
         if (hoy <= fechaVenc) return false;
         const coincideSuc = filtroSucursal === 'Todos' || item.sucursal === filtroSucursal;
         const coincideTxt = (item.nombre_cliente?.toLowerCase().includes(busqueda) || item.categoria?.toLowerCase().includes(busqueda));
@@ -936,8 +953,7 @@ function renderizarAlertasCobranza(datos) {
     const visibles = vencidos.slice(0, MAX_CARDS);
 
     grid.innerHTML = visibles.map(item => {
-        const fechaVenc = new Date(item.created_at);
-        fechaVenc.setDate(fechaVenc.getDate() + 30);
+        const fechaVenc = obtenerFechaVencimiento(item);
         const diffDays = Math.ceil(Math.abs(hoy - fechaVenc) / (1000 * 60 * 60 * 24));
         const saldo = item.saldo_pendiente !== null ? item.saldo_pendiente : item.monto;
         const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
@@ -989,7 +1005,7 @@ function aplicarFiltrosCobros() {
     const hoy = new Date();
     const datosFiltrados = datosCacheCobros.filter(item => {
         const pagado = item.estado_cobro === 'Pagado';
-        const fechaVenc = new Date(item.created_at); fechaVenc.setDate(fechaVenc.getDate() + 30);
+        const fechaVenc = obtenerFechaVencimiento(item);
         const esVencido = hoy > fechaVenc;
         if (pestañaActualCobros === 'pendiente' && pagado) return false;
         if (pestañaActualCobros === 'pagado' && !pagado) return false;

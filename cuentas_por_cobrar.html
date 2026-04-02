@@ -82,15 +82,29 @@
                 <h1 class="text-2xl lg:text-3xl font-extrabold tracking-tight italic uppercase">Cuentas por Cobrar</h1>
                 <p class="text-gray-500 text-sm font-medium">Monitoreo y gestión de saldos pendientes de Agrigarden</p>
             </div>
-            <div class="flex gap-2 w-full lg:w-auto">
-                <button onclick="sincronizarHistorialCreditos()"
-                    class="flex-1 lg:flex-none bg-black text-white px-5 py-2.5 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg hover:opacity-90 transition-opacity group">
-                    <span class="material-symbols-outlined text-base group-hover:rotate-180 transition-transform duration-500">sync</span>
-                    Sincronizar
+            <div class="flex flex-wrap gap-2 w-full lg:w-auto">
+                <button onclick="abrirModalNuevaCxC()"
+                    class="flex-1 lg:flex-none bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg hover:bg-emerald-700 transition-all">
+                    <span class="material-symbols-outlined text-base">add_circle</span>
+                    Nueva CxC
+                </button>
+                <button onclick="abrirModalImportarExcel()"
+                    class="flex-1 lg:flex-none bg-white border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 text-xs hover:bg-gray-50 transition-all">
+                    <span class="material-symbols-outlined text-base">upload_file</span> Importar
                 </button>
                 <button onclick="exportarCuentas()"
-                    class="flex-1 lg:flex-none bg-white border border-gray-200 text-gray-600 px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 text-xs hover:bg-gray-50 transition-all">
+                    class="flex-1 lg:flex-none bg-white border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 text-xs hover:bg-gray-50 transition-all">
                     <span class="material-symbols-outlined text-base">download</span> Exportar
+                </button>
+                <button id="btnDeshacerReset" onclick="deshacerReset()"
+                    class="hidden flex-1 lg:flex-none bg-amber-500 text-white px-4 py-2.5 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg hover:bg-amber-600 transition-all animate-pulse">
+                    <span class="material-symbols-outlined text-base">undo</span>
+                    Deshacer Reset
+                </button>
+                <button onclick="abrirModalReset()"
+                    class="flex-1 lg:flex-none bg-red-600 text-white px-4 py-2.5 rounded-xl font-black flex items-center justify-center gap-2 text-xs shadow-lg hover:bg-red-700 transition-all">
+                    <span class="material-symbols-outlined text-base">restart_alt</span>
+                    Reset CxC
                 </button>
             </div>
         </header>
@@ -322,6 +336,199 @@
         </div>
     </div>
 
+    <!-- MODAL: Reset CxC -->
+    <div id="modalResetCxC"
+        class="fixed inset-0 bg-black/60 hidden z-[120] flex items-center justify-center backdrop-blur-sm transition-all">
+        <div class="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden p-6 space-y-5">
+            <div class="text-center">
+                <div class="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-3xl text-red-600">warning</span>
+                </div>
+                <h3 class="text-lg font-black uppercase italic text-red-600">Reset de Cuentas por Cobrar</h3>
+                <p class="text-sm text-gray-500 font-medium mt-2 leading-relaxed">
+                    Esta acción marcará <strong>TODAS</strong> las cuentas por cobrar pendientes como <strong>"Pagado"</strong>.
+                    Los ingresos originales <strong>NO se tocarán</strong>.
+                </p>
+                <p class="text-xs text-gray-400 mt-2 italic">Se guardará un respaldo automático para poder deshacer.</p>
+            </div>
+            <div>
+                <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Escribe RESET para confirmar</label>
+                <input type="text" id="inputConfirmReset"
+                    class="w-full bg-gray-50 border-2 border-red-200 rounded-2xl py-4 text-center text-xl font-black uppercase focus:ring-2 focus:ring-red-400 focus:border-red-400"
+                    placeholder="RESET" autocomplete="off">
+            </div>
+            <div class="flex gap-3">
+                <button onclick="cerrarModalReset()"
+                    class="flex-1 py-4 text-[10px] font-black uppercase text-gray-400 hover:text-gray-600">Cancelar</button>
+                <button onclick="ejecutarReset()"
+                    class="flex-1 bg-red-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-red-700 transition-all">Aplicar Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Nueva CxC Manual -->
+    <div id="modalNuevaCxC"
+        class="fixed inset-0 bg-black/60 hidden z-[120] flex items-center justify-center backdrop-blur-sm transition-all">
+        <div class="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-100 bg-gray-50/50">
+                <h3 class="text-lg font-black uppercase italic tracking-tight">Nueva Cuenta por Cobrar</h3>
+                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Registro manual de CxC</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Fecha</label>
+                        <input type="date" id="manualCxcFecha"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Folio</label>
+                        <input type="text" id="manualCxcFolio"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary uppercase"
+                            placeholder="#TXN-000">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Cliente</label>
+                        <input type="text" id="manualCxcCliente"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary uppercase"
+                            placeholder="Nombre del cliente">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Teléfono</label>
+                        <input type="tel" id="manualCxcTelefono"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary"
+                            placeholder="10 dígitos">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Sucursal</label>
+                    <select id="manualCxcSucursal"
+                        class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary">
+                        <option value="Norte">Norte</option>
+                        <option value="Sur">Sur</option>
+                        <option value="Matriz">Matriz</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Monto Original</label>
+                        <input type="number" step="0.01" id="manualCxcMontoOriginal"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-black focus:ring-2 focus:ring-primary"
+                            placeholder="0.00">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Monto Pendiente</label>
+                        <input type="number" step="0.01" id="manualCxcMontoPendiente"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-black focus:ring-2 focus:ring-primary"
+                            placeholder="0.00">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Vencimiento</label>
+                        <input type="date" id="manualCxcVencimiento"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block mb-2">Estado</label>
+                        <select id="manualCxcEstado"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-3.5 text-sm font-bold focus:ring-2 focus:ring-primary">
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Pagado">Pagado</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 bg-gray-50/50 border-t border-gray-100 flex gap-3">
+                <button onclick="cerrarModalNuevaCxC()"
+                    class="flex-1 py-4 text-[10px] font-black uppercase text-gray-400 hover:text-gray-600">Cancelar</button>
+                <button onclick="guardarCxCManual()"
+                    class="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-emerald-700 transition-all">Guardar CxC</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Importar Excel -->
+    <div id="modalImportarExcel"
+        class="fixed inset-0 bg-black/60 hidden z-[120] flex items-center justify-center backdrop-blur-sm transition-all">
+        <div class="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-black uppercase italic tracking-tight">Importar CxC desde Excel</h3>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Carga masiva de cuentas por cobrar</p>
+                </div>
+                <button onclick="cerrarModalImportarExcel()"
+                    class="size-10 rounded-full hover:bg-gray-200 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-gray-400">close</span>
+                </button>
+            </div>
+            <div class="p-6 space-y-5 overflow-y-auto flex-1">
+                <!-- Instrucciones -->
+                <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                    <p class="text-[10px] font-black uppercase text-blue-600 tracking-widest mb-2">Formato Requerido del Excel</p>
+                    <p class="text-xs text-blue-700 font-medium">El archivo debe tener estas columnas en la primera fila (en cualquier orden):</p>
+                    <div class="flex flex-wrap gap-1.5 mt-2">
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Fecha</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Folio</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Cliente</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Teléfono</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Sucursal</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Monto Original</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Monto Pendiente</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Vencimiento</span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black">Estado</span>
+                    </div>
+                </div>
+                <!-- File Input -->
+                <div class="flex items-center gap-4">
+                    <label class="flex-1 cursor-pointer">
+                        <div class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:bg-gray-100 hover:border-gray-300 transition-all">
+                            <span class="material-symbols-outlined text-4xl text-gray-300 mb-2">cloud_upload</span>
+                            <p class="text-sm font-bold text-gray-500">Click para seleccionar archivo .xlsx</p>
+                            <p id="nombreArchivoExcel" class="text-[10px] text-primary font-black mt-1 hidden"></p>
+                        </div>
+                        <input type="file" id="inputExcelCxC" accept=".xlsx,.xls" class="hidden" onchange="previsualizarExcelCxC(this)">
+                    </label>
+                </div>
+                <!-- Preview Table -->
+                <div id="previewExcelContainer" class="hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">
+                            Preview: <span id="contadorPreviewExcel" class="text-primary">0</span> registros
+                        </p>
+                        <p id="erroresPreviewExcel" class="text-[10px] font-black text-red-500 hidden"></p>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-gray-100">
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-50/60 text-gray-400 text-[9px] font-black uppercase tracking-[0.15em] border-b border-gray-100">
+                                <tr>
+                                    <th class="px-3 py-2">Fecha</th>
+                                    <th class="px-3 py-2">Folio</th>
+                                    <th class="px-3 py-2">Cliente</th>
+                                    <th class="px-3 py-2">Teléfono</th>
+                                    <th class="px-3 py-2">Sucursal</th>
+                                    <th class="px-3 py-2 text-right">Monto Orig.</th>
+                                    <th class="px-3 py-2 text-right">Monto Pend.</th>
+                                    <th class="px-3 py-2">Vencimiento</th>
+                                    <th class="px-3 py-2">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaPreviewExcel" class="divide-y divide-gray-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 bg-gray-50/50 border-t border-gray-100 flex gap-3">
+                <button onclick="cerrarModalImportarExcel()"
+                    class="flex-1 py-4 text-[10px] font-black uppercase text-gray-400 hover:text-gray-600">Cancelar</button>
+                <button id="btnConfirmarImportacion" onclick="confirmarImportacionExcel()" disabled
+                    class="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed">Importar Registros</button>
+            </div>
+        </div>
+    </div>
+
     <script src="api.js?v=5"></script>
     <script src="auth.js"></script>
     <script src="menu.js"></script>
@@ -343,6 +550,12 @@
 
         function cerrarModalAbono() { document.getElementById('modalAbono').classList.add('hidden'); }
         function cerrarBitacora() { document.getElementById('modalBitacora').classList.add('hidden'); }
+        function abrirModalReset() { document.getElementById('inputConfirmReset').value = ''; document.getElementById('modalResetCxC').classList.remove('hidden'); }
+        function cerrarModalReset() { document.getElementById('modalResetCxC').classList.add('hidden'); }
+        function abrirModalNuevaCxC() { inicializarFormularioCxC(); document.getElementById('modalNuevaCxC').classList.remove('hidden'); }
+        function cerrarModalNuevaCxC() { document.getElementById('modalNuevaCxC').classList.add('hidden'); }
+        function abrirModalImportarExcel() { resetearModalImportacion(); document.getElementById('modalImportarExcel').classList.remove('hidden'); }
+        function cerrarModalImportarExcel() { document.getElementById('modalImportarExcel').classList.add('hidden'); }
 
         let _alertasColapsadas = false;
         function toggleAlertasVencidas() {
