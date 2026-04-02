@@ -1057,3 +1057,461 @@ async function sincronizarPagosHistoricos() {
         alert("Error en sincronización: " + e.message);
     }
 }
+
+// ============================================================
+// RESET DE CUENTAS POR COBRAR
+// ============================================================
+
+// Verificar si hay un snapshot de reset guardado
+async function verificarSnapshotReset() {
+    const btn = document.getElementById('btnDeshacerReset');
+    if (!btn) return;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/sys_config?key=eq.cxc_reset_snapshot&select=value`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const data = await res.json();
+        if (data && data.length > 0 && data[0].value && data[0].value.registros && data[0].value.registros.length > 0) {
+            btn.classList.remove('hidden');
+            btn.style.display = '';
+        } else {
+            btn.classList.add('hidden');
+        }
+    } catch (e) {
+        btn.classList.add('hidden');
+    }
+}
+
+// Ejecutar el reset con doble confirmación
+async function ejecutarReset() {
+    const inputConfirm = document.getElementById('inputConfirmReset');
+    if (!inputConfirm || inputConfirm.value.trim().toUpperCase() !== 'RESET') {
+        return alert('Debes escribir "RESET" exactamente para confirmar.');
+    }
+
+    try {
+        // 1. Obtener todas las CxC pendientes para el snapshot
+        const resPendientes = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?metodo_pago=ilike.Cr%25dito&estado_cobro=eq.Pendiente&select=id,estado_cobro,saldo_pendiente,monto`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const pendientes = await resPendientes.json();
+
+        if (!pendientes || pendientes.length === 0) {
+            cerrarModalReset();
+            return alert('No hay cuentas por cobrar pendientes para resetear.');
+        }
+
+        // 2. Guardar snapshot en sys_config
+        const snapshot = {
+            fecha_reset: new Date().toISOString(),
+            registros: pendientes.map(p => ({
+                id: p.id,
+                estado_cobro: p.estado_cobro,
+                saldo_pendiente: p.saldo_pendiente !== null ? p.saldo_pendiente : p.monto
+            }))
+        };
+
+        // Intentar upsert en sys_config
+        const resSnapshot = await fetch(`${SUPABASE_URL}/rest/v1/sys_config`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({ key: 'cxc_reset_snapshot', value: snapshot, description: 'Snapshot de CxC antes del último reset' })
+        });
+
+        if (!resSnapshot.ok) {
+            const err = await resSnapshot.text();
+            console.error('Error guardando snapshot:', err);
+            return alert('Error al guardar respaldo. El reset NO se aplicó.');
+        }
+
+        // 3. PATCH masivo: marcar todas como Pagado con saldo 0
+        let patchedCount = 0;
+        for (const item of pendientes) {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${item.id}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado_cobro: 'Pagado', saldo_pendiente: 0 })
+            });
+            if (res.ok) patchedCount++;
+        }
+
+        // 4. Registrar en bitácora de cada registro
+        for (const item of pendientes) {
+            await fetch(`${SUPABASE_URL}/rest/v1/bitacora_cobranza`, {
+                method: 'POST',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    transaccion_id: item.id,
+                    nota: `RESET APLICADO POR USUARIO. Saldo original: ${formatMoney(item.saldo_pendiente !== null ? item.saldo_pendiente : item.monto)}`,
+                    created_at: new Date().toISOString()
+                })
+            });
+        }
+
+        cerrarModalReset();
+        cargarCuentasPorCobrar();
+        alert(`✅ Reset completado. ${patchedCount} cuentas marcadas como pagadas.\n\nPuedes usar el botón "Deshacer Reset" para revertir.`);
+
+    } catch (e) {
+        console.error('Error en reset:', e);
+        alert('Error al ejecutar el reset: ' + e.message);
+    }
+}
+
+// Deshacer el último reset
+async function deshacerReset() {
+    if (!confirm('¿Estás seguro de deshacer el último reset?\n\nTodas las cuentas por cobrar volverán a su estado anterior.')) return;
+
+    try {
+        // 1. Leer snapshot
+        const resSnapshot = await fetch(`${SUPABASE_URL}/rest/v1/sys_config?key=eq.cxc_reset_snapshot&select=value`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const snapData = await resSnapshot.json();
+        if (!snapData || snapData.length === 0 || !snapData[0].value || !snapData[0].value.registros) {
+            return alert('No se encontró ningún respaldo para deshacer.');
+        }
+
+        const registros = snapData[0].value.registros;
+        let restaurados = 0;
+
+        // 2. Restaurar cada registro a su estado original
+        for (const reg of registros) {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${reg.id}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado_cobro: reg.estado_cobro, saldo_pendiente: reg.saldo_pendiente })
+            });
+            if (res.ok) restaurados++;
+        }
+
+        // 3. Eliminar snapshot
+        await fetch(`${SUPABASE_URL}/rest/v1/sys_config?key=eq.cxc_reset_snapshot`, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+
+        // 4. Registrar en bitácora
+        for (const reg of registros) {
+            await fetch(`${SUPABASE_URL}/rest/v1/bitacora_cobranza`, {
+                method: 'POST',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    transaccion_id: reg.id,
+                    nota: `RESET DESHECHO POR USUARIO. Estado restaurado: ${reg.estado_cobro}, Saldo: ${formatMoney(reg.saldo_pendiente)}`,
+                    created_at: new Date().toISOString()
+                })
+            });
+        }
+
+        cargarCuentasPorCobrar();
+        alert(`✅ Reset deshecho. ${restaurados} cuentas restauradas a su estado original.`);
+
+    } catch (e) {
+        console.error('Error deshaciendo reset:', e);
+        alert('Error al deshacer: ' + e.message);
+    }
+}
+
+// ============================================================
+// CREAR CxC MANUAL
+// ============================================================
+
+function inicializarFormularioCxC() {
+    const hoyLocal = new Date();
+    const offset = hoyLocal.getTimezoneOffset() * 60000;
+    const fechaLocal = new Date(hoyLocal.getTime() - offset).toISOString().split('T')[0];
+
+    const campoFecha = document.getElementById('manualCxcFecha');
+    const campoVenc = document.getElementById('manualCxcVencimiento');
+    if (campoFecha) campoFecha.value = fechaLocal;
+    if (campoVenc) {
+        const venc = new Date(hoyLocal.getTime() - offset);
+        venc.setDate(venc.getDate() + 30);
+        campoVenc.value = venc.toISOString().split('T')[0];
+    }
+
+    // Limpiar campos
+    ['manualCxcFolio', 'manualCxcCliente', 'manualCxcTelefono', 'manualCxcMontoOriginal', 'manualCxcMontoPendiente'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const selectSuc = document.getElementById('manualCxcSucursal');
+    if (selectSuc) selectSuc.value = 'Norte';
+    const selectEstado = document.getElementById('manualCxcEstado');
+    if (selectEstado) selectEstado.value = 'Pendiente';
+}
+
+async function guardarCxCManual() {
+    const fecha = document.getElementById('manualCxcFecha')?.value;
+    const folio = document.getElementById('manualCxcFolio')?.value?.toUpperCase();
+    const cliente = document.getElementById('manualCxcCliente')?.value?.toUpperCase();
+    const telefono = document.getElementById('manualCxcTelefono')?.value;
+    const sucursal = document.getElementById('manualCxcSucursal')?.value;
+    const montoOriginal = parseFloat(document.getElementById('manualCxcMontoOriginal')?.value) || 0;
+    const montoPendiente = parseFloat(document.getElementById('manualCxcMontoPendiente')?.value) || 0;
+    const vencimiento = document.getElementById('manualCxcVencimiento')?.value;
+    const estado = document.getElementById('manualCxcEstado')?.value || 'Pendiente';
+
+    if (!fecha) return alert('Selecciona una fecha.');
+    if (!cliente) return alert('Ingresa el nombre del cliente.');
+    if (montoOriginal <= 0) return alert('El monto original debe ser mayor a 0.');
+    if (!vencimiento) return alert('Selecciona la fecha de vencimiento.');
+
+    try {
+        const [year, month, day] = fecha.split('-').map(Number);
+        const fechaISO = new Date(year, month - 1, day, 12, 0, 0).toISOString();
+
+        const registro = {
+            created_at: fechaISO,
+            categoria: folio || '#MANUAL',
+            nombre_cliente: cliente,
+            telefono_cliente: telefono || null,
+            sucursal: sucursal,
+            monto: montoOriginal,
+            monto_neto: montoOriginal,
+            saldo_pendiente: montoPendiente,
+            metodo_pago: 'Crédito',
+            estado_cobro: estado,
+            fecha_vencimiento: vencimiento,
+            tipo: 'Venta Directa',
+            notas: 'CXC MANUAL'
+        };
+
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/transacciones`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(registro)
+        });
+
+        if (res.ok) {
+            cerrarModalNuevaCxC();
+            cargarCuentasPorCobrar();
+            alert('✅ Cuenta por cobrar creada exitosamente.');
+        } else {
+            const err = await res.text();
+            console.error('Error creando CxC:', err);
+            alert('Error al crear la cuenta por cobrar.');
+        }
+    } catch (e) {
+        console.error('Error:', e);
+        alert('Error al guardar: ' + e.message);
+    }
+}
+
+// ============================================================
+// ELIMINAR CxC INDIVIDUAL
+// ============================================================
+
+async function eliminarCxC(id, nombreCliente) {
+    if (!confirm(`¿Eliminar la cuenta por cobrar de "${nombreCliente}"?\n\nSe marcará como Pagado (el ingreso original se mantiene intacto).`)) return;
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado_cobro: 'Pagado', saldo_pendiente: 0 })
+        });
+
+        if (res.ok) {
+            // Registrar en bitácora
+            await fetch(`${SUPABASE_URL}/rest/v1/bitacora_cobranza`, {
+                method: 'POST',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    transaccion_id: id,
+                    nota: 'CXC ELIMINADA MANUALMENTE POR USUARIO',
+                    created_at: new Date().toISOString()
+                })
+            });
+
+            cargarCuentasPorCobrar();
+            alert('✅ Cuenta por cobrar eliminada.');
+        }
+    } catch (e) {
+        console.error('Error eliminando CxC:', e);
+        alert('Error al eliminar.');
+    }
+}
+
+// ============================================================
+// IMPORTAR EXCEL
+// ============================================================
+
+let _datosExcelParseados = [];
+
+function resetearModalImportacion() {
+    _datosExcelParseados = [];
+    const fileInput = document.getElementById('inputExcelCxC');
+    if (fileInput) fileInput.value = '';
+    const nombreEl = document.getElementById('nombreArchivoExcel');
+    if (nombreEl) { nombreEl.textContent = ''; nombreEl.classList.add('hidden'); }
+    const previewContainer = document.getElementById('previewExcelContainer');
+    if (previewContainer) previewContainer.classList.add('hidden');
+    const btnConfirmar = document.getElementById('btnConfirmarImportacion');
+    if (btnConfirmar) btnConfirmar.disabled = true;
+    const erroresEl = document.getElementById('erroresPreviewExcel');
+    if (erroresEl) erroresEl.classList.add('hidden');
+}
+
+function previsualizarExcelCxC(fileInput) {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const nombreEl = document.getElementById('nombreArchivoExcel');
+    if (nombreEl) { nombreEl.textContent = `📄 ${file.name}`; nombreEl.classList.remove('hidden'); }
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        try {
+            const workbook = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+
+            if (!rawData || rawData.length === 0) {
+                alert('El archivo no contiene datos.');
+                return;
+            }
+
+            // Mapear columnas (buscar por nombre, case-insensitive)
+            const mapCol = (row, options) => {
+                for (const opt of options) {
+                    const key = Object.keys(row).find(k => k.toLowerCase().trim() === opt.toLowerCase());
+                    if (key !== undefined) return row[key];
+                }
+                return '';
+            };
+
+            _datosExcelParseados = rawData.map(row => {
+                let fechaRaw = mapCol(row, ['fecha', 'date']);
+                let vencRaw = mapCol(row, ['vencimiento', 'fecha vencimiento', 'due date', 'venc']);
+
+                // Convertir fechas Excel (Date objects o strings)
+                const parseFecha = (val) => {
+                    if (!val) return '';
+                    if (val instanceof Date) return val.toISOString().split('T')[0];
+                    const str = String(val).trim();
+                    // Intentar formato YYYY-MM-DD
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+                    // Intentar formato DD/MM/YYYY
+                    const parts = str.split(/[\/\-]/);
+                    if (parts.length === 3) {
+                        if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                    }
+                    return str;
+                };
+
+                return {
+                    fecha: parseFecha(fechaRaw),
+                    folio: String(mapCol(row, ['folio', 'folio #', 'no.', 'numero']) || '').toUpperCase(),
+                    cliente: String(mapCol(row, ['cliente', 'nombre', 'customer', 'nombre cliente']) || '').toUpperCase(),
+                    telefono: String(mapCol(row, ['telefono', 'teléfono', 'tel', 'phone']) || ''),
+                    sucursal: String(mapCol(row, ['sucursal', 'branch', 'tienda']) || 'Norte'),
+                    montoOriginal: parseFloat(mapCol(row, ['monto original', 'monto', 'total', 'amount'])) || 0,
+                    montoPendiente: parseFloat(mapCol(row, ['monto pendiente', 'pendiente', 'saldo', 'balance'])) || 0,
+                    vencimiento: parseFecha(vencRaw),
+                    estado: String(mapCol(row, ['estado', 'status', 'estatus']) || 'Pendiente')
+                };
+            });
+
+            // Renderizar preview
+            const tbody = document.getElementById('tablaPreviewExcel');
+            const contadorEl = document.getElementById('contadorPreviewExcel');
+            const erroresEl = document.getElementById('erroresPreviewExcel');
+            let errores = 0;
+
+            if (contadorEl) contadorEl.textContent = _datosExcelParseados.length;
+
+            tbody.innerHTML = _datosExcelParseados.map((d, idx) => {
+                const hasError = !d.fecha || !d.cliente || d.montoOriginal <= 0;
+                if (hasError) errores++;
+                return `<tr class="${hasError ? 'bg-red-50' : ''} border-b border-gray-50">
+                    <td class="px-3 py-2 text-xs font-medium ${!d.fecha ? 'text-red-500' : ''}">${d.fecha || '❌'}</td>
+                    <td class="px-3 py-2 text-xs font-bold">${d.folio || '-'}</td>
+                    <td class="px-3 py-2 text-xs font-bold ${!d.cliente ? 'text-red-500' : ''}">${d.cliente || '❌ SIN CLIENTE'}</td>
+                    <td class="px-3 py-2 text-xs">${d.telefono || '-'}</td>
+                    <td class="px-3 py-2 text-xs">${d.sucursal}</td>
+                    <td class="px-3 py-2 text-xs text-right font-bold ${d.montoOriginal <= 0 ? 'text-red-500' : ''}">${formatMoney(d.montoOriginal)}</td>
+                    <td class="px-3 py-2 text-xs text-right font-bold">${formatMoney(d.montoPendiente)}</td>
+                    <td class="px-3 py-2 text-xs">${d.vencimiento || '-'}</td>
+                    <td class="px-3 py-2 text-xs"><span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${d.estado === 'Pagado' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">${d.estado}</span></td>
+                </tr>`;
+            }).join('');
+
+            if (errores > 0 && erroresEl) {
+                erroresEl.textContent = `⚠ ${errores} registro(s) con errores (marcados en rojo)`;
+                erroresEl.classList.remove('hidden');
+            } else if (erroresEl) {
+                erroresEl.classList.add('hidden');
+            }
+
+            document.getElementById('previewExcelContainer')?.classList.remove('hidden');
+            const btnConfirmar = document.getElementById('btnConfirmarImportacion');
+            if (btnConfirmar) btnConfirmar.disabled = false;
+
+        } catch (err) {
+            console.error('Error parseando Excel:', err);
+            alert('Error al leer el archivo Excel: ' + err.message);
+        }
+    };
+    reader.readAsBinaryString(file);
+}
+
+async function confirmarImportacionExcel() {
+    if (_datosExcelParseados.length === 0) return alert('No hay datos para importar.');
+
+    // Filtrar registros válidos
+    const validos = _datosExcelParseados.filter(d => d.fecha && d.cliente && d.montoOriginal > 0);
+
+    if (validos.length === 0) return alert('No hay registros válidos para importar.');
+
+    if (!confirm(`¿Importar ${validos.length} cuentas por cobrar?\n\n(${_datosExcelParseados.length - validos.length} registros con errores serán omitidos)`)) return;
+
+    try {
+        const registros = validos.map(d => {
+            const [year, month, day] = d.fecha.split('-').map(Number);
+            const fechaISO = new Date(year, month - 1, day, 12, 0, 0).toISOString();
+
+            return {
+                created_at: fechaISO,
+                categoria: d.folio || '#IMPORT',
+                nombre_cliente: d.cliente,
+                telefono_cliente: d.telefono || null,
+                sucursal: d.sucursal || 'Norte',
+                monto: d.montoOriginal,
+                monto_neto: d.montoOriginal,
+                saldo_pendiente: d.montoPendiente || d.montoOriginal,
+                metodo_pago: 'Crédito',
+                estado_cobro: d.estado || 'Pendiente',
+                fecha_vencimiento: d.vencimiento || null,
+                tipo: 'Venta Directa',
+                notas: 'CXC IMPORTADA DESDE EXCEL'
+            };
+        });
+
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/transacciones`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(registros)
+        });
+
+        if (res.ok) {
+            cerrarModalImportarExcel();
+            cargarCuentasPorCobrar();
+            alert(`✅ ${registros.length} cuentas por cobrar importadas exitosamente.`);
+        } else {
+            const err = await res.text();
+            console.error('Error importando:', err);
+            alert('Error al importar los registros.');
+        }
+    } catch (e) {
+        console.error('Error:', e);
+        alert('Error al importar: ' + e.message);
+    }
+}
