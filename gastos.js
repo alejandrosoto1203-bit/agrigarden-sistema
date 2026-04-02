@@ -399,6 +399,23 @@ async function initGastosRegistro() {
         console.error('Error cargando productos:', e);
         productosVentaCache = [];
     }
+
+    // Cargar métodos de pago con credenciales PROD hardcoded
+    try {
+        const PROD_URL = 'https://gajhfqfuvzotppnmzbuc.supabase.co';
+        const PROD_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamhmcWZ1dnpvdHBwbm16YnVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjM5OTAsImV4cCI6MjA4Mzk5OTk5MH0.FLomja07LVEmtzSuhBKRDQVcOXqryimaYPDBdIVNVbQ';
+        const resMp = await fetch(`${PROD_URL}/rest/v1/sys_metodos_pago?select=id,nombre,tasa_base,aplica_iva,activo,orden&order=orden.asc`, {
+            headers: { 'apikey': PROD_KEY, 'Authorization': `Bearer ${PROD_KEY}` }
+        });
+        const dataMp = await resMp.json();
+        if (Array.isArray(dataMp) && dataMp.length > 0) {
+            if (!window.CONFIG_NEGOCIO) window.CONFIG_NEGOCIO = {};
+            window.CONFIG_NEGOCIO.metodosPago = dataMp;
+            console.log('[gastos] métodos de pago cargados:', dataMp.length);
+        }
+    } catch (e) {
+        console.error('Error cargando métodos de pago:', e);
+    }
 }
 
 // Inicializar si estamos en la vista de registro
@@ -446,10 +463,8 @@ function agregarFilaGasto() {
                     if (metodos.length > 0) {
                         return metodos.map(m => `<option value="${m.nombre}">${m.nombre}</option>`).join('');
                     }
-                    return '<option value="Efectivo">Efectivo</option>';
+                    return '<option value="Efectivo">Efectivo</option><option value="Crédito">Crédito</option><option value="Otros">Otros</option>';
                 })()}
-                <option value="Crédito">Crédito</option>
-                <option value="Otros">Otros</option>
             </select>
             <input type="number" class="input-capture row-dias-credito hidden input-credit-days text-center" placeholder="Días crédito">
             <input type="text" class="input-capture row-metodo-otro hidden mt-2 border-red-500 uppercase text-center" placeholder="Escribe método...">
