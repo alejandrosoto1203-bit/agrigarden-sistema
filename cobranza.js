@@ -606,14 +606,15 @@ async function guardarAbono() {
     const fechaISO = new Date(year, month - 1, day, 12, 0, 0).toISOString();
     const fechaLegible = new Date(year, month - 1, day).toLocaleDateString('es-MX');
 
+    const sucursalSeleccionada = document.getElementById('sucursalCobro')?.value || 'Norte';
+
     try {
-        // 1. Obtener datos originales de la transacción para heredar sucursal
+        // 1. Obtener datos originales de la transacción para nombre_cliente
         const resOriginal = await fetch(`${SUPABASE_URL}/rest/v1/transacciones?id=eq.${idTransaccionAbono}&select=sucursal,nombre_cliente`, {
             method: 'GET',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
         const dataOriginal = await resOriginal.json();
-        const sucursalOriginal = dataOriginal[0]?.sucursal || 'Norte';
         const clienteOriginal = dataOriginal[0]?.nombre_cliente || 'CLIENTE';
 
         // 2. Actualizar saldo pendiente de la cuenta original
@@ -647,7 +648,7 @@ async function guardarAbono() {
                     monto_neto: monto,
                     metodo_pago: metodo,
                     nombre_cliente: clienteOriginal,
-                    sucursal: sucursalOriginal, // ✅ Heredar sucursal correcta
+                    sucursal: sucursalSeleccionada,
                     notas: `ABONO A CUENTA (REF: ${idTransaccionAbono})`,
                     created_at: fechaISO // ✅ Fecha efectiva seleccionada
                 })
