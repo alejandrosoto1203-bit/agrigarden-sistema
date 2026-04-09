@@ -22,6 +22,7 @@ let currentTransaccionId = null;
 let currentGastoId = null;
 let mostrarFuturosPagos = false; // Control de vista "Próximos Meses"
 let vistaActualCxP = 'lista'; // 'lista' | 'calendario'
+let vistaActualCxC = 'lista'; // 'lista' | 'calendario'
 
 // Paginación Cuentas por Cobrar
 let paginaActualCobros = 1;
@@ -1030,7 +1031,11 @@ function aplicarFiltrosCobros() {
     const resumenEl = document.getElementById('resumenFiltroCobros');
     if (resumenEl) resumenEl.textContent = `${datosFiltrados.length} registro${datosFiltrados.length !== 1 ? 's' : ''}`;
 
-    renderizarTablaCobros(datosFiltrados);
+    if (vistaActualCxC === 'calendario') {
+        renderizarVistaCalendarioCxC(datosFiltrados);
+    } else {
+        renderizarTablaCobros(datosFiltrados);
+    }
     renderizarAlertasCobranza(datosCacheCobros);
 }
 
@@ -2074,6 +2079,143 @@ function renderizarVistaCalendario(datos) {
                 </div>
                 <div class="text-right">
                     <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest">Total a pagar</p>
+                    <p class="text-2xl font-black ${totalColor}">${formatMoney(total)}</p>
+                </div>
+            </div>
+            <div class="divide-y divide-gray-50 px-2 py-1">${itemsHTML}</div>
+        </div>`;
+    }).join('');
+}
+
+// ─── VISTA CALENDARIO CxC ────────────────────────────────────────────────────
+
+function cambiarVistaCxC(vista) {
+    vistaActualCxC = vista;
+    const btnLista = document.getElementById('btnVistaListaCxC');
+    const btnCal   = document.getElementById('btnVistaCalendarioCxC');
+    const divLista = document.getElementById('vistaListaCxC');
+    const divCal   = document.getElementById('vistaCalendarioCxC');
+
+    if (vista === 'lista') {
+        btnLista?.classList.add('bg-white', 'shadow-sm', 'text-gray-700');
+        btnLista?.classList.remove('text-gray-400');
+        btnCal?.classList.remove('bg-white', 'shadow-sm', 'text-gray-700');
+        btnCal?.classList.add('text-gray-400');
+        divCal?.classList.add('hidden');
+        divLista?.classList.remove('hidden');
+    } else {
+        btnCal?.classList.add('bg-white', 'shadow-sm', 'text-gray-700');
+        btnCal?.classList.remove('text-gray-400');
+        btnLista?.classList.remove('bg-white', 'shadow-sm', 'text-gray-700');
+        btnLista?.classList.add('text-gray-400');
+        divLista?.classList.add('hidden');
+        divCal?.classList.remove('hidden');
+        renderizarVistaCalendarioCxC(currentFilteredCobros);
+    }
+}
+
+function renderizarVistaCalendarioCxC(datos) {
+    const container = document.getElementById('vistaCalendarioCxC');
+    if (!container) return;
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const viernesHoy = _proximoViernes(hoy);
+
+    const pendientes = (datos || []).filter(t => t.estado_cobro !== 'Pagado');
+
+    if (pendientes.length === 0) {
+        container.innerHTML = `<div class="card p-12 text-center text-gray-400 font-bold">No hay cuentas pendientes por cobrar</div>`;
+        return;
+    }
+
+    // Agrupar por viernes objetivo
+    const grupos = {};
+    for (const t of pendientes) {
+        const venc = obtenerFechaVencimiento(t);
+        venc.setHours(0, 0, 0, 0);
+        const viernesTarget = venc <= hoy ? new Date(viernesHoy) : _proximoViernes(venc);
+        const key = viernesTarget.toISOString().split('T')[0];
+        if (!grupos[key]) grupos[key] = { viernes: viernesTarget, items: [] };
+        grupos[key].items.push({ ...t, _vencimiento: venc });
+    }
+
+    const sortedKeys = Object.keys(grupos).sort();
+
+    // Cache global para acceso desde onclick
+    if (!window._cxcCalCache) window._cxcCalCache = {};
+
+    container.innerHTML = sortedKeys.map(key => {
+        const { viernes, items } = grupos[key];
+        const total = items.reduce((s, i) => s + (parseFloat(i.saldo_pendiente) || 0), 0);
+        const vencido = viernes <= hoy;
+        const labelViernes = viernes.toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+        const headerColor = vencido ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100';
+        const iconColor   = vencido ? 'text-red-500'   : 'text-emerald-600';
+        const titleColor  = vencido ? 'text-red-700'   : 'text-emerald-700';
+        const totalColor  = vencido ? 'text-red-600'   : 'text-gray-800';
+
+        items.forEach(i => { window._cxcCalCache[i.id] = i; });
+
+        const itemsHTML = items.map(item => {
+            const yaVencio = item._vencimiento < hoy;
+            const vencLabel = item._vencimiento.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+            const saldo = parseFloat(item.saldo_pendiente) || 0;
+            const clienteEsc = item.nombre_cliente.replace(/'/g, "\\'");
+            return `
+            <div class="flex items-center justify-between py-3 px-4 hover:bg-gray-50 rounded-xl transition-all gap-3">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <div class="size-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-gray-500 text-sm">person</span>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-sm font-black text-gray-800 uppercase truncate">${item.nombre_cliente}</p>
+                        <p class="text-[10px] font-medium text-gray-400">
+                            Vence: ${vencLabel}
+                            ${yaVencio ? '<span class="ml-1 font-black text-red-500">• VENCIDO</span>' : ''}
+                            &nbsp;·&nbsp; ${item.sucursal || '-'}
+                            ${item.telefono_cliente ? `&nbsp;·&nbsp; ${item.telefono_cliente}` : ''}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <p class="text-sm font-black text-emerald-600 mr-2">${formatMoney(saldo)}</p>
+                    <button onclick="enviarWhatsAppCobranza(window._cxcCalCache['${item.id}'], ${yaVencio})" title="WhatsApp"
+                        class="p-1.5 ${yaVencio ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white rounded-lg hover:scale-105 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">chat</span>
+                    </button>
+                    <button onclick="prepararAbonoPago('${item.id}', '${clienteEsc}', ${saldo}, 'abono')" title="Abonar"
+                        class="p-1.5 bg-emerald-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">payments</span>
+                    </button>
+                    <button onclick="prepararAbonoPago('${item.id}', '${clienteEsc}', ${saldo}, 'liquidacion')" title="Liquidar"
+                        class="p-1.5 bg-blue-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">check_circle</span>
+                    </button>
+                    <button onclick="eliminarCxC('${item.id}', '${clienteEsc}')" title="Eliminar"
+                        class="p-1.5 bg-red-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">delete</span>
+                    </button>
+                    <button onclick="abrirBitacora('${item.id}', '${clienteEsc}')" title="Bitácora"
+                        class="p-1.5 bg-gray-800 text-white rounded-lg hover:scale-105 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">history</span>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+
+        return `
+        <div class="card overflow-hidden shadow-sm">
+            <div class="px-6 py-4 flex justify-between items-center border-b ${headerColor}">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-2xl ${iconColor}">calendar_today</span>
+                    <div>
+                        <p class="text-xs font-black uppercase tracking-widest ${titleColor} capitalize">${labelViernes}</p>
+                        <p class="text-[10px] text-gray-400 font-medium">${items.length} cliente${items.length !== 1 ? 's' : ''}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest">Total a cobrar</p>
                     <p class="text-2xl font-black ${totalColor}">${formatMoney(total)}</p>
                 </div>
             </div>

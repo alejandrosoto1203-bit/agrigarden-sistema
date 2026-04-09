@@ -176,14 +176,26 @@
         </div>
 
         <!-- TABLA PRINCIPAL -->
-        <div class="card overflow-hidden">
+        <div id="vistaListaCxC" class="card overflow-hidden">
 
-            <!-- TABS -->
-            <div class="px-6 pt-5 border-b border-gray-100 flex gap-6">
-                <button onclick="cambiarPestaña('pendiente')" id="tabPendiente"
-                    class="pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all">Por Cobrar</button>
-                <button onclick="cambiarPestaña('pagado')" id="tabPagado"
-                    class="pb-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all">Cobrados</button>
+            <!-- TABS + TOGGLE VISTA -->
+            <div class="px-6 pt-5 border-b border-gray-100 flex items-center justify-between flex-wrap gap-y-2">
+                <div class="flex gap-6">
+                    <button onclick="cambiarPestaña('pendiente')" id="tabPendiente"
+                        class="pb-4 text-xs font-black uppercase tracking-widest tab-active transition-all">Por Cobrar</button>
+                    <button onclick="cambiarPestaña('pagado')" id="tabPagado"
+                        class="pb-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all">Cobrados</button>
+                </div>
+                <div class="bg-gray-100 rounded-xl p-1 flex gap-1 mb-2">
+                    <button id="btnVistaListaCxC" onclick="cambiarVistaCxC('lista')"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-white shadow-sm text-gray-700 transition-all">
+                        <span class="material-symbols-outlined text-sm">table_rows</span> Lista
+                    </button>
+                    <button id="btnVistaCalendarioCxC" onclick="cambiarVistaCxC('calendario')"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all">
+                        <span class="material-symbols-outlined text-sm">calendar_month</span> Calendario
+                    </button>
+                </div>
             </div>
 
             <!-- FILTROS -->
@@ -249,6 +261,8 @@
                 <div id="btnsPaginacionCobros" class="flex items-center gap-1"></div>
             </div>
         </div>
+
+        <div id="vistaCalendarioCxC" class="hidden space-y-4"></div>
     </main>
 
     <!-- MODAL: Abono / Liquidación -->
@@ -543,7 +557,7 @@
     <script src="menu.js"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <script src="export_helper.js"></script>
-    <script src="cobranza.js?v=2"></script>
+    <script src="cobranza.js?v=3"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             inyectarMenu('cobrar');
