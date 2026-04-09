@@ -21,6 +21,7 @@ let saldoMaximoAbono = 0;
 let currentTransaccionId = null;
 let currentGastoId = null;
 let mostrarFuturosPagos = false; // Control de vista "Próximos Meses"
+let vistaActualCxP = 'lista'; // 'lista' | 'calendario'
 
 // Paginación Cuentas por Cobrar
 let paginaActualCobros = 1;
@@ -1925,4 +1926,129 @@ async function confirmarImportacionExcelCxP() {
         console.error('Error:', e);
         alert('Error al importar: ' + e.message);
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VISTA CALENDARIO DE PAGOS (agrupado por viernes)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _proximoViernes(fecha) {
+    const d = new Date(fecha);
+    d.setHours(0, 0, 0, 0);
+    const dow = d.getDay();
+    const diff = (5 - dow + 7) % 7; // 0 si ya es viernes
+    d.setDate(d.getDate() + diff);
+    return d;
+}
+
+function cambiarVistaCxP(vista) {
+    vistaActualCxP = vista;
+    const btnLista = document.getElementById('btnVistaLista');
+    const btnCal  = document.getElementById('btnVistaCalendario');
+    const divLista = document.getElementById('vistaListaCxP');
+    const divCal   = document.getElementById('vistaCalendarioCxP');
+
+    if (vista === 'lista') {
+        btnLista.classList.add('bg-white', 'shadow-sm', 'text-gray-700');
+        btnLista.classList.remove('text-gray-400');
+        btnCal.classList.remove('bg-white', 'shadow-sm', 'text-gray-700');
+        btnCal.classList.add('text-gray-400');
+        divLista.classList.remove('hidden');
+        divCal.classList.add('hidden');
+    } else {
+        btnCal.classList.add('bg-white', 'shadow-sm', 'text-gray-700');
+        btnCal.classList.remove('text-gray-400');
+        btnLista.classList.remove('bg-white', 'shadow-sm', 'text-gray-700');
+        btnLista.classList.add('text-gray-400');
+        divCal.classList.remove('hidden');
+        divLista.classList.add('hidden');
+        renderizarVistaCalendario(currentFilteredPagos);
+    }
+}
+
+function renderizarVistaCalendario(datos) {
+    const container = document.getElementById('vistaCalendarioCxP');
+    if (!container) return;
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const viernesHoy = _proximoViernes(hoy);
+
+    const pendientes = (datos || []).filter(g =>
+        g.estado_pago !== 'Pagado' && !(g.notas && g.notas.includes('PRÉSTAMO:'))
+    );
+
+    if (pendientes.length === 0) {
+        container.innerHTML = `<div class="card p-12 text-center text-gray-400 font-bold">No hay cuentas pendientes</div>`;
+        return;
+    }
+
+    // Agrupar por viernes objetivo
+    const grupos = {};
+    for (const g of pendientes) {
+        const created = new Date(g.created_at);
+        const dias = g.dias_credito || 30;
+        const venc = new Date(created);
+        venc.setDate(created.getDate() + dias);
+        venc.setHours(0, 0, 0, 0);
+
+        // Si ya venció → próximo viernes desde hoy; si no → viernes de su semana de vencimiento
+        const viernesTarget = venc <= hoy ? new Date(viernesHoy) : _proximoViernes(venc);
+        const key = viernesTarget.toISOString().split('T')[0];
+        if (!grupos[key]) grupos[key] = { viernes: viernesTarget, items: [] };
+        grupos[key].items.push({ ...g, _vencimiento: venc });
+    }
+
+    const sortedKeys = Object.keys(grupos).sort();
+
+    container.innerHTML = sortedKeys.map(key => {
+        const { viernes, items } = grupos[key];
+        const total = items.reduce((s, i) => s + (parseFloat(i.saldo_pendiente) || 0), 0);
+        const vencido = viernes <= hoy;
+        const labelViernes = viernes.toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+        const headerColor = vencido ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100';
+        const iconColor   = vencido ? 'text-red-500'   : 'text-emerald-600';
+        const titleColor  = vencido ? 'text-red-700'   : 'text-emerald-700';
+        const totalColor  = vencido ? 'text-red-600'   : 'text-gray-800';
+
+        const itemsHTML = items.map(item => {
+            const yaVencio = item._vencimiento < hoy;
+            const vencLabel = item._vencimiento.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+            return `
+            <div class="flex items-center justify-between py-3 px-4 hover:bg-gray-50 rounded-xl transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="size-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-gray-500 text-sm">storefront</span>
+                    </div>
+                    <div>
+                        <p class="text-sm font-black text-gray-800 uppercase">${item.proveedor}</p>
+                        <p class="text-[10px] font-medium text-gray-400">
+                            Vence: ${vencLabel}
+                            ${yaVencio ? '<span class="ml-1 font-black text-red-500">• VENCIDO</span>' : ''}
+                            &nbsp;·&nbsp; ${item.sucursal}
+                        </p>
+                    </div>
+                </div>
+                <p class="text-sm font-black text-emerald-600 shrink-0">${formatMoney(item.saldo_pendiente)}</p>
+            </div>`;
+        }).join('');
+
+        return `
+        <div class="card overflow-hidden shadow-sm">
+            <div class="px-6 py-4 flex justify-between items-center border-b ${headerColor}">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-2xl ${iconColor}">calendar_today</span>
+                    <div>
+                        <p class="text-xs font-black uppercase tracking-widest ${titleColor} capitalize">${labelViernes}</p>
+                        <p class="text-[10px] text-gray-400 font-medium">${items.length} proveedor${items.length !== 1 ? 'es' : ''}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest">Total a pagar</p>
+                    <p class="text-2xl font-black ${totalColor}">${formatMoney(total)}</p>
+                </div>
+            </div>
+            <div class="divide-y divide-gray-50 px-2 py-1">${itemsHTML}</div>
+        </div>`;
+    }).join('');
 }
