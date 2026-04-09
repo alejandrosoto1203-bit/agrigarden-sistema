@@ -2011,25 +2011,54 @@ function renderizarVistaCalendario(datos) {
         const titleColor  = vencido ? 'text-red-700'   : 'text-emerald-700';
         const totalColor  = vencido ? 'text-red-600'   : 'text-gray-800';
 
+        // Guardar items en cache global para acceso desde onclick
+        if (!window._cxpCalCache) window._cxpCalCache = {};
+        items.forEach(i => { window._cxpCalCache[i.id] = i; });
+
         const itemsHTML = items.map(item => {
             const yaVencio = item._vencimiento < hoy;
             const vencLabel = item._vencimiento.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+            const fechaLimiteStr = item._vencimiento.toISOString().split('T')[0];
+            const provEnc = encodeURIComponent(item.proveedor);
+            const provEsc = item.proveedor.replace(/'/g, "\\'");
             return `
-            <div class="flex items-center justify-between py-3 px-4 hover:bg-gray-50 rounded-xl transition-all">
-                <div class="flex items-center gap-3">
-                    <div class="size-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                        <span class="material-symbols-outlined text-gray-500 text-sm">storefront</span>
+            <div class="flex items-center justify-between py-3 px-4 hover:bg-gray-50 rounded-xl transition-all gap-3">
+                <a href="gastos.html?proveedor=${provEnc}" class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer group">
+                    <div class="size-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 group-hover:bg-emerald-50 transition-all">
+                        <span class="material-symbols-outlined text-gray-500 text-sm group-hover:text-emerald-600">storefront</span>
                     </div>
-                    <div>
-                        <p class="text-sm font-black text-gray-800 uppercase">${item.proveedor}</p>
+                    <div class="min-w-0">
+                        <p class="text-sm font-black text-gray-800 uppercase group-hover:text-emerald-700 transition-all truncate">${item.proveedor}</p>
                         <p class="text-[10px] font-medium text-gray-400">
                             Vence: ${vencLabel}
                             ${yaVencio ? '<span class="ml-1 font-black text-red-500">• VENCIDO</span>' : ''}
                             &nbsp;·&nbsp; ${item.sucursal}
                         </p>
                     </div>
+                </a>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <p class="text-sm font-black text-emerald-600 mr-2">${formatMoney(item.saldo_pendiente)}</p>
+                    <button onclick="prepararAccionMasivaPagos([window._cxpCalCache['${item.id}']], 'abono')" title="Abonar"
+                        class="p-1.5 bg-green-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">payments</span>
+                    </button>
+                    <button onclick="prepararAccionMasivaPagos([window._cxpCalCache['${item.id}']], 'liquidacion')" title="Liquidar"
+                        class="p-1.5 bg-blue-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">check_circle</span>
+                    </button>
+                    <button onclick="abrirModalProrroga('${item.id}', '${provEsc}', '${fechaLimiteStr}')" title="Prórroga"
+                        class="p-1.5 bg-orange-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">calendar_month</span>
+                    </button>
+                    <button onclick="eliminarCxP('${item.id}', '${provEsc}')" title="Eliminar"
+                        class="p-1.5 bg-red-500 text-white rounded-lg hover:scale-105 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">delete</span>
+                    </button>
+                    <button onclick="abrirBitacoraProv('${item.id}', '${provEsc}')" title="Bitácora"
+                        class="p-1.5 bg-gray-800 text-white rounded-lg hover:scale-105 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">history</span>
+                    </button>
                 </div>
-                <p class="text-sm font-black text-emerald-600 shrink-0">${formatMoney(item.saldo_pendiente)}</p>
             </div>`;
         }).join('');
 

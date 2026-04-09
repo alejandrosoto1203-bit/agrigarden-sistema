@@ -24,6 +24,15 @@ async function cargarGastos() {
         });
         datosCacheGastos = await response.json();
         aplicarFiltrosGastos();
+        // Pre-fill search from URL param ?proveedor=
+        const provParam = new URLSearchParams(window.location.search).get('proveedor');
+        if (provParam) {
+            const input = document.getElementById('inputBusquedaGastos');
+            if (input) {
+                input.value = provParam;
+                aplicarFiltrosGastos();
+            }
+        }
     } catch (error) { console.error("Error gastos:", error); }
 }
 
