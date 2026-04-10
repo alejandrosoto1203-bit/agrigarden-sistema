@@ -105,6 +105,21 @@ let _gastosAll    = [];
 let _traspasosAll = [];
 let _pagosAll     = [];
 
+// ── Anotaciones del estado de cuenta (persisten en localStorage) ──────────────
+function _getAnotacion(sourceType, id) {
+    try { return JSON.parse(localStorage.getItem(`annot_${sourceType}_${id}`) || '{}'); } catch { return {}; }
+}
+function _saveAnotacion(sourceType, id, field, value) {
+    const key = `annot_${sourceType}_${id}`;
+    const cur = _getAnotacion(sourceType, id);
+    cur[field] = value;
+    localStorage.setItem(key, JSON.stringify(cur));
+}
+
+// Variables para exportación del detalle abierto
+let _detalleRowsExport  = [];
+let _detalleCuentaExport = null;
+
 // ============================================================
 // CLIENTE SUPABASE
 // ============================================================
@@ -527,6 +542,9 @@ window.abrirDetalleCuenta = function (cuentaKey) {
 function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
     const c = COLOR_MAP[cuenta.colorClase] || COLOR_MAP.blue;
 
+    // Guardar para exportación
+    _detalleCuentaExport = cuenta;
+
     // Header del modal
     document.getElementById('detalleNombre').textContent = cuenta.nombreCompleto || cuenta.nombre;
     document.getElementById('detalleBanco').textContent  = cuenta.banco + ' · ' + cuenta.sucursal;
@@ -601,10 +619,13 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
         prevCierre = monthGroups[key].cierre;
     });
 
+    // Guardar rows ordenados para exportación
+    _detalleRowsExport = rowsAsc;
+
     const tabla = document.getElementById('detalleTabla');
 
     if (rows.length === 0) {
-        tabla.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-gray-300 italic">Sin movimientos en este período</td></tr>`;
+        tabla.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-300 italic">Sin movimientos en este período</td></tr>`;
     } else {
         let html = '';
         Object.keys(monthGroups).sort().reverse().forEach(key => {
@@ -614,7 +635,7 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
             const cierreColor = (modo === 'tdc' ? group.cierre > 0 : group.cierre < 0) ? 'text-red-600' : 'text-gray-800';
 
             html += `<tr class="bg-blue-50/40 border-t-2 border-blue-100">
-                <td colspan="5" class="px-4 py-2">
+                <td colspan="7" class="px-4 py-2">
                     <div class="flex justify-between items-center flex-wrap gap-2">
                         <span class="font-black text-[10px] uppercase text-blue-700 tracking-widest">${monthLabel}</span>
                         <div class="flex gap-4 text-[10px] font-bold">
@@ -641,7 +662,6 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
                 const sign = isPositivo ? '+' : '-';
                 const saldoColor = (modo === 'tdc' ? r.saldo > 0 : r.saldo < 0) ? 'text-red-500' : 'text-gray-500';
 
-                // Etiqueta del tipo
                 const typeLabels = {
                     ENTRADA: { label: 'ENTRADA', cls: 'bg-green-100 text-green-700' },
                     SALIDA:  { label: 'SALIDA',  cls: 'bg-red-100 text-red-700' },
@@ -650,11 +670,16 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
                 };
                 const tl = typeLabels[r.type] || { label: r.type, cls: 'bg-gray-100 text-gray-600' };
 
+                // Leer anotaciones guardadas
+                const annot = _getAnotacion(r.sourceType, r.id);
+                const factura = (annot.num_factura || '').replace(/"/g, '&quot;');
+                const conceptoEdc = (annot.concepto_banco || '').replace(/"/g, '&quot;');
+
                 html += `<tr class="border-b border-gray-50 hover:bg-yellow-50/50 transition-colors" ${clickAttr}>
                     <td class="px-4 py-3 text-xs font-bold text-gray-600 whitespace-nowrap">
                         ${r.date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' })}
                     </td>
-                    <td class="px-4 py-3 max-w-[220px]">
+                    <td class="px-4 py-3 max-w-[200px]">
                         <p class="font-bold text-gray-800 text-sm truncate">${r.concept}</p>
                         ${r.ref ? `<p class="text-[10px] text-gray-400 font-mono truncate">${r.ref}</p>` : ''}
                     </td>
@@ -666,6 +691,17 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
                     </td>
                     <td class="px-4 py-3 text-right font-bold text-sm ${saldoColor} whitespace-nowrap">
                         ${fmt(r.saldo)}
+                    </td>
+                    <td class="px-2 py-2" onclick="event.stopPropagation()">
+                        <input type="text" value="${factura}" placeholder="Ej. F-001"
+                            class="w-28 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 bg-emerald-50/40 placeholder-gray-300 transition-all"
+                            onblur="_saveAnotacion('${r.sourceType}','${r.id}','num_factura',this.value)"
+                            onkeydown="if(event.key==='Enter') this.nextElementSibling?.focus()">
+                    </td>
+                    <td class="px-2 py-2" onclick="event.stopPropagation()">
+                        <input type="text" value="${conceptoEdc}" placeholder="Concepto banco..."
+                            class="w-44 text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 bg-emerald-50/40 placeholder-gray-300 transition-all"
+                            onblur="_saveAnotacion('${r.sourceType}','${r.id}','concepto_banco',this.value)">
                     </td>
                 </tr>`;
             });
@@ -680,6 +716,86 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
 
 window.cerrarDetalleCuenta = function () {
     document.getElementById('modalDetalleCuenta').classList.add('hidden');
+};
+
+// ── Exportar detalle de cuenta a Excel ───────────────────────────────────────
+window.exportarDetalleExcel = function () {
+    if (!_detalleRowsExport.length || !_detalleCuentaExport) {
+        alert('No hay movimientos para exportar.');
+        return;
+    }
+
+    const cuenta  = _detalleCuentaExport;
+    const nombre  = cuenta.nombreCompleto || cuenta.nombre;
+    const periodo = new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+    const ahora   = new Date().toLocaleString('es-MX');
+
+    // Construir filas del reporte
+    const filas = [];
+
+    // ── Encabezado ──
+    filas.push(['AGRIGARDEN', '', '', '', '', '', '']);
+    filas.push([`Estado de Cuenta — ${nombre}`, '', '', '', '', '', '']);
+    filas.push([`Banco: ${cuenta.banco}  ·  Sucursal: ${cuenta.sucursal}  ·  Período: ${periodo}`, '', '', '', '', '', '']);
+    filas.push([`Generado: ${ahora}`, '', '', '', '', '', '']);
+    filas.push(['', '', '', '', '', '', '']);
+
+    // ── KPIs ──
+    const totalEntradas = _detalleRowsExport.filter(r => r.type === 'ENTRADA' || r.type === 'PAGO').reduce((s, r) => s + r.amount, 0);
+    const totalSalidas  = _detalleRowsExport.filter(r => r.type === 'SALIDA' || r.type === 'CARGO').reduce((s, r) => s + r.amount, 0);
+    const saldoFinal    = _detalleRowsExport[_detalleRowsExport.length - 1]?.saldo ?? 0;
+    filas.push(['RESUMEN', '', '', '', '', '', '']);
+    filas.push(['Entradas / Pagos', totalEntradas, 'Salidas / Cargos', totalSalidas, 'Saldo Final', saldoFinal, '']);
+    filas.push(['', '', '', '', '', '', '']);
+
+    // ── Encabezados de columnas ──
+    filas.push(['Fecha', 'Nombre / Concepto', 'Referencia / Folio', 'Tipo', 'Monto', 'Saldo', '# Factura', 'Concepto Edo. Cta.']);
+
+    // ── Datos ──
+    [..._detalleRowsExport].sort((a, b) => b.date - a.date).forEach(r => {
+        const annot       = _getAnotacion(r.sourceType, r.id);
+        const signo       = (r.type === 'ENTRADA' || r.type === 'PAGO') ? r.amount : -r.amount;
+        filas.push([
+            r.date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+            r.concept,
+            r.ref || '',
+            r.type,
+            signo,
+            r.saldo,
+            annot.num_factura || '',
+            annot.concepto_banco || ''
+        ]);
+    });
+
+    // ── Crear workbook ──
+    const ws = XLSX.utils.aoa_to_sheet(filas);
+
+    // Anchos de columna
+    ws['!cols'] = [
+        { wch: 14 }, // Fecha
+        { wch: 30 }, // Nombre
+        { wch: 18 }, // Referencia
+        { wch: 10 }, // Tipo
+        { wch: 14 }, // Monto
+        { wch: 14 }, // Saldo
+        { wch: 16 }, // # Factura
+        { wch: 30 }, // Concepto Edo
+    ];
+
+    // Combinar celdas del header
+    ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 7 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 7 } },
+        { s: { r: 5, c: 0 }, e: { r: 5, c: 7 } },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, nombre.substring(0, 31));
+
+    const fechaArchivo = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `EstadoCuenta_${nombre.replace(/\s+/g, '_')}_${fechaArchivo}.xlsx`);
 };
 
 // ============================================================
