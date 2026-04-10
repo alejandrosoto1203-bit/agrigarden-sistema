@@ -1952,6 +1952,7 @@ function cambiarVistaCxP(vista) {
     const btnCal  = document.getElementById('btnVistaCalendario');
     const divLista = document.getElementById('vistaListaCxP');
     const divCal   = document.getElementById('vistaCalendarioCxP');
+    const divFiltros = document.getElementById('filtrosCalendarioCxP');
 
     if (vista === 'lista') {
         btnLista.classList.add('bg-white', 'shadow-sm', 'text-gray-700');
@@ -1960,15 +1961,25 @@ function cambiarVistaCxP(vista) {
         btnCal.classList.add('text-gray-400');
         divLista.classList.remove('hidden');
         divCal.classList.add('hidden');
+        divFiltros?.classList.add('hidden');
     } else {
         btnCal.classList.add('bg-white', 'shadow-sm', 'text-gray-700');
         btnCal.classList.remove('text-gray-400');
         btnLista.classList.remove('bg-white', 'shadow-sm', 'text-gray-700');
         btnLista.classList.add('text-gray-400');
         divCal.classList.remove('hidden');
+        divFiltros?.classList.remove('hidden');
         divLista.classList.add('hidden');
         renderizarVistaCalendario(currentFilteredPagos);
     }
+}
+
+function limpiarFiltrosCalCxP() {
+    const inp = document.getElementById('calBusqProveedor');
+    const mon = document.getElementById('calMontoMin');
+    if (inp) inp.value = '';
+    if (mon) mon.value = '';
+    renderizarVistaCalendario(currentFilteredPagos);
 }
 
 function renderizarVistaCalendario(datos) {
@@ -1979,9 +1990,16 @@ function renderizarVistaCalendario(datos) {
     hoy.setHours(0, 0, 0, 0);
     const viernesHoy = _proximoViernes(hoy);
 
-    const pendientes = (datos || []).filter(g =>
-        g.estado_pago !== 'Pagado' && !(g.notas && g.notas.includes('PRÉSTAMO:'))
-    );
+    const busqProv  = (document.getElementById('calBusqProveedor')?.value || '').toLowerCase().trim();
+    const montoMin  = parseFloat(document.getElementById('calMontoMin')?.value) || 0;
+
+    const pendientes = (datos || []).filter(g => {
+        if (g.estado_pago === 'Pagado') return false;
+        if (g.notas && g.notas.includes('PRÉSTAMO:')) return false;
+        if (busqProv && !g.proveedor?.toLowerCase().includes(busqProv)) return false;
+        if (montoMin > 0 && (parseFloat(g.saldo_pendiente) || 0) < montoMin) return false;
+        return true;
+    });
 
     if (pendientes.length === 0) {
         container.innerHTML = `<div class="card p-12 text-center text-gray-400 font-bold">No hay cuentas pendientes</div>`;

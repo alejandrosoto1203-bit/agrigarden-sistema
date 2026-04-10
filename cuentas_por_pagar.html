@@ -168,6 +168,26 @@
             </div>
         </div>
 
+        <!-- FILTROS VISTA CALENDARIO CxP -->
+        <div id="filtrosCalendarioCxP" class="hidden card p-4 flex flex-wrap gap-3 items-center">
+            <div class="flex-1 min-w-[200px] bg-gray-50 rounded-xl flex items-center px-3 border border-gray-200 focus-within:border-emerald-500 transition-all shadow-sm">
+                <span class="material-symbols-outlined text-gray-400 text-sm">search</span>
+                <input type="text" id="calBusqProveedor" placeholder="Buscar proveedor..."
+                    oninput="renderizarVistaCalendario(currentFilteredPagos)"
+                    class="bg-transparent border-none focus:ring-0 text-xs font-bold w-full uppercase py-2.5 pl-2">
+            </div>
+            <div class="bg-gray-50 rounded-xl flex items-center px-3 border border-gray-200 focus-within:border-emerald-500 transition-all shadow-sm">
+                <span class="material-symbols-outlined text-gray-400 text-sm">attach_money</span>
+                <input type="number" id="calMontoMin" placeholder="Monto mínimo..."
+                    oninput="renderizarVistaCalendario(currentFilteredPagos)"
+                    class="bg-transparent border-none focus:ring-0 text-xs font-bold w-40 py-2.5 pl-2">
+            </div>
+            <button onclick="limpiarFiltrosCalCxP()"
+                class="text-[10px] font-black text-gray-400 hover:text-red-500 transition-colors uppercase tracking-widest flex items-center gap-1">
+                <span class="material-symbols-outlined text-sm">close</span> Limpiar
+            </button>
+        </div>
+
         <div id="vistaCalendarioCxP" class="hidden space-y-4"></div>
     </main>
 
@@ -461,7 +481,7 @@
     <script src="auth.js"></script>
     <script src="menu.js"></script>
     <script src="export_helper.js"></script>
-    <script src="cobranza.js?v=5"></script>
+    <script src="cobranza.js?v=6"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             inyectarMenu('pagar');
