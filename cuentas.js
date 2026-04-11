@@ -66,7 +66,7 @@ const CUENTAS = [
         banco: 'BBVA',
         sucursal: 'Norte',
         colorClase: 'red',
-        metodos_gasto: ['Tarjeta de Credito BBVA', 'Tarjeta de Credito BBVA Norte', 'Tarjeta BBVA']
+        metodos_gasto: ['Tarjeta de credito BBVA NORTE', 'Tarjeta de Credito BBVA', 'Tarjeta de Credito BBVA Norte', 'Tarjeta BBVA']
     },
     {
         key: 'tdc_hey',
@@ -203,15 +203,16 @@ window.cargarDatos = async function () {
 };
 
 function calcularBalances(txAll, gastos, traspasos, pagosTDC) {
+    // Acumular con clave en minúsculas para comparación case-insensitive
     const sumaTx = {};
     for (const t of txAll) {
-        const m = t.metodo_pago;
+        const m = (t.metodo_pago || '').toLowerCase();
         if (!m) continue;
         sumaTx[m] = (sumaTx[m] || 0) + (parseFloat(t.monto) || 0);
     }
     const sumaGastos = {};
     for (const g of gastos) {
-        const m = g.metodo_pago;
+        const m = (g.metodo_pago || '').toLowerCase();
         if (!m) continue;
         sumaGastos[m] = (sumaGastos[m] || 0) + (parseFloat(g.monto_total) || 0);
     }
@@ -220,7 +221,7 @@ function calcularBalances(txAll, gastos, traspasos, pagosTDC) {
         const cfg = _config[cuenta.key] || {};
 
         if (cuenta.tipo === 'tarjeta_credito') {
-            const gastoAcum = (cuenta.metodos_gasto || []).reduce((s, m) => s + (sumaGastos[m] || 0), 0);
+            const gastoAcum = (cuenta.metodos_gasto || []).reduce((s, m) => s + (sumaGastos[m.toLowerCase()] || 0), 0);
             const pagosAcum = pagosTDC
                 .filter(p => p.tarjeta === cuenta.key)
                 .reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
@@ -229,8 +230,8 @@ function calcularBalances(txAll, gastos, traspasos, pagosTDC) {
             const deuda = saldoInicio + gastoAcum - pagosAcum;
             _tdcData[cuenta.key] = { gastos: gastoAcum, pagos: pagosAcum, saldoInicio, deuda: Math.max(deuda, 0), limite, disponible: Math.max(limite - deuda, 0), cfg };
         } else {
-            const entradas = (cuenta.metodos_tx || []).reduce((s, m) => s + (sumaTx[m] || 0), 0);
-            const salidas  = (cuenta.metodos_gasto || []).reduce((s, m) => s + (sumaGastos[m] || 0), 0);
+            const entradas = (cuenta.metodos_tx    || []).reduce((s, m) => s + (sumaTx[m.toLowerCase()]     || 0), 0);
+            const salidas  = (cuenta.metodos_gasto || []).reduce((s, m) => s + (sumaGastos[m.toLowerCase()] || 0), 0);
             const traspaso_in  = traspasos.filter(t => t.cuenta_destino === cuenta.key).reduce((s, t) => s + (parseFloat(t.monto) || 0), 0);
             const traspaso_out = traspasos.filter(t => t.cuenta_origen  === cuenta.key).reduce((s, t) => s + (parseFloat(t.monto) || 0), 0);
             const tdcPagosOut  = pagosTDC.filter(p => p.cuenta_origen   === cuenta.key).reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
@@ -444,10 +445,10 @@ window.abrirDetalleCuenta = function (cuentaKey) {
     const rows = [];
 
     if (cuenta.tipo === 'tarjeta_credito') {
-        // Cargos (gastos con ese método de pago)
-        const metodos = cuenta.metodos_gasto || [];
+        // Cargos (gastos con ese método de pago) — comparación case-insensitive
+        const metodos = (cuenta.metodos_gasto || []).map(m => m.toLowerCase());
         _gastosAll
-            .filter(g => metodos.includes(g.metodo_pago))
+            .filter(g => metodos.includes((g.metodo_pago || '').toLowerCase()))
             .forEach(g => rows.push({
                 id: g.id, sourceType: 'gasto',
                 date: new Date(g.created_at),
@@ -473,10 +474,10 @@ window.abrirDetalleCuenta = function (cuentaKey) {
         _renderDetalleModal(cuenta, rows, saldoInicio, 'tdc');
 
     } else {
-        // Entradas: transacciones
-        const metodosTx = cuenta.metodos_tx || [];
+        // Entradas: transacciones — comparación case-insensitive
+        const metodosTx = (cuenta.metodos_tx || []).map(m => m.toLowerCase());
         _txAll
-            .filter(t => metodosTx.includes(t.metodo_pago))
+            .filter(t => metodosTx.includes((t.metodo_pago || '').toLowerCase()))
             .forEach(t => rows.push({
                 id: t.id, sourceType: 'transaccion',
                 date: new Date(t.created_at),
@@ -487,9 +488,9 @@ window.abrirDetalleCuenta = function (cuentaKey) {
             }));
 
         // Salidas: gastos
-        const metodosGasto = cuenta.metodos_gasto || [];
+        const metodosGasto = (cuenta.metodos_gasto || []).map(m => m.toLowerCase());
         _gastosAll
-            .filter(g => metodosGasto.includes(g.metodo_pago))
+            .filter(g => metodosGasto.includes((g.metodo_pago || '').toLowerCase()))
             .forEach(g => rows.push({
                 id: g.id, sourceType: 'gasto',
                 date: new Date(g.created_at),
