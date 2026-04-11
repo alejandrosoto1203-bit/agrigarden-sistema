@@ -66,7 +66,7 @@ const CUENTAS = [
         banco: 'BBVA',
         sucursal: 'Norte',
         colorClase: 'red',
-        metodos_gasto: ['Tarjeta de Credito BBVA Norte', 'Tarjeta BBVA']
+        metodos_gasto: ['Tarjeta de Credito BBVA', 'Tarjeta de Credito BBVA Norte', 'Tarjeta BBVA']
     },
     {
         key: 'tdc_hey',
