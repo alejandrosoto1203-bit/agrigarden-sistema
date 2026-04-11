@@ -635,7 +635,7 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
     const tabla = document.getElementById('detalleTabla');
 
     if (rows.length === 0) {
-        tabla.innerHTML = `<tr><td colspan="9" class="p-10 text-center text-gray-300 italic">Sin movimientos en este período</td></tr>`;
+        tabla.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-gray-300 italic">Sin movimientos en este período</td></tr>`;
     } else {
         let html = '';
         Object.keys(monthGroups).sort().reverse().forEach(key => {
@@ -645,7 +645,7 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
             const cierreColor = (modo === 'tdc' ? group.cierre > 0 : group.cierre < 0) ? 'text-red-600' : 'text-gray-800';
 
             html += `<tr class="bg-blue-50/40 border-t-2 border-blue-100">
-                <td colspan="9" class="px-4 py-2">
+                <td colspan="6" class="px-4 py-2">
                     <div class="flex justify-between items-center flex-wrap gap-2">
                         <span class="font-black text-[10px] uppercase text-blue-700 tracking-widest">${monthLabel}</span>
                         <div class="flex gap-4 text-[10px] font-bold">
@@ -680,14 +680,6 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
                 };
                 const tl = typeLabels[r.type] || { label: r.type, cls: 'bg-gray-100 text-gray-600' };
 
-                const annot = _getAnotacion(r.sourceType, r.id);
-                const factura     = (annot.num_factura    || '').replace(/"/g, '&quot;');
-                const folioFiscal = (annot.folio_fiscal   || '').replace(/"/g, '&quot;');
-                const conceptoEdc = (annot.concepto_banco || '').replace(/"/g, '&quot;');
-
-                const inputCls = 'text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 bg-emerald-50/40 placeholder-gray-300 transition-all';
-                const onSave = (field) => `_saveAnotacionFeedback(this,'${r.sourceType}','${r.id}','${field}')`;
-
                 html += `<tr class="border-b border-gray-50 hover:bg-yellow-50/50 transition-colors" ${clickAttr}>
                     <td class="px-4 py-3 text-xs font-bold text-gray-600 whitespace-nowrap">
                         ${r.date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' })}
@@ -705,25 +697,9 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
                     <td class="px-4 py-3 text-right font-bold text-sm ${saldoColor} whitespace-nowrap">
                         ${fmt(r.saldo)}
                     </td>
-                    <td class="px-2 py-2" onclick="event.stopPropagation()">
-                        <input type="text" value="${factura}" placeholder="Ej. F-001"
-                            class="w-28 ${inputCls}"
-                            onblur="${onSave('num_factura')}"
-                            onkeydown="if(event.key==='Enter'){event.preventDefault();this.closest('tr').querySelector('.input-folio')?.focus()}">
-                    </td>
-                    <td class="px-2 py-2" onclick="event.stopPropagation()">
-                        <input type="text" value="${folioFiscal}" placeholder="UUID fiscal..."
-                            class="input-folio w-36 ${inputCls}"
-                            onblur="${onSave('folio_fiscal')}"
-                            onkeydown="if(event.key==='Enter'){event.preventDefault();this.closest('tr').querySelector('.input-concepto')?.focus()}">
-                    </td>
-                    <td class="px-2 py-2" onclick="event.stopPropagation()">
-                        <input type="text" value="${conceptoEdc}" placeholder="Concepto banco..."
-                            class="input-concepto w-44 ${inputCls}"
-                            onblur="${onSave('concepto_banco')}">
-                    </td>
-                    <td class="px-2 py-2 text-center" onclick="event.stopPropagation()">
-                        <button onclick="_toggleAdjuntosPanel(this,'${r.sourceType}','${r.id}')"
+                    <td class="px-3 py-2 text-center" onclick="event.stopPropagation()">
+                        <button id="adj-btn-${r.sourceType}-${r.id}"
+                            onclick="_toggleAdjuntosPanel(this,'${r.sourceType}','${r.id}')"
                             title="Adjuntos y comentario"
                             class="p-1.5 rounded-lg text-gray-300 hover:bg-emerald-50 hover:text-emerald-500 transition-all">
                             <span class="material-symbols-outlined text-base">attach_file</span>
@@ -733,6 +709,7 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
             });
         });
         tabla.innerHTML = html;
+        _actualizarIndicadoresAdjuntos(rowsAsc);
     }
 
     // Mostrar modal
@@ -792,6 +769,8 @@ async function _refreshAdjuntosList(sourceType, sourceId, panelId) {
     const container = document.getElementById(`adj-items-${panelId}`);
     if (!container) return;
     const adjuntos = await _cargarAdjuntos(sourceType, sourceId);
+    // Actualizar indicador del botón en la fila
+    _actualizarIndicadorBtn(sourceType, sourceId);
     if (!adjuntos.length) {
         container.innerHTML = `<p class="text-xs text-gray-300 italic">Sin archivos adjuntos aún</p>`;
         return;
@@ -881,7 +860,7 @@ window._toggleAdjuntosPanel = async function(btn, sourceType, sourceId) {
     const panelTr = document.createElement('tr');
     panelTr.id = panelId;
     panelTr.innerHTML = `
-        <td colspan="9" class="px-6 py-4 bg-emerald-50/20 border-b border-emerald-100" onclick="event.stopPropagation()">
+        <td colspan="6" class="px-6 py-4 bg-emerald-50/20 border-b border-emerald-100" onclick="event.stopPropagation()">
             <div class="flex gap-4 items-start flex-wrap">
 
                 <!-- Dropzone -->
@@ -920,6 +899,61 @@ window._toggleAdjuntosPanel = async function(btn, sourceType, sourceId) {
     await _refreshAdjuntosList(sourceType, sourceId, panelId);
 };
 
+// ── Indicador verde de adjunto por fila ──────────────────────────────────────
+
+async function _actualizarIndicadoresAdjuntos(rows) {
+    if (!rows || !rows.length) return;
+    const ids = rows.map(r => r.id).join(',');
+    try {
+        const res = await fetch(
+            `${SB_URL}/rest/v1/banco_adjuntos?select=source_type,source_id&source_id=in.(${ids})`,
+            { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
+        );
+        if (!res.ok) return;
+        const adjuntos = await res.json();
+        const conAdj = new Set(adjuntos.map(a => `${a.source_type}-${a.source_id}`));
+        rows.forEach(r => {
+            if (conAdj.has(`${r.sourceType}-${r.id}`)) {
+                _marcarBtnConAdjunto(r.sourceType, r.id);
+            }
+        });
+    } catch(e) { console.error('_actualizarIndicadoresAdjuntos:', e); }
+}
+
+async function _actualizarIndicadorBtn(sourceType, sourceId) {
+    try {
+        const res = await fetch(
+            `${SB_URL}/rest/v1/banco_adjuntos?select=id&source_type=eq.${sourceType}&source_id=eq.${sourceId}&limit=1`,
+            { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
+        );
+        const lista = res.ok ? await res.json() : [];
+        if (lista.length > 0) {
+            _marcarBtnConAdjunto(sourceType, sourceId);
+        } else {
+            _marcarBtnSinAdjunto(sourceType, sourceId);
+        }
+    } catch(e) { /* silencioso */ }
+}
+
+function _marcarBtnConAdjunto(sourceType, sourceId) {
+    const btn = document.getElementById(`adj-btn-${sourceType}-${sourceId}`);
+    if (!btn) return;
+    btn.innerHTML = `<span class="flex items-center gap-1 text-emerald-600 font-black text-[10px] whitespace-nowrap">
+        <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1">check_circle</span>
+        Documento adjuntado
+    </span>`;
+    btn.classList.remove('text-gray-300', 'p-1.5');
+    btn.classList.add('px-2', 'py-1', 'bg-emerald-50', 'rounded-xl');
+}
+
+function _marcarBtnSinAdjunto(sourceType, sourceId) {
+    const btn = document.getElementById(`adj-btn-${sourceType}-${sourceId}`);
+    if (!btn) return;
+    btn.innerHTML = `<span class="material-symbols-outlined text-base">attach_file</span>`;
+    btn.classList.remove('px-2', 'py-1', 'bg-emerald-50', 'rounded-xl');
+    btn.classList.add('text-gray-300', 'p-1.5');
+}
+
 // ── Exportar detalle de cuenta a Excel ───────────────────────────────────────
 window.exportarDetalleExcel = function () {
     if (!_detalleRowsExport.length || !_detalleCuentaExport) {
@@ -936,26 +970,25 @@ window.exportarDetalleExcel = function () {
     const filas = [];
 
     // ── Encabezado ──
-    filas.push(['AGRIGARDEN', '', '', '', '', '', '']);
-    filas.push([`Estado de Cuenta — ${nombre}`, '', '', '', '', '', '']);
-    filas.push([`Banco: ${cuenta.banco}  ·  Sucursal: ${cuenta.sucursal}  ·  Período: ${periodo}`, '', '', '', '', '', '']);
-    filas.push([`Generado: ${ahora}`, '', '', '', '', '', '']);
-    filas.push(['', '', '', '', '', '', '']);
+    filas.push(['AGRIGARDEN', '', '', '', '', '']);
+    filas.push([`Estado de Cuenta — ${nombre}`, '', '', '', '', '']);
+    filas.push([`Banco: ${cuenta.banco}  ·  Sucursal: ${cuenta.sucursal}  ·  Período: ${periodo}`, '', '', '', '', '']);
+    filas.push([`Generado: ${ahora}`, '', '', '', '', '']);
+    filas.push(['', '', '', '', '', '']);
 
     // ── KPIs ──
     const totalEntradas = _detalleRowsExport.filter(r => r.type === 'ENTRADA' || r.type === 'PAGO').reduce((s, r) => s + r.amount, 0);
     const totalSalidas  = _detalleRowsExport.filter(r => r.type === 'SALIDA' || r.type === 'CARGO').reduce((s, r) => s + r.amount, 0);
     const saldoFinal    = _detalleRowsExport[_detalleRowsExport.length - 1]?.saldo ?? 0;
-    filas.push(['RESUMEN', '', '', '', '', '', '', '']);
-    filas.push(['Entradas / Pagos', totalEntradas, 'Salidas / Cargos', totalSalidas, 'Saldo Final', saldoFinal, '', '']);
-    filas.push(['', '', '', '', '', '', '', '']);
+    filas.push(['RESUMEN', '', '', '', '', '']);
+    filas.push(['Entradas / Pagos', totalEntradas, 'Salidas / Cargos', totalSalidas, 'Saldo Final', saldoFinal]);
+    filas.push(['', '', '', '', '', '']);
 
     // ── Encabezados de columnas ──
-    filas.push(['Fecha', 'Nombre / Concepto', 'Referencia / Folio', 'Tipo', 'Monto', 'Saldo', '# Factura', 'Folio Fiscal', 'Concepto Edo. Cta.']);
+    filas.push(['Fecha', 'Nombre / Concepto', 'Referencia / Folio', 'Tipo', 'Monto', 'Saldo']);
 
     // ── Datos ──
     [..._detalleRowsExport].sort((a, b) => b.date - a.date).forEach(r => {
-        const annot = _getAnotacion(r.sourceType, r.id);
         const signo = (r.type === 'ENTRADA' || r.type === 'PAGO') ? r.amount : -r.amount;
         filas.push([
             r.date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }),
@@ -963,10 +996,7 @@ window.exportarDetalleExcel = function () {
             r.ref || '',
             r.type,
             signo,
-            r.saldo,
-            annot.num_factura  || '',
-            annot.folio_fiscal || '',
-            annot.concepto_banco || ''
+            r.saldo
         ]);
     });
 
@@ -981,18 +1011,15 @@ window.exportarDetalleExcel = function () {
         { wch: 10 }, // Tipo
         { wch: 14 }, // Monto
         { wch: 14 }, // Saldo
-        { wch: 16 }, // # Factura
-        { wch: 36 }, // Folio Fiscal
-        { wch: 30 }, // Concepto Edo
     ];
 
     // Combinar celdas del header
     ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } },
-        { s: { r: 3, c: 0 }, e: { r: 3, c: 8 } },
-        { s: { r: 5, c: 0 }, e: { r: 5, c: 8 } },
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } },
+        { s: { r: 5, c: 0 }, e: { r: 5, c: 5 } },
     ];
 
     const wb = XLSX.utils.book_new();
