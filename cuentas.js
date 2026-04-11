@@ -116,6 +116,16 @@ function _saveAnotacion(sourceType, id, field, value) {
     localStorage.setItem(key, JSON.stringify(cur));
 }
 
+window._saveAnotacionFeedback = function(input, sourceType, id, field) {
+    _saveAnotacion(sourceType, id, field, input.value);
+    // Feedback visual: borde verde + ✓ breve
+    input.classList.add('border-emerald-400', 'bg-emerald-50');
+    const prev = input.style.backgroundImage;
+    setTimeout(() => {
+        input.classList.remove('border-emerald-400', 'bg-emerald-50');
+    }, 800);
+};
+
 // Variables para exportación del detalle abierto
 let _detalleRowsExport  = [];
 let _detalleCuentaExport = null;
@@ -625,7 +635,7 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
     const tabla = document.getElementById('detalleTabla');
 
     if (rows.length === 0) {
-        tabla.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-300 italic">Sin movimientos en este período</td></tr>`;
+        tabla.innerHTML = `<tr><td colspan="8" class="p-10 text-center text-gray-300 italic">Sin movimientos en este período</td></tr>`;
     } else {
         let html = '';
         Object.keys(monthGroups).sort().reverse().forEach(key => {
@@ -635,7 +645,7 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
             const cierreColor = (modo === 'tdc' ? group.cierre > 0 : group.cierre < 0) ? 'text-red-600' : 'text-gray-800';
 
             html += `<tr class="bg-blue-50/40 border-t-2 border-blue-100">
-                <td colspan="7" class="px-4 py-2">
+                <td colspan="8" class="px-4 py-2">
                     <div class="flex justify-between items-center flex-wrap gap-2">
                         <span class="font-black text-[10px] uppercase text-blue-700 tracking-widest">${monthLabel}</span>
                         <div class="flex gap-4 text-[10px] font-bold">
@@ -672,8 +682,12 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
 
                 // Leer anotaciones guardadas
                 const annot = _getAnotacion(r.sourceType, r.id);
-                const factura = (annot.num_factura || '').replace(/"/g, '&quot;');
+                const factura     = (annot.num_factura    || '').replace(/"/g, '&quot;');
+                const folioFiscal = (annot.folio_fiscal   || '').replace(/"/g, '&quot;');
                 const conceptoEdc = (annot.concepto_banco || '').replace(/"/g, '&quot;');
+
+                const inputCls = 'text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 bg-emerald-50/40 placeholder-gray-300 transition-all';
+                const onSave = (field) => `_saveAnotacionFeedback(this,'${r.sourceType}','${r.id}','${field}')`;
 
                 html += `<tr class="border-b border-gray-50 hover:bg-yellow-50/50 transition-colors" ${clickAttr}>
                     <td class="px-4 py-3 text-xs font-bold text-gray-600 whitespace-nowrap">
@@ -694,14 +708,20 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
                     </td>
                     <td class="px-2 py-2" onclick="event.stopPropagation()">
                         <input type="text" value="${factura}" placeholder="Ej. F-001"
-                            class="w-28 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 bg-emerald-50/40 placeholder-gray-300 transition-all"
-                            onblur="_saveAnotacion('${r.sourceType}','${r.id}','num_factura',this.value)"
-                            onkeydown="if(event.key==='Enter') this.nextElementSibling?.focus()">
+                            class="w-28 ${inputCls}"
+                            onblur="${onSave('num_factura')}"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();this.closest('tr').querySelector('.input-folio')?.focus()}">
+                    </td>
+                    <td class="px-2 py-2" onclick="event.stopPropagation()">
+                        <input type="text" value="${folioFiscal}" placeholder="UUID fiscal..."
+                            class="input-folio w-36 ${inputCls}"
+                            onblur="${onSave('folio_fiscal')}"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();this.closest('tr').querySelector('.input-concepto')?.focus()}">
                     </td>
                     <td class="px-2 py-2" onclick="event.stopPropagation()">
                         <input type="text" value="${conceptoEdc}" placeholder="Concepto banco..."
-                            class="w-44 text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 bg-emerald-50/40 placeholder-gray-300 transition-all"
-                            onblur="_saveAnotacion('${r.sourceType}','${r.id}','concepto_banco',this.value)">
+                            class="input-concepto w-44 ${inputCls}"
+                            onblur="${onSave('concepto_banco')}">
                     </td>
                 </tr>`;
             });
@@ -744,17 +764,17 @@ window.exportarDetalleExcel = function () {
     const totalEntradas = _detalleRowsExport.filter(r => r.type === 'ENTRADA' || r.type === 'PAGO').reduce((s, r) => s + r.amount, 0);
     const totalSalidas  = _detalleRowsExport.filter(r => r.type === 'SALIDA' || r.type === 'CARGO').reduce((s, r) => s + r.amount, 0);
     const saldoFinal    = _detalleRowsExport[_detalleRowsExport.length - 1]?.saldo ?? 0;
-    filas.push(['RESUMEN', '', '', '', '', '', '']);
-    filas.push(['Entradas / Pagos', totalEntradas, 'Salidas / Cargos', totalSalidas, 'Saldo Final', saldoFinal, '']);
-    filas.push(['', '', '', '', '', '', '']);
+    filas.push(['RESUMEN', '', '', '', '', '', '', '']);
+    filas.push(['Entradas / Pagos', totalEntradas, 'Salidas / Cargos', totalSalidas, 'Saldo Final', saldoFinal, '', '']);
+    filas.push(['', '', '', '', '', '', '', '']);
 
     // ── Encabezados de columnas ──
-    filas.push(['Fecha', 'Nombre / Concepto', 'Referencia / Folio', 'Tipo', 'Monto', 'Saldo', '# Factura', 'Concepto Edo. Cta.']);
+    filas.push(['Fecha', 'Nombre / Concepto', 'Referencia / Folio', 'Tipo', 'Monto', 'Saldo', '# Factura', 'Folio Fiscal', 'Concepto Edo. Cta.']);
 
     // ── Datos ──
     [..._detalleRowsExport].sort((a, b) => b.date - a.date).forEach(r => {
-        const annot       = _getAnotacion(r.sourceType, r.id);
-        const signo       = (r.type === 'ENTRADA' || r.type === 'PAGO') ? r.amount : -r.amount;
+        const annot = _getAnotacion(r.sourceType, r.id);
+        const signo = (r.type === 'ENTRADA' || r.type === 'PAGO') ? r.amount : -r.amount;
         filas.push([
             r.date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }),
             r.concept,
@@ -762,7 +782,8 @@ window.exportarDetalleExcel = function () {
             r.type,
             signo,
             r.saldo,
-            annot.num_factura || '',
+            annot.num_factura  || '',
+            annot.folio_fiscal || '',
             annot.concepto_banco || ''
         ]);
     });
@@ -779,16 +800,17 @@ window.exportarDetalleExcel = function () {
         { wch: 14 }, // Monto
         { wch: 14 }, // Saldo
         { wch: 16 }, // # Factura
+        { wch: 36 }, // Folio Fiscal
         { wch: 30 }, // Concepto Edo
     ];
 
     // Combinar celdas del header
     ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 7 } },
-        { s: { r: 3, c: 0 }, e: { r: 3, c: 7 } },
-        { s: { r: 5, c: 0 }, e: { r: 5, c: 7 } },
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 8 } },
+        { s: { r: 5, c: 0 }, e: { r: 5, c: 8 } },
     ];
 
     const wb = XLSX.utils.book_new();

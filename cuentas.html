@@ -149,11 +149,12 @@
                             <th class="px-4 py-3 text-right text-[10px] font-black uppercase text-gray-400 tracking-widest">Monto</th>
                             <th class="px-4 py-3 text-right text-[10px] font-black uppercase text-gray-400 tracking-widest">Saldo</th>
                             <th class="px-4 py-3 text-left text-[10px] font-black uppercase text-emerald-500 tracking-widest whitespace-nowrap"># Factura</th>
+                            <th class="px-4 py-3 text-left text-[10px] font-black uppercase text-emerald-500 tracking-widest whitespace-nowrap">Folio Fiscal</th>
                             <th class="px-4 py-3 text-left text-[10px] font-black uppercase text-emerald-500 tracking-widest">Concepto Edo. Cta.</th>
                         </tr>
                     </thead>
                     <tbody id="detalleTabla">
-                        <tr><td colspan="5" class="p-10 text-center text-gray-300 italic">Cargando...</td></tr>
+                        <tr><td colspan="8" class="p-10 text-center text-gray-300 italic">Cargando...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -257,7 +258,7 @@
     <script src="permisos.js"></script>
     <script src="auth.js"></script>
     <script src="menu.js"></script>
-    <script src="cuentas.js?v=6"></script>
+    <script src="cuentas.js?v=7"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             inyectarMenu('cuentas');
