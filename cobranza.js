@@ -708,6 +708,14 @@ async function prepararAbonoProv(id, nombre, saldo, modo) {
         } catch(e) { /* mantener opciones existentes */ }
     }
 
+    // Pre-seleccionar sucursal según el gasto origen
+    const selectSucursal = document.getElementById('sucursalPagoProv');
+    if (selectSucursal) {
+        const gastoRef = datosCachePagos?.find(g => g.id === id);
+        const sucursalRef = (itemsLotePagoProv.length > 0 ? itemsLotePagoProv[0]?.sucursal : gastoRef?.sucursal) || 'Norte';
+        selectSucursal.value = sucursalRef;
+    }
+
     // Si hay un lote cargado (cuota compuesta), mostrar el desglose en el modal
     const desgloseContainer = document.getElementById('desglosePagoLote');
     if (desgloseContainer && itemsLotePagoProv.length > 1) {
@@ -725,6 +733,7 @@ async function guardarAbonoProv() {
     const monto = parseFloat(document.getElementById('montoAbonoProv').value);
     const rawFecha = document.getElementById('fechaEfectivaPagoProv').value; // Nueva fecha manual literal
     let metodo = document.getElementById('metodoPagoProv').value;
+    const sucursalPago = document.getElementById('sucursalPagoProv')?.value || 'Norte';
     if (metodo === 'Otros') {
         const otroVal = document.getElementById('otroMetodoProv')?.value;
         if (!otroVal) return alert("Especifique el método de salida.");
@@ -782,7 +791,7 @@ async function guardarAbonoProv() {
                     monto_total: monto,
                     saldo_pendiente: 0,
                     metodo_pago: metodo,
-                    sucursal: primerItem?.sucursal || 'Norte',
+                    sucursal: sucursalPago,
                     estado_pago: 'Pagado',
                     created_at: new Date(year, month - 1, day).toISOString(),
                     notas: registroNotas
@@ -822,7 +831,7 @@ async function guardarAbonoProv() {
                         monto_total: monto,
                         saldo_pendiente: 0,
                         metodo_pago: metodo,
-                        sucursal: gastoOrigen?.sucursal || 'Norte',
+                        sucursal: sucursalPago,
                         estado_pago: 'Pagado',
                         created_at: new Date(year, month - 1, day).toISOString(),
                         notas: `PAGO A PROVEEDOR (REF: ${idGastoAbono})`
