@@ -635,7 +635,7 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
     const tabla = document.getElementById('detalleTabla');
 
     if (rows.length === 0) {
-        tabla.innerHTML = `<tr><td colspan="8" class="p-10 text-center text-gray-300 italic">Sin movimientos en este período</td></tr>`;
+        tabla.innerHTML = `<tr><td colspan="9" class="p-10 text-center text-gray-300 italic">Sin movimientos en este período</td></tr>`;
     } else {
         let html = '';
         Object.keys(monthGroups).sort().reverse().forEach(key => {
@@ -645,7 +645,7 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
             const cierreColor = (modo === 'tdc' ? group.cierre > 0 : group.cierre < 0) ? 'text-red-600' : 'text-gray-800';
 
             html += `<tr class="bg-blue-50/40 border-t-2 border-blue-100">
-                <td colspan="8" class="px-4 py-2">
+                <td colspan="9" class="px-4 py-2">
                     <div class="flex justify-between items-center flex-wrap gap-2">
                         <span class="font-black text-[10px] uppercase text-blue-700 tracking-widest">${monthLabel}</span>
                         <div class="flex gap-4 text-[10px] font-bold">
@@ -680,7 +680,6 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
                 };
                 const tl = typeLabels[r.type] || { label: r.type, cls: 'bg-gray-100 text-gray-600' };
 
-                // Leer anotaciones guardadas
                 const annot = _getAnotacion(r.sourceType, r.id);
                 const factura     = (annot.num_factura    || '').replace(/"/g, '&quot;');
                 const folioFiscal = (annot.folio_fiscal   || '').replace(/"/g, '&quot;');
@@ -723,6 +722,13 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
                             class="input-concepto w-44 ${inputCls}"
                             onblur="${onSave('concepto_banco')}">
                     </td>
+                    <td class="px-2 py-2 text-center" onclick="event.stopPropagation()">
+                        <button onclick="_toggleAdjuntosPanel(this,'${r.sourceType}','${r.id}')"
+                            title="Adjuntos y comentario"
+                            class="p-1.5 rounded-lg text-gray-300 hover:bg-emerald-50 hover:text-emerald-500 transition-all">
+                            <span class="material-symbols-outlined text-base">attach_file</span>
+                        </button>
+                    </td>
                 </tr>`;
             });
         });
@@ -736,6 +742,182 @@ function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
 
 window.cerrarDetalleCuenta = function () {
     document.getElementById('modalDetalleCuenta').classList.add('hidden');
+};
+
+// ── ADJUNTOS BANCARIOS ────────────────────────────────────────────────────────
+
+const _ADJ_BUCKET = 'banco-adjuntos';
+const _ADJ_STORE  = `${SB_URL}/storage/v1/object`;
+const _ADJ_PUBLIC = `${SB_URL}/storage/v1/object/public/${_ADJ_BUCKET}`;
+
+async function _cargarAdjuntos(sourceType, sourceId) {
+    try {
+        const res = await fetch(
+            `${SB_URL}/rest/v1/banco_adjuntos?source_type=eq.${sourceType}&source_id=eq.${sourceId}&order=created_at.asc`,
+            { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
+        );
+        return res.ok ? await res.json() : [];
+    } catch { return []; }
+}
+
+async function _uploadAdjunto(sourceType, sourceId, file) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filePath = `${sourceType}/${sourceId}/${Date.now()}_${safeName}`;
+
+    const upRes = await fetch(`${_ADJ_STORE}/${_ADJ_BUCKET}/${filePath}`, {
+        method: 'POST',
+        headers: {
+            'apikey': SB_KEY,
+            'Authorization': `Bearer ${SB_KEY}`,
+            'Content-Type': file.type || 'application/octet-stream'
+        },
+        body: file
+    });
+    if (!upRes.ok) throw new Error('Error al subir el archivo');
+
+    const dbRes = await fetch(`${SB_URL}/rest/v1/banco_adjuntos`, {
+        method: 'POST',
+        headers: {
+            'apikey': SB_KEY,
+            'Authorization': `Bearer ${SB_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({ source_type: sourceType, source_id: sourceId, file_name: file.name, file_path: filePath, file_size: file.size })
+    });
+    if (!dbRes.ok) throw new Error('Error al registrar el adjunto');
+}
+
+async function _refreshAdjuntosList(sourceType, sourceId, panelId) {
+    const container = document.getElementById(`adj-items-${panelId}`);
+    if (!container) return;
+    const adjuntos = await _cargarAdjuntos(sourceType, sourceId);
+    if (!adjuntos.length) {
+        container.innerHTML = `<p class="text-xs text-gray-300 italic">Sin archivos adjuntos aún</p>`;
+        return;
+    }
+    container.innerHTML = adjuntos.map(a => {
+        const url    = `${_ADJ_PUBLIC}/${a.file_path}`;
+        const isImg  = /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(a.file_name);
+        const sizeKB = a.file_size ? `${(a.file_size / 1024).toFixed(0)} KB` : '';
+        const preview = isImg
+            ? `<img src="${url}" class="w-12 h-12 object-cover rounded-lg border border-gray-200 cursor-pointer shrink-0" onclick="window.open('${url}','_blank')">`
+            : `<div class="w-12 h-12 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center cursor-pointer shrink-0" onclick="window.open('${url}','_blank')">
+                   <span class="material-symbols-outlined text-red-400 text-xl">picture_as_pdf</span>
+               </div>`;
+        return `
+        <div class="flex items-center gap-2 p-2 bg-white rounded-xl border border-gray-100 hover:border-emerald-200 transition-all group">
+            ${preview}
+            <div class="flex-1 min-w-0">
+                <p class="text-xs font-bold text-gray-700 truncate cursor-pointer hover:text-emerald-600" onclick="window.open('${url}','_blank')">${a.file_name}</p>
+                <p class="text-[10px] text-gray-400">${sizeKB}</p>
+            </div>
+            <button onclick="_eliminarAdjunto('${a.id}','${a.file_path}','${sourceType}','${sourceId}','${panelId}')"
+                class="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded-lg transition-all text-red-400" title="Eliminar">
+                <span class="material-symbols-outlined text-sm">delete</span>
+            </button>
+        </div>`;
+    }).join('');
+}
+
+window._eliminarAdjunto = async function(adjId, filePath, sourceType, sourceId, panelId) {
+    if (!confirm('¿Eliminar este archivo adjunto?')) return;
+    await fetch(`${_ADJ_STORE}/${_ADJ_BUCKET}/${filePath}`, {
+        method: 'DELETE',
+        headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+    });
+    await fetch(`${SB_URL}/rest/v1/banco_adjuntos?id=eq.${adjId}`, {
+        method: 'DELETE',
+        headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+    });
+    await _refreshAdjuntosList(sourceType, sourceId, panelId);
+};
+
+async function _processFiles(files, sourceType, sourceId, panelId) {
+    const dropzone = document.getElementById(`adj-dz-${panelId}`);
+    if (dropzone) dropzone.innerHTML = `<span class="material-symbols-outlined text-emerald-400 text-3xl">progress_activity</span><p class="text-xs text-gray-400 mt-1">Subiendo ${files.length} archivo(s)...</p>`;
+    try {
+        for (const f of files) await _uploadAdjunto(sourceType, sourceId, f);
+    } catch(e) { alert('Error: ' + e.message); }
+    if (dropzone) _resetDropzone(dropzone, sourceType, sourceId, panelId);
+    await _refreshAdjuntosList(sourceType, sourceId, panelId);
+}
+
+function _resetDropzone(el, sourceType, sourceId, panelId) {
+    el.innerHTML = `
+        <span class="material-symbols-outlined text-gray-300 text-3xl">attach_file</span>
+        <p class="text-xs text-gray-400 font-bold mt-1">Arrastra PDFs o imágenes aquí<br><span class="text-emerald-500">o clic para seleccionar</span></p>
+        <input type="file" id="adj-inp-${panelId}" class="hidden" multiple accept=".pdf,image/*"
+            onchange="_onFileSelect(event,'${sourceType}','${sourceId}','${panelId}')">`;
+}
+
+window._onFileSelect = async function(e, sourceType, sourceId, panelId) {
+    const files = Array.from(e.target.files);
+    e.target.value = '';
+    if (files.length) await _processFiles(files, sourceType, sourceId, panelId);
+};
+
+window._onDrop = async function(e, sourceType, sourceId, panelId) {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length) await _processFiles(files, sourceType, sourceId, panelId);
+};
+
+window._toggleAdjuntosPanel = async function(btn, sourceType, sourceId) {
+    const panelId = `adj-${sourceType}-${sourceId}`;
+    const existing = document.getElementById(panelId);
+    if (existing) {
+        existing.remove();
+        btn.classList.remove('bg-emerald-100', 'text-emerald-500');
+        btn.classList.add('text-gray-300');
+        return;
+    }
+
+    btn.classList.add('bg-emerald-100', 'text-emerald-500');
+    btn.classList.remove('text-gray-300');
+
+    const comentario = (_getAnotacion(sourceType, sourceId).comentario || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const panelTr = document.createElement('tr');
+    panelTr.id = panelId;
+    panelTr.innerHTML = `
+        <td colspan="9" class="px-6 py-4 bg-emerald-50/20 border-b border-emerald-100" onclick="event.stopPropagation()">
+            <div class="flex gap-4 items-start flex-wrap">
+
+                <!-- Dropzone -->
+                <div id="adj-dz-${panelId}"
+                    class="w-52 shrink-0 border-2 border-dashed border-gray-200 rounded-2xl p-4 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/40 transition-all"
+                    onclick="document.getElementById('adj-inp-${panelId}').click()"
+                    ondragover="event.preventDefault()"
+                    ondrop="_onDrop(event,'${sourceType}','${sourceId}','${panelId}')">
+                    <span class="material-symbols-outlined text-gray-300 text-3xl">attach_file</span>
+                    <p class="text-xs text-gray-400 font-bold mt-1">Arrastra PDFs o imágenes aquí<br><span class="text-emerald-500">o clic para seleccionar</span></p>
+                    <input type="file" id="adj-inp-${panelId}" class="hidden" multiple accept=".pdf,image/*"
+                        onchange="_onFileSelect(event,'${sourceType}','${sourceId}','${panelId}')">
+                </div>
+
+                <!-- Lista adjuntos -->
+                <div class="flex-1 min-w-[200px]">
+                    <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Archivos adjuntos</p>
+                    <div id="adj-items-${panelId}" class="space-y-1.5">
+                        <p class="text-xs text-gray-300 italic">Cargando...</p>
+                    </div>
+                </div>
+
+                <!-- Comentario -->
+                <div class="w-64 shrink-0">
+                    <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Comentario</p>
+                    <textarea rows="4" placeholder="Agrega un comentario sobre este movimiento..."
+                        class="w-full text-xs border border-gray-200 rounded-xl p-3 focus:outline-none focus:border-emerald-400 resize-none bg-white transition-all"
+                        onblur="_saveAnotacionFeedback(this,'${sourceType}','${sourceId}','comentario')"
+                    >${comentario}</textarea>
+                </div>
+
+            </div>
+        </td>`;
+
+    btn.closest('tr').insertAdjacentElement('afterend', panelTr);
+    await _refreshAdjuntosList(sourceType, sourceId, panelId);
 };
 
 // ── Exportar detalle de cuenta a Excel ───────────────────────────────────────
