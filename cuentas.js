@@ -130,6 +130,12 @@ window._saveAnotacionFeedback = function(input, sourceType, id, field) {
 let _detalleRowsExport  = [];
 let _detalleCuentaExport = null;
 
+// Estado del modal de detalle
+let _detalleCurrentKey  = null;
+let _detalleAllRows     = [];
+let _detalleCurrentMes  = null; // 'YYYY-MM'
+let _detalleCurrentModo = null; // 'cuenta' | 'tdc'
+
 // ============================================================
 // CLIENTE SUPABASE
 // ============================================================
@@ -245,31 +251,37 @@ function calcularBalances(txAll, gastos, traspasos, pagosTDC) {
 // RENDER KPIs
 // ============================================================
 function renderKPIs() {
-    const totalCuentas  = CUENTAS_REGULARES.reduce((s, c) => s + (_balances[c.key]?.saldo || 0), 0);
-    const totalDeudaTDC = CUENTAS_TDC.reduce((s, c) => s + (_tdcData[c.key]?.deuda || 0), 0);
-    const totalDisponTDC = CUENTAS_TDC.reduce((s, c) => s + (_tdcData[c.key]?.disponible || 0), 0);
-    const posicion = totalCuentas - totalDeudaTDC;
+    const totalEntradas = CUENTAS_REGULARES.reduce((s, c) => {
+        const b = _balances[c.key] || {};
+        return s + (b.entradas || 0) + (b.traspaso_in || 0);
+    }, 0);
+    const totalSalidas = CUENTAS_REGULARES.reduce((s, c) => {
+        const b = _balances[c.key] || {};
+        return s + (b.salidas || 0) + (b.traspaso_out || 0) + (b.tdcPagosOut || 0);
+    }, 0);
+    const totalCargosTDC = CUENTAS_TDC.reduce((s, c) => s + (_tdcData[c.key]?.gastos || 0), 0);
+    const totalPagosTDC  = CUENTAS_TDC.reduce((s, c) => s + (_tdcData[c.key]?.pagos  || 0), 0);
 
     document.getElementById('kpiSection').innerHTML = `
         <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Total en Cuentas</p>
-            <p class="text-2xl font-black ${totalCuentas >= 0 ? 'text-gray-900' : 'text-red-600'}">${fmt(totalCuentas)}</p>
-            <p class="text-[10px] text-gray-400 mt-1">5 cuentas y billeteras</p>
+            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Total Entradas</p>
+            <p class="text-2xl font-black text-green-600">+${fmt(totalEntradas)}</p>
+            <p class="text-[10px] text-gray-400 mt-1">Todas las cuentas</p>
         </div>
         <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Deuda TDC Total</p>
-            <p class="text-2xl font-black text-red-600">${fmt(totalDeudaTDC)}</p>
+            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Total Salidas</p>
+            <p class="text-2xl font-black text-red-500">-${fmt(totalSalidas)}</p>
+            <p class="text-[10px] text-gray-400 mt-1">Todas las cuentas</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Cargos TDC</p>
+            <p class="text-2xl font-black text-red-600">+${fmt(totalCargosTDC)}</p>
             <p class="text-[10px] text-gray-400 mt-1">2 tarjetas de crédito</p>
         </div>
         <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Crédito Disponible</p>
-            <p class="text-2xl font-black text-green-600">${fmt(totalDisponTDC)}</p>
-            <p class="text-[10px] text-gray-400 mt-1">Límite no utilizado</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Posición Neta</p>
-            <p class="text-2xl font-black ${posicion >= 0 ? 'text-gray-900' : 'text-red-600'}">${fmt(posicion)}</p>
-            <p class="text-[10px] text-gray-400 mt-1">Cuentas - Deuda TDC</p>
+            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Pagos TDC</p>
+            <p class="text-2xl font-black text-green-600">-${fmt(totalPagosTDC)}</p>
+            <p class="text-[10px] text-gray-400 mt-1">Abonos registrados</p>
         </div>
     `;
 }
@@ -283,12 +295,14 @@ function renderCuentasReguares() {
         const b = _balances[cuenta.key] || {};
         const c = COLOR_MAP[cuenta.colorClase] || COLOR_MAP.blue;
         const tipoLabel = cuenta.tipo === 'billetera' ? 'Billetera Digital' : 'Cuenta Bancaria';
+        const totalEntradas = (b.entradas || 0) + (b.traspaso_in || 0);
+        const totalSalidas  = (b.salidas  || 0) + (b.traspaso_out || 0) + (b.tdcPagosOut || 0);
 
         return `
         <div class="cuenta-card bg-white rounded-2xl border ${c.border} shadow-sm overflow-hidden cursor-pointer"
              onclick="abrirDetalleCuenta('${cuenta.key}')">
-            <div class="${c.bg} px-5 pt-5 pb-4">
-                <div class="flex items-start justify-between mb-3">
+            <div class="${c.bg} px-5 pt-5 pb-5">
+                <div class="flex items-start justify-between mb-4">
                     <div>
                         <p class="badge-tipo ${c.badge} px-2 py-0.5 rounded-full inline-block mb-2">${tipoLabel} · ${cuenta.sucursal}</p>
                         <h4 class="text-lg font-black ${c.text} leading-tight">${cuenta.nombre}</h4>
@@ -303,31 +317,17 @@ function renderCuentasReguares() {
                         </span>
                     </div>
                 </div>
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-gray-400 mb-0.5">Saldo Actual</p>
-                    <p class="text-3xl font-black ${b.saldo >= 0 ? 'text-gray-900' : 'text-red-600'}">${fmt(b.saldo || 0)}</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-white/60 rounded-xl p-3 text-center">
+                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Entradas</p>
+                        <p class="text-sm font-black text-green-600">+${fmt(totalEntradas)}</p>
+                    </div>
+                    <div class="bg-white/60 rounded-xl p-3 text-center">
+                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Salidas</p>
+                        <p class="text-sm font-black text-red-500">-${fmt(totalSalidas)}</p>
+                    </div>
                 </div>
             </div>
-            <div class="px-5 py-4 grid grid-cols-3 gap-2 border-t border-gray-100">
-                <div class="text-center">
-                    <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Entradas</p>
-                    <p class="text-xs font-black text-green-600">+${fmt(b.entradas || 0)}</p>
-                </div>
-                <div class="text-center border-x border-gray-100">
-                    <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Salidas</p>
-                    <p class="text-xs font-black text-red-500">-${fmt(b.salidas || 0)}</p>
-                </div>
-                <div class="text-center">
-                    <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Saldo Inicial</p>
-                    <p class="text-xs font-bold text-gray-500">${fmt(b.saldoInicial || 0)}</p>
-                </div>
-            </div>
-            ${(b.traspaso_in > 0 || b.traspaso_out > 0 || b.tdcPagosOut > 0) ? `
-            <div class="px-5 pb-4 flex flex-wrap gap-2">
-                ${b.traspaso_in  > 0 ? `<span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">+${fmt(b.traspaso_in)} traspasos</span>` : ''}
-                ${b.traspaso_out > 0 ? `<span class="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">-${fmt(b.traspaso_out)} traspasos</span>` : ''}
-                ${b.tdcPagosOut  > 0 ? `<span class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">-${fmt(b.tdcPagosOut)} pago TDC</span>` : ''}
-            </div>` : ''}
         </div>`;
     }).join('');
 }
@@ -340,28 +340,11 @@ function renderTarjetas() {
     grid.innerHTML = CUENTAS_TDC.map(cuenta => {
         const t = _tdcData[cuenta.key] || {};
         const c = COLOR_MAP[cuenta.colorClase] || COLOR_MAP.red;
-        const pctUsado = t.limite > 0 ? Math.min((t.deuda / t.limite) * 100, 100) : 0;
-
-        let corteLabel = '—', pagoLabel = '—';
-        const diaCorte = t.cfg?.dia_corte;
-        const diasPago = t.cfg?.dias_pago;
-        if (diaCorte) {
-            const proxCorte = proximaFechaConDia(diaCorte);
-            corteLabel = proxCorte.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-            if (diasPago) {
-                const fechaPago = new Date(proxCorte);
-                fechaPago.setDate(fechaPago.getDate() + diasPago);
-                pagoLabel = fechaPago.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-            }
-        }
-
-        const barColor = pctUsado >= 90 ? 'bg-red-600' : pctUsado >= 70 ? 'bg-orange-500' : 'bg-green-500';
 
         return `
         <div class="cuenta-card bg-white rounded-2xl border ${c.border} shadow-sm overflow-hidden">
-            <!-- Cabecera clickeable para ver movimientos -->
-            <div class="${c.bg} px-5 pt-5 pb-4 cursor-pointer" onclick="abrirDetalleCuenta('${cuenta.key}')">
-                <div class="flex items-start justify-between mb-3">
+            <div class="${c.bg} px-5 pt-5 pb-5 cursor-pointer" onclick="abrirDetalleCuenta('${cuenta.key}')">
+                <div class="flex items-start justify-between mb-4">
                     <div>
                         <p class="badge-tipo ${c.badge} px-2 py-0.5 rounded-full inline-block mb-2">Tarjeta de Crédito · ${cuenta.sucursal}</p>
                         <h4 class="text-lg font-black ${c.text} leading-tight">${cuenta.nombreCompleto || cuenta.nombre}</h4>
@@ -376,56 +359,18 @@ function renderTarjetas() {
                         </span>
                     </div>
                 </div>
-                <div class="mb-3">
-                    <div class="flex justify-between text-[10px] font-bold text-gray-500 mb-1">
-                        <span>Uso del crédito</span>
-                        <span>${pctUsado.toFixed(1)}%</span>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-white/60 rounded-xl p-3 text-center">
+                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Cargos</p>
+                        <p class="text-sm font-black text-red-600">+${fmt(t.gastos || 0)}</p>
                     </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="${barColor} h-2 rounded-full transition-all" style="width: ${pctUsado}%"></div>
-                    </div>
-                </div>
-                <div class="grid grid-cols-3 gap-3">
-                    <div>
-                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Deuda Actual</p>
-                        <p class="text-base font-black text-red-600">${fmt(t.deuda || 0)}</p>
-                    </div>
-                    <div>
-                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Disponible</p>
-                        <p class="text-base font-black text-green-600">${fmt(t.disponible || 0)}</p>
-                    </div>
-                    <div>
-                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Límite</p>
-                        <p class="text-base font-bold text-gray-500">${fmt(t.limite || 0)}</p>
+                    <div class="bg-white/60 rounded-xl p-3 text-center">
+                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Pagos</p>
+                        <p class="text-sm font-black text-green-600">-${fmt(t.pagos || 0)}</p>
                     </div>
                 </div>
             </div>
-
-            <div class="px-5 py-4 space-y-3 border-t border-gray-100">
-                <div class="grid grid-cols-3 gap-2 text-center">
-                    <div>
-                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Inicio Abr</p>
-                        <p class="text-xs font-bold text-gray-600">${fmt(t.saldoInicio || 0)}</p>
-                    </div>
-                    <div class="border-x border-gray-100">
-                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Acumulado</p>
-                        <p class="text-xs font-black text-red-500">+${fmt(t.gastos || 0)}</p>
-                    </div>
-                    <div>
-                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Pagado</p>
-                        <p class="text-xs font-black text-green-600">-${fmt(t.pagos || 0)}</p>
-                    </div>
-                </div>
-                <div class="flex gap-4">
-                    <div class="flex-1 bg-gray-50 rounded-lg p-2.5 text-center">
-                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Próx. Corte</p>
-                        <p class="text-xs font-black text-gray-700">${corteLabel}</p>
-                    </div>
-                    <div class="flex-1 bg-gray-50 rounded-lg p-2.5 text-center">
-                        <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Límite de Pago</p>
-                        <p class="text-xs font-black text-gray-700">${pagoLabel}</p>
-                    </div>
-                </div>
+            <div class="px-5 py-4 border-t border-gray-100">
                 <button onclick="abrirModalPagoTDC('${cuenta.key}', '${cuenta.nombreCompleto || cuenta.nombre}')"
                     class="w-full py-2.5 bg-red-600 text-white rounded-xl text-xs font-bold uppercase hover:bg-red-700 transition-colors flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-sm">payments</span> Registrar Pago
@@ -550,173 +495,195 @@ window.abrirDetalleCuenta = function (cuentaKey) {
     }
 };
 
-function _renderDetalleModal(cuenta, rows, saldoInicial, modo) {
-    const c = COLOR_MAP[cuenta.colorClase] || COLOR_MAP.blue;
-
-    // Guardar para exportación
+function _renderDetalleModal(cuenta, rows, _saldoIgnorado, modo) {
+    // Guardar estado global del detalle
+    _detalleCurrentKey  = cuenta.key;
+    _detalleAllRows     = rows;
+    _detalleCurrentModo = modo;
     _detalleCuentaExport = cuenta;
 
     // Header del modal
     document.getElementById('detalleNombre').textContent = cuenta.nombreCompleto || cuenta.nombre;
     document.getElementById('detalleBanco').textContent  = cuenta.banco + ' · ' + cuenta.sucursal;
 
-    // Calcular saldo corriente (ascendente)
-    const rowsAsc = [...rows].sort((a, b) => a.date - b.date);
-    let runBalance = saldoInicial;
-    rowsAsc.forEach(r => {
-        if (modo === 'tdc') {
-            runBalance += r.type === 'CARGO' ? r.amount : -r.amount;
-        } else {
-            runBalance += r.type === 'ENTRADA' ? r.amount : -r.amount;
-        }
-        r.saldo = runBalance;
-    });
+    // Determinar mes actual y meses disponibles
+    const hoy = new Date();
+    const mesHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
 
-    // Totales para KPIs del modal
-    const totalEntradas = rows.filter(r => r.type === 'ENTRADA' || r.type === 'PAGO').reduce((s, r) => s + r.amount, 0);
-    const totalSalidas  = rows.filter(r => r.type === 'SALIDA' || r.type === 'CARGO').reduce((s, r) => s + r.amount, 0);
-    const saldoFinal    = rowsAsc.length > 0 ? rowsAsc[rowsAsc.length - 1].saldo : saldoInicial;
-
-    if (modo === 'tdc') {
-        document.getElementById('detalleKPIs').innerHTML = `
-            <div class="text-center">
-                <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Inicio Abr.</p>
-                <p class="text-sm font-black text-gray-700">${fmt(saldoInicial)}</p>
-            </div>
-            <div class="text-center border-x border-gray-200 px-4">
-                <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Cargos</p>
-                <p class="text-sm font-black text-red-600">+${fmt(totalSalidas)}</p>
-            </div>
-            <div class="text-center px-4 border-r border-gray-200">
-                <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Pagos</p>
-                <p class="text-sm font-black text-green-600">-${fmt(totalEntradas)}</p>
-            </div>
-            <div class="text-center">
-                <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Deuda Actual</p>
-                <p class="text-sm font-black ${saldoFinal > 0 ? 'text-red-600' : 'text-gray-700'}">${fmt(Math.max(saldoFinal, 0))}</p>
-            </div>`;
-    } else {
-        document.getElementById('detalleKPIs').innerHTML = `
-            <div class="text-center">
-                <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Saldo Inicial</p>
-                <p class="text-sm font-black text-gray-700">${fmt(saldoInicial)}</p>
-            </div>
-            <div class="text-center border-x border-gray-200 px-4">
-                <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Entradas</p>
-                <p class="text-sm font-black text-green-600">+${fmt(totalEntradas)}</p>
-            </div>
-            <div class="text-center px-4 border-r border-gray-200">
-                <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Salidas</p>
-                <p class="text-sm font-black text-red-500">-${fmt(totalSalidas)}</p>
-            </div>
-            <div class="text-center">
-                <p class="text-[9px] font-black uppercase text-gray-400 mb-0.5">Saldo Actual</p>
-                <p class="text-sm font-black ${saldoFinal >= 0 ? 'text-gray-900' : 'text-red-600'}">${fmt(saldoFinal)}</p>
-            </div>`;
-    }
-
-    // Agrupar por mes (meses desc, rows desc dentro)
-    const monthGroups = {};
-    rowsAsc.forEach(r => {
+    // Recopilar todos los meses con movimientos + mes actual
+    const mesesSet = new Set([mesHoy]);
+    rows.forEach(r => {
         const key = `${r.date.getFullYear()}-${String(r.date.getMonth() + 1).padStart(2, '0')}`;
-        if (!monthGroups[key]) monthGroups[key] = { rows: [], apertura: 0, cierre: 0 };
-        monthGroups[key].rows.push(r);
-        monthGroups[key].cierre = r.saldo;
+        mesesSet.add(key);
     });
+    const mesesOrdenados = Array.from(mesesSet).sort().reverse(); // más reciente primero
 
-    let prevCierre = saldoInicial;
-    Object.keys(monthGroups).sort().forEach(key => {
-        monthGroups[key].apertura = prevCierre;
-        prevCierre = monthGroups[key].cierre;
-    });
-
-    // Guardar rows ordenados para exportación
-    _detalleRowsExport = rowsAsc;
-
-    const tabla = document.getElementById('detalleTabla');
-
-    if (rows.length === 0) {
-        tabla.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-gray-300 italic">Sin movimientos en este período</td></tr>`;
-    } else {
-        let html = '';
-        Object.keys(monthGroups).sort().reverse().forEach(key => {
-            const group = monthGroups[key];
-            const [year, month] = key.split('-');
-            const monthLabel = `${MESES[parseInt(month) - 1]} ${year}`;
-            const cierreColor = (modo === 'tdc' ? group.cierre > 0 : group.cierre < 0) ? 'text-red-600' : 'text-gray-800';
-
-            html += `<tr class="bg-blue-50/40 border-t-2 border-blue-100">
-                <td colspan="6" class="px-4 py-2">
-                    <div class="flex justify-between items-center flex-wrap gap-2">
-                        <span class="font-black text-[10px] uppercase text-blue-700 tracking-widest">${monthLabel}</span>
-                        <div class="flex gap-4 text-[10px] font-bold">
-                            <span class="text-gray-400">Apertura: <span class="text-gray-600">${fmt(group.apertura)}</span></span>
-                            <span class="text-gray-400">Cierre: <span class="${cierreColor}">${fmt(group.cierre)}</span></span>
-                        </div>
-                    </div>
-                </td>
-            </tr>`;
-
-            [...group.rows].sort((a, b) => b.date - a.date).forEach(r => {
-                const linkUrl = r.sourceType === 'transaccion'
-                    ? `ingresos.html?highlight=${r.id}`
-                    : r.sourceType === 'gasto'
-                        ? `gastos.html?highlight=${r.id}`
-                        : null;
-
-                const clickAttr = linkUrl
-                    ? `onclick="window.open('${linkUrl}', '_blank')" style="cursor:pointer"`
-                    : '';
-
-                const isPositivo = r.type === 'ENTRADA' || r.type === 'PAGO';
-                const amountColor = isPositivo ? 'text-green-600' : 'text-red-600';
-                const sign = isPositivo ? '+' : '-';
-                const saldoColor = (modo === 'tdc' ? r.saldo > 0 : r.saldo < 0) ? 'text-red-500' : 'text-gray-500';
-
-                const typeLabels = {
-                    ENTRADA: { label: 'ENTRADA', cls: 'bg-green-100 text-green-700' },
-                    SALIDA:  { label: 'SALIDA',  cls: 'bg-red-100 text-red-700' },
-                    CARGO:   { label: 'CARGO',   cls: 'bg-red-100 text-red-700' },
-                    PAGO:    { label: 'PAGO',    cls: 'bg-green-100 text-green-700' }
-                };
-                const tl = typeLabels[r.type] || { label: r.type, cls: 'bg-gray-100 text-gray-600' };
-
-                html += `<tr class="border-b border-gray-50 hover:bg-yellow-50/50 transition-colors" ${clickAttr}>
-                    <td class="px-4 py-3 text-xs font-bold text-gray-600 whitespace-nowrap">
-                        ${r.date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' })}
-                    </td>
-                    <td class="px-4 py-3 max-w-[200px]">
-                        <p class="font-bold text-gray-800 text-sm truncate">${r.concept}</p>
-                        ${r.ref ? `<p class="text-[10px] text-gray-400 font-mono truncate">${r.ref}</p>` : ''}
-                    </td>
-                    <td class="px-4 py-3">
-                        <span class="badge-tipo px-2 py-0.5 rounded-full ${tl.cls}">${tl.label}</span>
-                    </td>
-                    <td class="px-4 py-3 text-right font-black text-sm ${amountColor} whitespace-nowrap">
-                        ${sign}${fmt(r.amount)}
-                    </td>
-                    <td class="px-4 py-3 text-right font-bold text-sm ${saldoColor} whitespace-nowrap">
-                        ${fmt(r.saldo)}
-                    </td>
-                    <td class="px-3 py-2 text-center" onclick="event.stopPropagation()">
-                        <button id="adj-btn-${r.sourceType}-${r.id}"
-                            onclick="_toggleAdjuntosPanel(this,'${r.sourceType}','${r.id}')"
-                            title="Adjuntos y comentario"
-                            class="p-1.5 rounded-lg text-gray-300 hover:bg-emerald-50 hover:text-emerald-500 transition-all">
-                            <span class="material-symbols-outlined text-base">attach_file</span>
-                        </button>
-                    </td>
-                </tr>`;
-            });
-        });
-        tabla.innerHTML = html;
-        _actualizarIndicadoresAdjuntos(rowsAsc);
+    // Si aún no hay mes seleccionado (o se cambió de cuenta), usar mes actual
+    if (!_detalleCurrentMes || _detalleCurrentKey !== cuenta.key) {
+        _detalleCurrentMes = mesHoy;
     }
+
+    // Render tabs de meses en detalleKPIs
+    const tabsHtml = mesesOrdenados.map(key => {
+        const [year, month] = key.split('-');
+        const label = `${MESES[parseInt(month) - 1]} ${year}`;
+        const activo = key === _detalleCurrentMes;
+        return `<button onclick="_cambiarMesDetalle('${key}')"
+            id="tab-mes-${key}"
+            class="shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all
+                   ${activo ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
+            ${label}
+        </button>`;
+    }).join('');
+
+    document.getElementById('detalleKPIs').innerHTML = `
+        <div class="flex gap-2 overflow-x-auto pb-0.5 w-full">
+            ${tabsHtml}
+        </div>`;
+
+    // Guardar todos los rows para exportación
+    _detalleRowsExport = [...rows].sort((a, b) => a.date - b.date);
+
+    // Render tabla del mes seleccionado
+    _renderMesDetalle(_detalleCurrentMes);
 
     // Mostrar modal
     document.getElementById('modalDetalleCuenta').classList.remove('hidden');
     document.getElementById('modalDetalleCuenta').scrollTop = 0;
 }
+
+window._cambiarMesDetalle = function(mesKey) {
+    _detalleCurrentMes = mesKey;
+
+    // Actualizar estilos de tabs
+    document.querySelectorAll('[id^="tab-mes-"]').forEach(btn => {
+        const esteKey = btn.id.replace('tab-mes-', '');
+        if (esteKey === mesKey) {
+            btn.className = btn.className.replace('bg-gray-100 text-gray-500 hover:bg-gray-200', 'bg-slate-900 text-white');
+        } else {
+            btn.className = btn.className.replace('bg-slate-900 text-white', 'bg-gray-100 text-gray-500 hover:bg-gray-200');
+        }
+    });
+
+    _renderMesDetalle(mesKey);
+};
+
+function _renderMesDetalle(mesKey) {
+    const [year, month] = mesKey.split('-');
+    const rows = _detalleAllRows.filter(r => {
+        const ry = r.date.getFullYear();
+        const rm = r.date.getMonth() + 1;
+        return ry === parseInt(year) && rm === parseInt(month);
+    });
+
+    const tabla = document.getElementById('detalleTabla');
+    const modo  = _detalleCurrentModo;
+
+    if (rows.length === 0) {
+        tabla.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-gray-300 italic">Sin movimientos en ${MESES[parseInt(month) - 1]} ${year}</td></tr>`;
+        return;
+    }
+
+    const rowsDesc = [...rows].sort((a, b) => b.date - a.date);
+
+    // Totales del mes para mini-resumen en cabecera de grupo
+    const totalEnt = rows.filter(r => r.type === 'ENTRADA' || r.type === 'PAGO').reduce((s, r) => s + r.amount, 0);
+    const totalSal = rows.filter(r => r.type === 'SALIDA'  || r.type === 'CARGO').reduce((s, r) => s + r.amount, 0);
+    const labelEnt = modo === 'tdc' ? 'Pagos' : 'Entradas';
+    const labelSal = modo === 'tdc' ? 'Cargos' : 'Salidas';
+
+    let html = `<tr class="bg-blue-50/40 border-t-2 border-blue-100">
+        <td colspan="6" class="px-4 py-2">
+            <div class="flex justify-between items-center flex-wrap gap-2">
+                <span class="font-black text-[10px] uppercase text-blue-700 tracking-widest">${MESES[parseInt(month) - 1]} ${year} · ${rows.length} movimiento${rows.length !== 1 ? 's' : ''}</span>
+                <div class="flex gap-4 text-[10px] font-bold">
+                    <span class="text-green-600">${labelEnt}: +${fmt(totalEnt)}</span>
+                    <span class="text-red-500">${labelSal}: -${fmt(totalSal)}</span>
+                </div>
+            </div>
+        </td>
+    </tr>`;
+
+    rowsDesc.forEach(r => {
+        const linkUrl = r.sourceType === 'transaccion'
+            ? `ingresos.html?highlight=${r.id}`
+            : r.sourceType === 'gasto'
+                ? `gastos.html?highlight=${r.id}`
+                : null;
+        const clickAttr = linkUrl ? `onclick="window.open('${linkUrl}', '_blank')" style="cursor:pointer"` : '';
+
+        const isPositivo = r.type === 'ENTRADA' || r.type === 'PAGO';
+        const amountColor = isPositivo ? 'text-green-600' : 'text-red-600';
+        const sign = isPositivo ? '+' : '-';
+
+        const typeLabels = {
+            ENTRADA: { label: 'ENTRADA', cls: 'bg-green-100 text-green-700' },
+            SALIDA:  { label: 'SALIDA',  cls: 'bg-red-100 text-red-700' },
+            CARGO:   { label: 'CARGO',   cls: 'bg-red-100 text-red-700' },
+            PAGO:    { label: 'PAGO',    cls: 'bg-green-100 text-green-700' }
+        };
+        const tl = typeLabels[r.type] || { label: r.type, cls: 'bg-gray-100 text-gray-600' };
+
+        const conciliado = _getAnotacion(r.sourceType, r.id).conciliado || false;
+        const concBtnCls = conciliado
+            ? 'text-emerald-500 bg-emerald-50 hover:bg-emerald-100'
+            : 'text-gray-300 hover:bg-gray-100 hover:text-gray-500';
+        const concIcon = conciliado ? 'check_circle' : 'radio_button_unchecked';
+        const concFill = conciliado ? `style="font-variation-settings:'FILL' 1"` : '';
+
+        html += `<tr class="border-b border-gray-50 hover:bg-yellow-50/50 transition-colors" ${clickAttr}>
+            <td class="px-4 py-3 text-xs font-bold text-gray-600 whitespace-nowrap">
+                ${r.date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' })}
+            </td>
+            <td class="px-4 py-3 max-w-[200px]">
+                <p class="font-bold text-gray-800 text-sm truncate">${r.concept}</p>
+                ${r.ref ? `<p class="text-[10px] text-gray-400 font-mono truncate">${r.ref}</p>` : ''}
+            </td>
+            <td class="px-4 py-3">
+                <span class="badge-tipo px-2 py-0.5 rounded-full ${tl.cls}">${tl.label}</span>
+            </td>
+            <td class="px-4 py-3 text-right font-black text-sm ${amountColor} whitespace-nowrap">
+                ${sign}${fmt(r.amount)}
+            </td>
+            <td class="px-3 py-2 text-center" onclick="event.stopPropagation()">
+                <button id="conc-btn-${r.sourceType}-${r.id}"
+                    onclick="_toggleConciliado('${r.sourceType}','${r.id}')"
+                    title="${conciliado ? 'Conciliado — clic para desmarcar' : 'Marcar como conciliado'}"
+                    class="p-1.5 rounded-lg transition-all ${concBtnCls}">
+                    <span class="material-symbols-outlined text-base" ${concFill}>${concIcon}</span>
+                </button>
+            </td>
+            <td class="px-3 py-2 text-center" onclick="event.stopPropagation()">
+                <button id="adj-btn-${r.sourceType}-${r.id}"
+                    onclick="_toggleAdjuntosPanel(this,'${r.sourceType}','${r.id}')"
+                    title="Adjuntos y comentario"
+                    class="p-1.5 rounded-lg text-gray-300 hover:bg-emerald-50 hover:text-emerald-500 transition-all">
+                    <span class="material-symbols-outlined text-base">attach_file</span>
+                </button>
+            </td>
+        </tr>`;
+    });
+
+    tabla.innerHTML = html;
+    _actualizarIndicadoresAdjuntos(rows);
+}
+
+window._toggleConciliado = function(sourceType, id) {
+    const cur = _getAnotacion(sourceType, id).conciliado || false;
+    _saveAnotacion(sourceType, id, 'conciliado', !cur);
+
+    const btn = document.getElementById(`conc-btn-${sourceType}-${id}`);
+    if (!btn) return;
+    const ahora = !cur;
+    btn.title = ahora ? 'Conciliado — clic para desmarcar' : 'Marcar como conciliado';
+    btn.className = `p-1.5 rounded-lg transition-all ${ahora ? 'text-emerald-500 bg-emerald-50 hover:bg-emerald-100' : 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'}`;
+    const icon = btn.querySelector('.material-symbols-outlined');
+    if (icon) {
+        icon.textContent = ahora ? 'check_circle' : 'radio_button_unchecked';
+        if (ahora) icon.setAttribute('style', "font-variation-settings:'FILL' 1");
+        else icon.removeAttribute('style');
+    }
+};
 
 window.cerrarDetalleCuenta = function () {
     document.getElementById('modalDetalleCuenta').classList.add('hidden');
@@ -971,33 +938,32 @@ window.exportarDetalleExcel = function () {
     const filas = [];
 
     // ── Encabezado ──
-    filas.push(['AGRIGARDEN', '', '', '', '', '']);
-    filas.push([`Estado de Cuenta — ${nombre}`, '', '', '', '', '']);
-    filas.push([`Banco: ${cuenta.banco}  ·  Sucursal: ${cuenta.sucursal}  ·  Período: ${periodo}`, '', '', '', '', '']);
-    filas.push([`Generado: ${ahora}`, '', '', '', '', '']);
-    filas.push(['', '', '', '', '', '']);
+    filas.push(['AGRIGARDEN', '', '', '', '']);
+    filas.push([`Conciliación Bancaria — ${nombre}`, '', '', '', '']);
+    filas.push([`Banco: ${cuenta.banco}  ·  Sucursal: ${cuenta.sucursal}  ·  Período: ${periodo}`, '', '', '', '']);
+    filas.push([`Generado: ${ahora}`, '', '', '', '']);
+    filas.push(['', '', '', '', '']);
 
     // ── KPIs ──
     const totalEntradas = _detalleRowsExport.filter(r => r.type === 'ENTRADA' || r.type === 'PAGO').reduce((s, r) => s + r.amount, 0);
-    const totalSalidas  = _detalleRowsExport.filter(r => r.type === 'SALIDA' || r.type === 'CARGO').reduce((s, r) => s + r.amount, 0);
-    const saldoFinal    = _detalleRowsExport[_detalleRowsExport.length - 1]?.saldo ?? 0;
-    filas.push(['RESUMEN', '', '', '', '', '']);
-    filas.push(['Entradas / Pagos', totalEntradas, 'Salidas / Cargos', totalSalidas, 'Saldo Final', saldoFinal]);
-    filas.push(['', '', '', '', '', '']);
+    const totalSalidas  = _detalleRowsExport.filter(r => r.type === 'SALIDA'  || r.type === 'CARGO').reduce((s, r) => s + r.amount, 0);
+    filas.push(['RESUMEN', '', '', '', '']);
+    filas.push(['Entradas / Pagos', totalEntradas, 'Salidas / Cargos', totalSalidas, '']);
+    filas.push(['', '', '', '', '']);
 
     // ── Encabezados de columnas ──
-    filas.push(['Fecha', 'Nombre / Concepto', 'Referencia / Folio', 'Tipo', 'Monto', 'Saldo']);
+    filas.push(['Fecha', 'Nombre / Concepto', 'Referencia / Folio', 'Tipo', 'Monto']);
 
     // ── Datos ──
     [..._detalleRowsExport].sort((a, b) => b.date - a.date).forEach(r => {
         const signo = (r.type === 'ENTRADA' || r.type === 'PAGO') ? r.amount : -r.amount;
+        const conciliado = _getAnotacion(r.sourceType, r.id).conciliado ? 'Sí' : 'No';
         filas.push([
             r.date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }),
             r.concept,
             r.ref || '',
             r.type,
-            signo,
-            r.saldo
+            signo
         ]);
     });
 
@@ -1011,16 +977,15 @@ window.exportarDetalleExcel = function () {
         { wch: 18 }, // Referencia
         { wch: 10 }, // Tipo
         { wch: 14 }, // Monto
-        { wch: 14 }, // Saldo
     ];
 
     // Combinar celdas del header
     ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
-        { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } },
-        { s: { r: 5, c: 0 }, e: { r: 5, c: 5 } },
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 4 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 4 } },
+        { s: { r: 5, c: 0 }, e: { r: 5, c: 4 } },
     ];
 
     const wb = XLSX.utils.book_new();
