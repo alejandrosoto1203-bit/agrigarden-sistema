@@ -652,9 +652,9 @@ async function generarYDescargarPDF(id) {
 window.recalcularTotalDispersarVar = function() {
     let totalGeneral = 0;
     Array.from(seleccionados).forEach(id => {
-        const displayNeto = document.getElementById(`neto_display_${id}`);
-        if (displayNeto) {
-            totalGeneral += parseFloat(displayNeto.innerText.replace(/[^0-9.-]+/g,"")) || 0;
+        const inputAbono = document.getElementById(`monto_abono_${id}`);
+        if (inputAbono) {
+            totalGeneral += parseFloat(inputAbono.value) || 0;
         }
     });
     const lbl = document.getElementById('totalDispersar');
@@ -666,32 +666,40 @@ window.modificarSueldoVariables = function(id) {
     const inputBonos = document.getElementById(`bonos_${id}`);
     const inputDeduc = document.getElementById(`deducciones_${id}`);
     const displayNeto = document.getElementById(`neto_display_${id}`);
-    
+    const inputAbono = document.getElementById(`monto_abono_${id}`);
     const inputEfectivo = document.getElementById(`pago_efectivo_${id}`);
     const inputTransfer = document.getElementById(`pago_transferencia_${id}`);
-    
+
     if(!inputBase || !inputBonos || !inputDeduc || !displayNeto || !inputEfectivo || !inputTransfer) return;
-    
+
     const sueldo = parseFloat(inputBase.value) || 0;
     const bonos = parseFloat(inputBonos.value) || 0;
     const deduc = parseFloat(inputDeduc.value) || 0;
-    
+
     const nuevoNeto = sueldo + bonos - deduc;
     displayNeto.innerText = formatMoney(nuevoNeto);
-    
-    inputEfectivo.setAttribute('data-total', nuevoNeto);
-    inputTransfer.setAttribute('data-total', nuevoNeto);
-    
-    // Auto-adjust transfer to match the new net, keeping efectivo same
+
+    // Calcular saldo real descontando lo ya pagado en abonos parciales
+    const record = nominaCache.find(n => n.empleado_id === id && (n.estado === 'Pendiente' || n.estado === 'Parcial'));
+    const montoPagado = record ? (record.monto_pagado || 0) : 0;
+    const nuevoSaldo = Math.max(0, nuevoNeto - montoPagado);
+
+    // Actualizar "Monto de este abono" con el nuevo saldo
+    if (inputAbono) inputAbono.value = nuevoSaldo.toFixed(2);
+
+    inputEfectivo.setAttribute('data-total', nuevoSaldo);
+    inputTransfer.setAttribute('data-total', nuevoSaldo);
+
+    // Auto-adjust transfer to match the new saldo, keeping efectivo same
     let efectivoActual = parseFloat(inputEfectivo.value) || 0;
-    if (efectivoActual > nuevoNeto) {
-        efectivoActual = nuevoNeto;
+    if (efectivoActual > nuevoSaldo) {
+        efectivoActual = nuevoSaldo;
         inputEfectivo.value = efectivoActual.toFixed(2);
     }
-    
-    const nuevoTransfer = Math.max(0, nuevoNeto - efectivoActual);
+
+    const nuevoTransfer = Math.max(0, nuevoSaldo - efectivoActual);
     inputTransfer.value = nuevoTransfer.toFixed(2);
-    
+
     recalcularTotalDispersarVar();
     actualizarPreviewRecibo(id);
 };
