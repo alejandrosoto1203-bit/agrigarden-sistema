@@ -188,8 +188,71 @@
             </button>
         </div>
 
-        <div id="vistaCalendarioCxP" class="hidden space-y-4"></div>
+        <div id="vistaCalendarioCxP" class="hidden space-y-4 pb-36"></div>
     </main>
+
+    <!-- ================================================
+         PANEL FLOTANTE: SESIÓN DE PAGO (CALENDARIO CxP)
+         ================================================ -->
+    <div id="panelPagoCxP"
+        class="fixed bottom-0 left-0 right-0 z-[120] hidden"
+        style="filter: drop-shadow(0 -8px 30px rgba(0,0,0,0.15))">
+
+        <!-- Barra superior colapsable -->
+        <div class="bg-slate-900 text-white px-5 py-3 flex items-center justify-between cursor-pointer select-none"
+             onclick="_toggleCollapsePanelCxP()">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-emerald-400">shopping_cart_checkout</span>
+                <div>
+                    <p class="text-xs font-black uppercase tracking-widest">Sesión de Pago</p>
+                    <p id="panelPagoCxP_resumen" class="text-[10px] text-slate-400 font-bold">0 cuentas seleccionadas</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right">
+                    <p class="text-[9px] text-slate-400 font-black uppercase">Total a pagar</p>
+                    <p id="panelPagoCxP_total" class="text-xl font-black text-emerald-400">$0.00</p>
+                </div>
+                <span id="panelPagoCxP_chevron" class="material-symbols-outlined text-slate-400 transition-transform">expand_less</span>
+            </div>
+        </div>
+
+        <!-- Cuerpo expandible -->
+        <div id="panelPagoCxP_body" class="bg-white border-t border-slate-100 max-h-72 overflow-y-auto">
+
+            <!-- Lista de items seleccionados -->
+            <div id="panelPagoCxP_items" class="divide-y divide-slate-50 px-4"></div>
+
+            <!-- Footer: método de pago + fecha + botón -->
+            <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2 flex-1 min-w-[160px]">
+                    <label class="text-[9px] font-black uppercase text-slate-500 whitespace-nowrap">Método</label>
+                    <select id="panelPagoCxP_metodo"
+                        class="flex-1 text-xs font-bold border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-slate-400">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2 flex-1 min-w-[160px]">
+                    <label class="text-[9px] font-black uppercase text-slate-500 whitespace-nowrap">Fecha</label>
+                    <input type="date" id="panelPagoCxP_fecha"
+                        class="flex-1 text-xs font-bold border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-slate-400">
+                </div>
+                <button onclick="ejecutarPagoLoteCalendarioCxP()"
+                    id="panelPagoCxP_btnPagar"
+                    class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg">
+                    <span class="material-symbols-outlined text-sm">payments</span>
+                    Proceder al Pago
+                </button>
+                <button onclick="_limpiarSeleccionCxP()"
+                    class="flex items-center gap-1 text-slate-400 hover:text-slate-600 text-[10px] font-bold uppercase transition-all px-2 py-2">
+                    <span class="material-symbols-outlined text-sm">close</span> Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div id="modalAbonoProv"
         class="fixed inset-0 bg-black/60 hidden z-[110] flex items-center justify-center backdrop-blur-sm">

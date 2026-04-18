@@ -2053,9 +2053,19 @@ function renderizarVistaCalendario(datos) {
             const fechaLimiteStr = item._vencimiento.toISOString().split('T')[0];
             const provEnc = encodeURIComponent(item.proveedor);
             const provEsc = item.proveedor.replace(/'/g, "\\'");
+            const seleccionado = window._cxpCalSeleccionados?.has(item.id);
+            const rowBg = seleccionado ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'hover:bg-gray-50';
             return `
-            <div class="flex items-center justify-between py-3 px-4 hover:bg-gray-50 rounded-xl transition-all gap-3">
-                <a href="gastos.html?proveedor=${provEnc}" class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer group">
+            <div id="cxp-row-${item.id}" class="flex items-center justify-between py-3 px-4 rounded-xl transition-all gap-3 ${rowBg}">
+                <!-- Checkbox de selección -->
+                <button onclick="_toggleSeleccionCxP('${item.id}')" title="Seleccionar para pago"
+                    class="shrink-0 size-7 rounded-lg flex items-center justify-center transition-all
+                           ${seleccionado ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}">
+                    <span class="material-symbols-outlined text-base" ${seleccionado ? "style=\"font-variation-settings:'FILL' 1\"" : ''}>
+                        ${seleccionado ? 'check_box' : 'check_box_outline_blank'}
+                    </span>
+                </button>
+                <a href="gastos.html?proveedor=${provEnc}" class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer group" onclick="event.stopPropagation()">
                     <div class="size-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 group-hover:bg-emerald-50 transition-all">
                         <span class="material-symbols-outlined text-gray-500 text-sm group-hover:text-emerald-600">storefront</span>
                     </div>
@@ -2113,6 +2123,242 @@ function renderizarVistaCalendario(datos) {
         </div>`;
     }).join('');
 }
+
+// ─── SESIÓN DE PAGO EN LOTE (VISTA CALENDARIO CxP) ───────────────────────────
+
+window._cxpCalSeleccionados = new Map(); // id → { item, modo: 'total'|'parcial', monto }
+let _panelCxPCollapsed = false;
+
+window._toggleSeleccionCxP = function(id) {
+    const item = window._cxpCalCache?.[id];
+    if (!item) return;
+
+    if (window._cxpCalSeleccionados.has(id)) {
+        window._cxpCalSeleccionados.delete(id);
+    } else {
+        const saldo = parseFloat(item.saldo_pendiente) || 0;
+        window._cxpCalSeleccionados.set(id, { item, modo: 'total', monto: saldo });
+    }
+
+    // Actualizar apariencia de la fila en el calendario
+    const row = document.getElementById(`cxp-row-${id}`);
+    if (row) {
+        const seleccionado = window._cxpCalSeleccionados.has(id);
+        row.className = `flex items-center justify-between py-3 px-4 rounded-xl transition-all gap-3 ${seleccionado ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'hover:bg-gray-50'}`;
+        const btn = row.querySelector('button');
+        if (btn) {
+            btn.className = `shrink-0 size-7 rounded-lg flex items-center justify-center transition-all ${seleccionado ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`;
+            const icon = btn.querySelector('.material-symbols-outlined');
+            if (icon) {
+                icon.textContent = seleccionado ? 'check_box' : 'check_box_outline_blank';
+                if (seleccionado) icon.setAttribute('style', "font-variation-settings:'FILL' 1");
+                else icon.removeAttribute('style');
+            }
+        }
+    }
+
+    _actualizarPanelPagoCxP();
+};
+
+window._cambiarModoPagoCxP = function(id, modo) {
+    const entry = window._cxpCalSeleccionados.get(id);
+    if (!entry) return;
+    const saldo = parseFloat(entry.item.saldo_pendiente) || 0;
+    entry.modo  = modo;
+    entry.monto = modo === 'total' ? saldo : 0;
+    window._cxpCalSeleccionados.set(id, entry);
+    _actualizarPanelPagoCxP();
+};
+
+window._actualizarMontoParcialCxP = function(id, valor) {
+    const entry = window._cxpCalSeleccionados.get(id);
+    if (!entry) return;
+    const saldo = parseFloat(entry.item.saldo_pendiente) || 0;
+    entry.monto = Math.min(Math.max(parseFloat(valor) || 0, 0), saldo);
+    window._cxpCalSeleccionados.set(id, entry);
+    // Actualizar solo el total sin re-renderizar todo el panel
+    const totalEl = document.getElementById('panelPagoCxP_total');
+    if (totalEl) {
+        let total = 0;
+        window._cxpCalSeleccionados.forEach(e => { total += e.monto; });
+        totalEl.textContent = formatMoney(total);
+    }
+};
+
+function _actualizarPanelPagoCxP() {
+    const panel = document.getElementById('panelPagoCxP');
+    const itemsEl = document.getElementById('panelPagoCxP_items');
+    const totalEl = document.getElementById('panelPagoCxP_total');
+    const resumenEl = document.getElementById('panelPagoCxP_resumen');
+    if (!panel || !itemsEl) return;
+
+    const count = window._cxpCalSeleccionados.size;
+
+    if (count === 0) {
+        panel.classList.add('hidden');
+        return;
+    }
+
+    panel.classList.remove('hidden');
+
+    // Fecha por defecto = hoy
+    const fechaInput = document.getElementById('panelPagoCxP_fecha');
+    if (fechaInput && !fechaInput.value) {
+        fechaInput.value = new Date().toISOString().split('T')[0];
+    }
+
+    // Calcular total
+    let total = 0;
+    window._cxpCalSeleccionados.forEach(e => { total += e.monto; });
+
+    resumenEl.textContent = `${count} cuenta${count !== 1 ? 's' : ''} seleccionada${count !== 1 ? 's' : ''}`;
+    totalEl.textContent = formatMoney(total);
+
+    // Renderizar lista de items
+    let html = '';
+    window._cxpCalSeleccionados.forEach((entry, id) => {
+        const saldo = parseFloat(entry.item.saldo_pendiente) || 0;
+        const esParcial = entry.modo === 'parcial';
+        html += `
+        <div class="flex flex-wrap items-center gap-3 py-2.5">
+            <button onclick="_toggleSeleccionCxP('${id}')" class="shrink-0 p-1 text-red-400 hover:text-red-600 transition-all" title="Quitar">
+                <span class="material-symbols-outlined text-base">remove_circle</span>
+            </button>
+            <div class="flex-1 min-w-[140px]">
+                <p class="text-xs font-black text-slate-800 uppercase truncate">${entry.item.proveedor}</p>
+                <p class="text-[10px] text-slate-400 font-medium">Saldo: ${formatMoney(saldo)}</p>
+            </div>
+            <!-- Toggle Total / Parcialidad -->
+            <div class="flex rounded-lg overflow-hidden border border-slate-200 shrink-0 text-[10px] font-black uppercase">
+                <button onclick="_cambiarModoPagoCxP('${id}', 'total')"
+                    class="px-3 py-1.5 transition-all ${!esParcial ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}">
+                    Total
+                </button>
+                <button onclick="_cambiarModoPagoCxP('${id}', 'parcial')"
+                    class="px-3 py-1.5 transition-all border-l border-slate-200 ${esParcial ? 'bg-amber-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}">
+                    Parcial
+                </button>
+            </div>
+            <!-- Input parcialidad -->
+            ${esParcial ? `
+            <div class="flex items-center gap-1 shrink-0">
+                <span class="text-[10px] font-black text-slate-500">$</span>
+                <input type="number" min="0.01" step="0.01" max="${saldo}"
+                    value="${entry.monto > 0 ? entry.monto.toFixed(2) : ''}"
+                    placeholder="0.00"
+                    oninput="_actualizarMontoParcialCxP('${id}', this.value)"
+                    class="w-28 text-xs font-bold border border-amber-300 bg-amber-50 rounded-lg px-2 py-1.5 text-right focus:outline-none focus:border-amber-500">
+            </div>` : `
+            <p class="text-sm font-black text-emerald-600 shrink-0">${formatMoney(saldo)}</p>`}
+        </div>`;
+    });
+    itemsEl.innerHTML = html;
+}
+
+window._limpiarSeleccionCxP = function() {
+    window._cxpCalSeleccionados.clear();
+    document.getElementById('panelPagoCxP')?.classList.add('hidden');
+    // Quitar highlights del calendario
+    document.querySelectorAll('[id^="cxp-row-"]').forEach(row => {
+        row.className = 'flex items-center justify-between py-3 px-4 rounded-xl transition-all gap-3 hover:bg-gray-50';
+        const btn = row.querySelector('button');
+        if (btn) {
+            btn.className = 'shrink-0 size-7 rounded-lg flex items-center justify-center transition-all bg-gray-100 text-gray-400 hover:bg-gray-200';
+            const icon = btn.querySelector('.material-symbols-outlined');
+            if (icon) { icon.textContent = 'check_box_outline_blank'; icon.removeAttribute('style'); }
+        }
+    });
+};
+
+window._toggleCollapsePanelCxP = function() {
+    _panelCxPCollapsed = !_panelCxPCollapsed;
+    const body = document.getElementById('panelPagoCxP_body');
+    const chevron = document.getElementById('panelPagoCxP_chevron');
+    if (body) body.classList.toggle('hidden', _panelCxPCollapsed);
+    if (chevron) chevron.style.transform = _panelCxPCollapsed ? 'rotate(180deg)' : '';
+};
+
+window.ejecutarPagoLoteCalendarioCxP = async function() {
+    if (window._cxpCalSeleccionados.size === 0) return;
+
+    // Validar que los parciales tengan monto > 0
+    for (const [, entry] of window._cxpCalSeleccionados) {
+        if (entry.modo === 'parcial' && entry.monto <= 0) {
+            alert(`Ingresa un monto válido para "${entry.item.proveedor}".`);
+            return;
+        }
+    }
+
+    const metodo = document.getElementById('panelPagoCxP_metodo')?.value || 'Efectivo';
+    const fechaStr = document.getElementById('panelPagoCxP_fecha')?.value || new Date().toISOString().split('T')[0];
+    const [year, month, day] = fechaStr.split('-').map(Number);
+    const fechaISO = new Date(year, month - 1, day).toISOString();
+    const fechaLegible = new Date(year, month - 1, day).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    let total = 0;
+    window._cxpCalSeleccionados.forEach(e => { total += e.monto; });
+
+    if (!confirm(`¿Confirmar pago de ${formatMoney(total)} para ${window._cxpCalSeleccionados.size} cuenta(s) vía ${metodo}?`)) return;
+
+    const btn = document.getElementById('panelPagoCxP_btnPagar');
+    if (btn) { btn.disabled = true; btn.textContent = 'Procesando...'; }
+
+    try {
+        for (const [id, entry] of window._cxpCalSeleccionados) {
+            const saldo = parseFloat(entry.item.saldo_pendiente) || 0;
+            const monto = entry.monto;
+            const nuevoSaldo = Math.max(0, parseFloat((saldo - monto).toFixed(2)));
+            const esPagoTotal = nuevoSaldo <= 0.01;
+            const nuevoEstado = esPagoTotal ? 'Pagado' : 'Pendiente';
+            const nota = `${esPagoTotal ? 'PAGO TOTAL' : 'ABONO PARCIAL'} (FECHA EFECTIVA: ${fechaLegible}): ${formatMoney(monto)} vía ${metodo}. Saldo restante: ${formatMoney(nuevoSaldo)}`;
+
+            // 1. Actualizar el gasto (CxP)
+            await fetch(`${SUPABASE_URL}/rest/v1/gastos?id=eq.${id}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ saldo_pendiente: nuevoSaldo, estado_pago: nuevoEstado })
+            });
+
+            // 2. Registrar en bitácora
+            await fetch(`${SUPABASE_URL}/rest/v1/bitacora_proveedores`, {
+                method: 'POST',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gasto_id: id, nota: nota.toUpperCase() })
+            });
+
+            // 3. Registrar salida de dinero en Gastos (Pago de Pasivo)
+            await fetch(`${SUPABASE_URL}/rest/v1/gastos`, {
+                method: 'POST',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({
+                    proveedor: entry.item.proveedor,
+                    proveedor_id: entry.item.proveedor_id || null,
+                    categoria: 'Pago de Pasivo',
+                    subcategoria: 'ABONO A CUENTA',
+                    monto_total: monto,
+                    saldo_pendiente: 0,
+                    metodo_pago: metodo,
+                    sucursal: entry.item.sucursal || 'Norte',
+                    estado_pago: 'Pagado',
+                    created_at: fechaISO,
+                    notas: `PAGO A PROVEEDOR (REF: ${id})`
+                })
+            });
+        }
+
+        const totalPagados = window._cxpCalSeleccionados.size;
+        window._cxpCalSeleccionados.clear();
+        document.getElementById('panelPagoCxP')?.classList.add('hidden');
+        cargarCuentasPorPagar();
+        alert(`✓ Pago aplicado correctamente a ${totalPagados} cuenta${totalPagados !== 1 ? 's' : ''}.`);
+
+    } catch (e) {
+        console.error('[CxP lote]', e);
+        alert('Error al procesar el pago: ' + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-sm">payments</span> Proceder al Pago'; }
+    }
+};
 
 // ─── VISTA CALENDARIO CxC ────────────────────────────────────────────────────
 
