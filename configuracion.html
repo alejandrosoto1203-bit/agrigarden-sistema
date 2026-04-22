@@ -511,15 +511,17 @@
                                 document.addEventListener('DOMContentLoaded', () => {
                                     const container = document.querySelector('.custom-scrollbar');
                                     if (window.Permisos) {
-                                        container.innerHTML = Permisos.MODULOS.map(mod => `
+                                        container.innerHTML = Permisos.MODULOS.map(mod => {
+                                            const label = Permisos.MODULOS_LABELS?.[mod] || mod.replace(/_/g, ' ');
+                                            return `
                                             <div class="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all">
-                                                <span class="text-[11px] font-bold uppercase text-gray-600">${mod.replace('_', ' ')}</span>
+                                                <span class="text-[11px] font-bold uppercase text-gray-600">${label}</span>
                                                 <div class="flex gap-4">
                                                     <input type="checkbox" id="perm_ver_${mod}" class="accent-black">
                                                     <input type="checkbox" id="perm_edit_${mod}" class="accent-green-500">
                                                 </div>
-                                            </div>
-                                        `).join('');
+                                            </div>`;
+                                        }).join('');
                                     }
                                 });
                             </script>
