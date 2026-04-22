@@ -66,13 +66,13 @@ const Permisos = {
         // El rol admin tiene acceso total por defecto
         if (user.rol === 'admin') return true;
 
-        // El rol empleado solo puede ver su módulo de solicitudes
-        if (user.rol === 'empleado') return this.MODULOS_EMPLEADO.includes(moduloId);
-
-        // Verificar en el objeto de permisos del usuario
-        if (user.permisos && user.permisos[moduloId]) {
-            return !!user.permisos[moduloId].ver;
+        // Si tiene permisos personalizados configurados, tienen prioridad sobre el rol
+        if (user.permisos && moduloId in user.permisos) {
+            return !!user.permisos[moduloId]?.ver;
         }
+
+        // Fallback: empleado sin permisos personalizados solo ve sus solicitudes
+        if (user.rol === 'empleado') return this.MODULOS_EMPLEADO.includes(moduloId);
 
         return false;
     },
@@ -83,11 +83,14 @@ const Permisos = {
         if (!user) return false;
 
         if (user.rol === 'admin') return true;
-        if (user.rol === 'empleado') return false; // empleados no editan módulos del CRM
 
-        if (user.permisos && user.permisos[moduloId]) {
-            return !!user.permisos[moduloId].editar;
+        // Si tiene permisos personalizados configurados, tienen prioridad sobre el rol
+        if (user.permisos && moduloId in user.permisos) {
+            return !!user.permisos[moduloId]?.editar;
         }
+
+        // Fallback: empleado sin permisos personalizados no edita módulos del CRM
+        if (user.rol === 'empleado') return false;
 
         return false;
     },

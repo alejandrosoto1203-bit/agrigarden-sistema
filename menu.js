@@ -125,9 +125,34 @@ function inyectarMenu(paginaActiva) {
     const usuario = (() => { try { return JSON.parse(sessionStorage.getItem('usuario') || '{}'); } catch (e) { return {}; } })();
     const esEmpleado = usuario.rol === 'empleado';
     const esAdmin = usuario.rol === 'admin';
-    const itemsAMostrar = esEmpleado
-        ? itemsEmpleado
-        : items.filter(i => !i.soloAdmin || esAdmin);
+
+    // Empleado sin permisos personalizados → menú mínimo
+    const tienePermisosPersonalizados = !!(usuario.permisos &&
+        Object.values(usuario.permisos).some(p => p && (p.ver || p.editar)));
+
+    let itemsAMostrar;
+    if (esAdmin) {
+        itemsAMostrar = items.filter(i => !i.soloAdmin || esAdmin);
+    } else if (esEmpleado && !tienePermisosPersonalizados) {
+        itemsAMostrar = itemsEmpleado;
+    } else {
+        // Cualquier rol con permisos personalizados configurados
+        itemsAMostrar = items
+            .filter(i => !i.soloAdmin)
+            .map(i => {
+                if (i.subItems) {
+                    // Para items padre, mostrar los subItems visibles
+                    // Un subItem es visible si tiene su propio permiso O si el padre lo tiene
+                    const visibleSubs = i.subItems.filter(sub =>
+                        Permisos.puedeVer(sub.id) || Permisos.puedeVer(i.id)
+                    );
+                    if (visibleSubs.length === 0) return null;
+                    return { ...i, subItems: visibleSubs };
+                }
+                return Permisos.puedeVer(i.id) ? i : null;
+            })
+            .filter(Boolean);
+    }
 
     // Ajuste para el banner de staging (si existe)
     const headerTop = window.IS_TEST_ENV ? 'top-[37px]' : 'top-0';
