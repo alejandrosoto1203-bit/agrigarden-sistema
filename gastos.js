@@ -12,12 +12,27 @@ if (typeof formatMoney === 'undefined') {
 
 let datosCacheGastos = [];
 let mostrarFuturosGastos = false; // Control de vista "Próximos Meses"
+let _tabGastosActiva = 'Todos';
+
+window.cambiarTabGastos = function(tab) {
+    _tabGastosActiva = tab;
+    document.querySelectorAll('.tab-gasto-btn').forEach(btn => {
+        btn.classList.remove('bg-white', 'shadow-sm', 'text-gray-700');
+        btn.classList.add('text-gray-400');
+    });
+    const activeBtn = document.getElementById(`tabGastos-${tab}`);
+    if (activeBtn) {
+        activeBtn.classList.add('bg-white', 'shadow-sm', 'text-gray-700');
+        activeBtn.classList.remove('text-gray-400');
+    }
+    const label = document.getElementById('labelTabGastos');
+    if (label) label.textContent = tab === 'Todos' ? 'Todos los registros' : `Sucursal ${tab}`;
+    renderizarTablaGastos(currentFilteredGastos);
+};
 
 // 1. CARGA DE TABLA PRINCIPAL DE GASTOS
 async function cargarGastos() {
-    const tablaSur = document.getElementById('tablaGastosSur');
-    const tablaNorte = document.getElementById('tablaGastosNorte');
-    if (!tablaSur && !tablaNorte) return;
+    if (!document.getElementById('contenedorTarjetasGastos')) return;
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/gastos?select=*&order=created_at.desc`, {
             method: 'GET', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' }
@@ -97,127 +112,136 @@ window.exportarGastos = function () {
 }
 
 function renderizarTablaGastos(datos) {
-    const tablaSur = document.getElementById('tablaGastosSur');
-    const tablaNorte = document.getElementById('tablaGastosNorte');
-    const contadorSur = document.getElementById('contadorGastosSur');
-    const contadorNorte = document.getElementById('contadorGastosNorte');
+    const contenedor = document.getElementById('contenedorTarjetasGastos');
+    if (!contenedor) return;
 
-    if (!tablaSur || !tablaNorte) return;
+    // Contar por sucursal para los badges de pestañas
+    const surCount    = datos.filter(i => i.sucursal === 'Sur').length;
+    const norteCount  = datos.filter(i => i.sucursal === 'Norte' || !i.sucursal).length;
+    const matrizCount = datos.filter(i => i.sucursal === 'Matriz').length;
+    const elBT = document.getElementById('badgeTabTodos');
+    const elBN = document.getElementById('badgeTabNorte');
+    const elBS = document.getElementById('badgeTabSur');
+    const elBM = document.getElementById('badgeTabMatriz');
+    if (elBT) elBT.textContent = `(${datos.length})`;
+    if (elBN) elBN.textContent = `(${norteCount})`;
+    if (elBS) elBS.textContent = `(${surCount})`;
+    if (elBM) elBM.textContent = `(${matrizCount})`;
 
-    tablaSur.innerHTML = "";
-    tablaNorte.innerHTML = "";
+    // Filtrar por pestaña activa
+    let datosFiltradosTab;
+    if (_tabGastosActiva === 'Todos') {
+        datosFiltradosTab = datos;
+    } else if (_tabGastosActiva === 'Norte') {
+        datosFiltradosTab = datos.filter(i => i.sucursal === 'Norte' || !i.sucursal);
+    } else {
+        datosFiltradosTab = datos.filter(i => i.sucursal === _tabGastosActiva);
+    }
 
-    // Separar por sucursal
-    const datosSur = datos.filter(i => i.sucursal === 'Sur');
+    // Barra de totales siempre calculada sobre todos los datos filtrados
+    const datosSur   = datos.filter(i => i.sucursal === 'Sur');
     const datosNorte = datos.filter(i => i.sucursal === 'Norte' || !i.sucursal);
-
-    // Actualizar contadores
-    if (contadorSur) contadorSur.textContent = `(${datosSur.length} items)`;
-    if (contadorNorte) contadorNorte.textContent = `(${datosNorte.length} items)`;
-
-    // Función helper para renderizar en una tabla específica
-    const renderizarEnTabla = (datosTabla, contenedor) => {
-        // Agrupación para Acordeón
-        const grupos = {};
-        datosTabla.forEach(item => {
-            const esCuota = item.notas && item.notas.includes("CUOTA");
-            const llave = esCuota ? item.notas.split(') - ')[1] + item.created_at + item.proveedor : item.id;
-            if (!grupos[llave]) grupos[llave] = [];
-            grupos[llave].push(item);
-        });
-
-        Object.values(grupos).forEach(items => {
-            const principal = items[0];
-            const esGrupo = items.length > 1;
-            const montoTotalGrupo = items.reduce((s, i) => s + (i.monto_total || 0), 0);
-            const fecha = new Date(principal.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
-
-            let badgeStyle = 'bg-gray-100 text-gray-700';
-            if (principal.categoria === 'Costo') badgeStyle = 'bg-blue-100 text-blue-700';
-            if (principal.categoria === 'Gasto Financiero') badgeStyle = 'bg-orange-100 text-orange-700';
-            if (principal.categoria === 'Gasto Contable') badgeStyle = 'bg-red-100 text-red-700';
-            if (principal.categoria === 'Pago de Pasivo') badgeStyle = 'bg-purple-100 text-purple-700';
-            if (principal.categoria === 'Préstamo Empleado') badgeStyle = 'bg-amber-100 text-amber-700';
-
-            const filaId = `fila-${principal.id}`;
-            const fila = document.createElement('tr');
-            fila.id = `gasto_${principal.id}`;
-            fila.className = "hover:bg-gray-50/80 transition-all border-b border-gray-50 font-bold group";
-
-            fila.innerHTML = `
-                <td class="px-2 py-3 text-center text-gray-500">${fecha}</td>
-                <td class="px-2 py-3 text-center font-bold text-gray-600 truncate max-w-[70px]" title="${principal.numero_factura || ''}">${principal.numero_factura || '-'}</td>
-                <td class="px-2 py-3 text-center text-gray-800 uppercase truncate max-w-[80px]" title="${principal.proveedor || ''}">
-                    ${esGrupo ? `<button onclick="toggleAcordeon('${filaId}')" class="text-primary hover:scale-110 transition-transform mr-1"><span class="material-symbols-outlined text-xs">keyboard_arrow_down</span></button>` : ''}
-                    ${principal.proveedor || 'S/P'}
-                </td>
-                <td class="px-2 py-3 text-center"><span class="px-1 py-0.5 rounded text-[8px] uppercase ${badgeStyle}">${esGrupo ? 'INV' : principal.categoria?.substring(0, 5) || '-'}</span></td>
-                <td class="px-2 py-3 text-center text-gray-400 truncate max-w-[60px]" title="${principal.subcategoria || ''}">${esGrupo ? 'CUOTA' : principal.subcategoria?.substring(0, 8) || '-'}</td>
-                <td class="px-2 py-3 text-center text-gray-600 truncate max-w-[50px]">${principal.metodo_pago?.substring(0, 6) || 'Efect.'}</td>
-                <td class="px-2 py-3 text-center font-bold text-blue-600">${principal.metodo_pago === 'Crédito' ? (principal.dias_credito || 0) + 'd' : '-'}</td>
-                <td class="px-2 py-3 text-right font-black ${esGrupo ? 'text-black' : 'text-red-600'}">${formatMoney(montoTotalGrupo)}</td>
-                <td class="px-2 py-3 text-center text-gray-400 truncate max-w-[50px] italic" title="${principal.notas || ''}">${principal.notas?.substring(0, 8) || '-'}</td>
-                <td class="px-2 py-3 text-center">
-                    <div class="flex justify-center gap-1">
-                        ${principal.categoria === 'Costo' && (principal.subcategoria || '').toUpperCase().includes('MERCANCIA') ? `
-                        <button onclick="verDetalleCompra('${principal.id}')" class="p-1 bg-gray-50 text-emerald-600 rounded hover:bg-emerald-600 hover:text-white transition-all" title="Ver Detalle de Mercancía">
-                            <span class="material-symbols-outlined text-xs">visibility</span>
-                        </button>` : ''}
-                        <button onclick='abrirModalEdicion(${JSON.stringify(principal).replace(/'/g, "&apos;")})' class="p-1 bg-gray-50 text-blue-600 rounded hover:bg-blue-600 hover:text-white transition-all">
-                            <span class="material-symbols-outlined text-xs">edit</span>
-                        </button>
-                        <button onclick="eliminarGasto('${principal.id}', '${principal.notas}')" class="p-1 bg-gray-50 text-red-600 rounded hover:bg-red-600 hover:text-white transition-all">
-                            <span class="material-symbols-outlined text-xs">delete</span>
-                        </button>
-                    </div>
-                </td>
-            `;
-            contenedor.appendChild(fila);
-
-            if (esGrupo) {
-                const filaDetalle = document.createElement('tr');
-                filaDetalle.id = filaId;
-                filaDetalle.className = "hidden bg-gray-50/50 border-b border-gray-100";
-                filaDetalle.innerHTML = `
-                                        <td colspan="10" class="px-6 py-3">
-                        <div class="flex flex-col gap-2">
-                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Desglose de Amortización:</p>
-                            ${items.map(sub => `
-                                <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100">
-                                    <span class="text-[10px] font-black uppercase text-gray-600">${sub.categoria} (${sub.subcategoria})</span>
-                                    <span class="text-sm font-black text-slate-800">${formatMoney(sub.monto_total)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </td>
-                `;
-                contenedor.appendChild(filaDetalle);
-            }
-        });
-
-        if (datosTabla.length === 0) {
-            contenedor.innerHTML = '<tr><td colspan="10" class="py-6 text-center text-gray-400 italic text-xs">Sin registros</td></tr>';
-        }
-    };
-
-    // Renderizar ambas tablas
-    renderizarEnTabla(datosSur, tablaSur);
-    renderizarEnTabla(datosNorte, tablaNorte);
-
-    // --- BARRA DE TOTALES FILTRADOS ---
-    const totalSurVal = datosSur.reduce((s, i) => s + (i.monto_total || 0), 0);
-    const totalNorteVal = datosNorte.reduce((s, i) => s + (i.monto_total || 0), 0);
-    const totalGen = totalSurVal + totalNorteVal;
-    const totalTxn = datos.length;
-
     const elS = document.getElementById('totalGastosSur');
     const elN = document.getElementById('totalGastosNorte');
     const elG = document.getElementById('totalGastosGeneral');
     const elT = document.getElementById('totalGastosTxn');
-    if (elS) elS.textContent = formatMoney(totalSurVal);
-    if (elN) elN.textContent = formatMoney(totalNorteVal);
-    if (elG) elG.textContent = formatMoney(totalGen);
-    if (elT) elT.textContent = totalTxn.toLocaleString('es-MX') + ' reg.';
+    if (elS) elS.textContent = formatMoney(datosSur.reduce((s, i) => s + (i.monto_total || 0), 0));
+    if (elN) elN.textContent = formatMoney(datosNorte.reduce((s, i) => s + (i.monto_total || 0), 0));
+    if (elG) elG.textContent = formatMoney(datos.reduce((s, i) => s + (i.monto_total || 0), 0));
+    if (elT) elT.textContent = datos.length.toLocaleString('es-MX') + ' reg.';
+
+    if (datosFiltradosTab.length === 0) {
+        contenedor.innerHTML = `
+            <div class="py-16 text-center text-gray-300">
+                <span class="material-symbols-outlined text-5xl block mb-3">receipt_long</span>
+                <p class="font-black text-sm text-gray-400">Sin registros</p>
+            </div>`;
+        return;
+    }
+
+    // Agrupación para acordeón (inversiones con CUOTA)
+    const grupos = {};
+    datosFiltradosTab.forEach(item => {
+        const esCuota = item.notas && item.notas.includes("CUOTA");
+        const llave = esCuota ? item.notas.split(') - ')[1] + item.created_at + item.proveedor : item.id;
+        if (!grupos[llave]) grupos[llave] = [];
+        grupos[llave].push(item);
+    });
+
+    contenedor.innerHTML = Object.values(grupos).map(items => {
+        const principal = items[0];
+        const esGrupo = items.length > 1;
+        const montoTotalGrupo = items.reduce((s, i) => s + (i.monto_total || 0), 0);
+        const fechaObj  = new Date(principal.created_at);
+        const fechaDia  = fechaObj.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+        const fechaAnio = fechaObj.getFullYear();
+
+        let badgeStyle = 'bg-gray-100 text-gray-600';
+        if (principal.categoria === 'Costo')             badgeStyle = 'bg-blue-100 text-blue-700';
+        if (principal.categoria === 'Gasto Financiero')  badgeStyle = 'bg-orange-100 text-orange-700';
+        if (principal.categoria === 'Gasto Contable')    badgeStyle = 'bg-red-100 text-red-700';
+        if (principal.categoria === 'Pago de Pasivo')    badgeStyle = 'bg-purple-100 text-purple-700';
+        if (principal.categoria === 'Préstamo Empleado') badgeStyle = 'bg-amber-100 text-amber-700';
+
+        const sucColor = principal.sucursal === 'Norte' ? 'text-blue-500 bg-blue-50'
+                       : principal.sucursal === 'Sur'   ? 'text-emerald-600 bg-emerald-50'
+                       :                                   'text-gray-500 bg-gray-100';
+        const catDisplay    = esGrupo ? 'Inversión' : (principal.categoria || 'Gasto');
+        const subcatDisplay = esGrupo ? 'Cuota'     : (principal.subcategoria || '-');
+        const acordeonId    = `acrd-gasto-${principal.id}`;
+        const notasEsc      = (principal.notas || '').replace(/'/g, "\\'");
+
+        return `
+        <div class="px-5 py-4 hover:bg-gray-50/70 transition-all group" id="gasto_${principal.id}">
+            <div class="flex items-start gap-4">
+                <div class="shrink-0 w-12 text-center pt-0.5">
+                    <p class="text-xs font-black text-gray-700 leading-tight">${fechaDia}</p>
+                    <p class="text-[10px] text-gray-400 font-bold">${fechaAnio}</p>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap mb-1.5">
+                        ${esGrupo ? `<button onclick="toggleAcordeon('${acordeonId}')" class="text-primary hover:scale-110 transition-transform"><span class="material-symbols-outlined text-sm">keyboard_arrow_down</span></button>` : ''}
+                        <p class="text-sm font-black text-gray-800 uppercase">${principal.proveedor || 'S/P'}</p>
+                        ${principal.numero_factura ? `<span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">${principal.numero_factura}</span>` : ''}
+                        <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${sucColor}">${principal.sucursal || 'Sin suc.'}</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${badgeStyle}">${catDisplay}</span>
+                        <span class="text-[10px] text-gray-500 font-bold">${subcatDisplay}</span>
+                        <span class="text-[10px] text-gray-300">·</span>
+                        <span class="text-[10px] text-gray-500 font-bold">${principal.metodo_pago || 'Efectivo'}</span>
+                        ${principal.metodo_pago === 'Crédito' ? `<span class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">${principal.dias_credito || 0}d crédito</span>` : ''}
+                        ${principal.notas ? `<span class="text-[10px] text-gray-300">·</span><span class="text-[10px] text-gray-400 italic">${principal.notas}</span>` : ''}
+                    </div>
+                </div>
+                <div class="shrink-0 flex items-center gap-3">
+                    <p class="text-base font-black ${esGrupo ? 'text-gray-800' : 'text-red-600'}">${formatMoney(montoTotalGrupo)}</p>
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        ${principal.categoria === 'Costo' && (principal.subcategoria || '').toUpperCase().includes('MERCANCIA') ? `
+                        <button onclick="verDetalleCompra('${principal.id}')" class="p-1.5 bg-gray-100 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all" title="Ver Mercancía">
+                            <span class="material-symbols-outlined text-xs">inventory_2</span>
+                        </button>` : ''}
+                        <button onclick='abrirModalEdicion(${JSON.stringify(principal).replace(/'/g, "&apos;")})' class="p-1.5 bg-gray-100 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all" title="Editar">
+                            <span class="material-symbols-outlined text-xs">edit</span>
+                        </button>
+                        <button onclick="eliminarGasto('${principal.id}', '${notasEsc}')" class="p-1.5 bg-gray-100 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all" title="Eliminar">
+                            <span class="material-symbols-outlined text-xs">delete</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            ${esGrupo ? `
+            <div id="${acordeonId}" class="hidden mt-3 ml-16 pl-4 border-l-2 border-gray-100 space-y-1.5">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Desglose de amortización:</p>
+                ${items.map(sub => `
+                    <div class="flex justify-between items-center bg-white p-2.5 rounded-xl border border-gray-100">
+                        <span class="text-[10px] font-black uppercase text-gray-600">${sub.categoria} · ${sub.subcategoria}</span>
+                        <span class="text-sm font-black text-slate-800">${formatMoney(sub.monto_total)}</span>
+                    </div>
+                `).join('')}
+            </div>` : ''}
+        </div>`;
+    }).join('');
 
     // Highlight desde URL (?highlight=ID)
     const highlightId = new URLSearchParams(window.location.search).get('highlight');
@@ -229,6 +253,7 @@ function renderizarTablaGastos(datos) {
             setTimeout(() => targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
         }
     }
+
 }
 
 
