@@ -58,7 +58,8 @@ function aplicarFiltrosGastos() {
         }
 
         const coincideTxt = (item.proveedor?.toLowerCase().includes(busqueda)) ||
-            (item.notas?.toLowerCase().includes(busqueda));
+            (item.notas?.toLowerCase().includes(busqueda)) ||
+            (item.numero_factura?.toLowerCase().includes(busqueda));
         const coincideMetodo = filtroMetodo === 'Todos' || item.metodo_pago === filtroMetodo;
         const coincideCat = filtroCat === 'Todos' || item.categoria === filtroCat;
         const coincideSub = filtroSub === 'Todos' || item.subcategoria === filtroSub;
@@ -145,6 +146,7 @@ function renderizarTablaGastos(datos) {
 
             fila.innerHTML = `
                 <td class="px-2 py-3 text-center text-gray-500">${fecha}</td>
+                <td class="px-2 py-3 text-center font-bold text-gray-600 truncate max-w-[70px]" title="${principal.numero_factura || ''}">${principal.numero_factura || '-'}</td>
                 <td class="px-2 py-3 text-center text-gray-800 uppercase truncate max-w-[80px]" title="${principal.proveedor || ''}">
                     ${esGrupo ? `<button onclick="toggleAcordeon('${filaId}')" class="text-primary hover:scale-110 transition-transform mr-1"><span class="material-symbols-outlined text-xs">keyboard_arrow_down</span></button>` : ''}
                     ${principal.proveedor || 'S/P'}
@@ -177,7 +179,7 @@ function renderizarTablaGastos(datos) {
                 filaDetalle.id = filaId;
                 filaDetalle.className = "hidden bg-gray-50/50 border-b border-gray-100";
                 filaDetalle.innerHTML = `
-                                        <td colspan="9" class="px-6 py-3">
+                                        <td colspan="10" class="px-6 py-3">
                         <div class="flex flex-col gap-2">
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Desglose de Amortización:</p>
                             ${items.map(sub => `
@@ -194,7 +196,7 @@ function renderizarTablaGastos(datos) {
         });
 
         if (datosTabla.length === 0) {
-            contenedor.innerHTML = '<tr><td colspan="9" class="py-6 text-center text-gray-400 italic text-xs">Sin registros</td></tr>';
+            contenedor.innerHTML = '<tr><td colspan="10" class="py-6 text-center text-gray-400 italic text-xs">Sin registros</td></tr>';
         }
     };
 
@@ -454,6 +456,7 @@ function agregarFilaGasto() {
 
     tr.innerHTML = `
         <td class="p-1"><input type="date" class="input-capture row-fecha" value="${new Date().toISOString().split('T')[0]}"></td>
+        <td class="p-1"><input type="text" class="input-capture row-factura uppercase text-center" placeholder="FAC-0001"></td>
         <td class="p-1 relative">
             <div class="flex items-center gap-1">
                 <input type="text" class="input-capture row-proveedor uppercase flex-1 text-center" placeholder="Buscar Proveedor..." list="datalistProveedores" oninput="validarProveedorSeleccionado(this)" data-pid="">
@@ -490,7 +493,7 @@ function agregarFilaGasto() {
     trItems.id = `${rId}-items-row`;
     trItems.className = "hidden bg-blue-50/30";
     trItems.innerHTML = `
-        <td colspan="9" class="p-4 border-b border-blue-100">
+        <td colspan="10" class="p-4 border-b border-blue-100">
             <div class="bg-white rounded-xl border border-blue-100 p-4 shadow-sm">
                 <div class="flex justify-between items-center mb-3">
                     <h4 class="text-xs font-black uppercase tracking-widest text-blue-800 flex items-center gap-2"><span class="material-symbols-outlined text-sm">inventory_2</span> Detalle de Mercancía</h4>
@@ -846,9 +849,11 @@ async function guardarLoteGastos() {
         // Extraer temporalmente un ID interno único si es mercancia para luego enlazar foreign key
         const internalId = `gasto_${Date.now()}_${Math.random()}`;
 
+        const facturaVal = fila.querySelector('.row-factura')?.value.toUpperCase().trim() || null;
         const gastoNuevo = {
             id_referencia_temp: internalId, // Atributo inventado para cruzar localmente si aplica
             created_at: fila.querySelector('.row-fecha').value + 'T12:00:00',
+            numero_factura: facturaVal || null,
             proveedor: proveedorInput.value.toUpperCase(),
             proveedor_id: proveedorInput.dataset.pid ? parseInt(proveedorInput.dataset.pid) : null,
             categoria: cat,
@@ -979,6 +984,7 @@ async function abrirModalEdicion(gasto) {
     if (!modal) return;
     document.getElementById('editGastoId').value = gasto.id;
     document.getElementById('editFecha').value = gasto.created_at.split('T')[0];
+    document.getElementById('editNumeroFactura').value = gasto.numero_factura || '';
     document.getElementById('editProveedor').value = gasto.proveedor || '';
     document.getElementById('editCategoria').value = gasto.categoria || 'Gasto';
     document.getElementById('editSucursalGasto').value = gasto.sucursal || 'Matriz';
@@ -1011,8 +1017,10 @@ async function actualizarGasto() {
     const id = document.getElementById('editGastoId').value;
     const monto = parseFloat(document.getElementById('editMonto').value);
     const metodo = document.getElementById('editMetodo').value;
+    const facturaEdit = document.getElementById('editNumeroFactura').value.trim().toUpperCase();
     const datos = {
         created_at: document.getElementById('editFecha').value + 'T12:00:00',
+        numero_factura: facturaEdit || null,
         proveedor: document.getElementById('editProveedor').value.toUpperCase(),
         categoria: document.getElementById('editCategoria').value,
         sucursal: document.getElementById('editSucursalGasto').value,

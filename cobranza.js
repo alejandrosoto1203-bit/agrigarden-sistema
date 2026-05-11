@@ -2005,7 +2005,7 @@ function renderizarVistaCalendario(datos) {
     const pendientes = (datos || []).filter(g => {
         if (g.estado_pago === 'Pagado') return false;
         if (g.notas && g.notas.includes('PRÉSTAMO:')) return false;
-        if (busqProv && !g.proveedor?.toLowerCase().includes(busqProv)) return false;
+        if (busqProv && !g.proveedor?.toLowerCase().includes(busqProv) && !g.numero_factura?.toLowerCase().includes(busqProv)) return false;
         if (montoMin > 0 && (parseFloat(g.saldo_pendiente) || 0) < montoMin) return false;
         return true;
     });
@@ -2072,6 +2072,7 @@ function renderizarVistaCalendario(datos) {
                     <div class="min-w-0">
                         <p class="text-sm font-black text-gray-800 uppercase group-hover:text-emerald-700 transition-all truncate">${item.proveedor}</p>
                         <p class="text-[10px] font-medium text-gray-400">
+                            ${item.numero_factura ? `<span class="font-black text-gray-500 mr-1">${item.numero_factura}</span> ·` : ''}
                             Vence: ${vencLabel}
                             ${yaVencio ? '<span class="ml-1 font-black text-red-500">• VENCIDO</span>' : ''}
                             &nbsp;·&nbsp; ${item.sucursal}
