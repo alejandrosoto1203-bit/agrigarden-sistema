@@ -344,10 +344,12 @@ window.exportarPorPagar = function () {
             created_at: "Fecha Registro",
             sucursal: "Sucursal",
             proveedor: "Proveedor",
+            numero_factura: "No. Factura / Ticket",
             categoria: "Categoría",
             subcategoria: "Subcategoría",
             metodo_pago: "Método Pago",
-            monto_total: "Monto Total",
+            dias_credito: "Días Crédito",
+            monto_total: "Monto Original",
             saldo_pendiente: "Saldo Pendiente",
             estado_pago: "Estado",
             notas: "Notas"
@@ -356,6 +358,183 @@ window.exportarPorPagar = function () {
         "CuentasPorPagar"
     );
 }
+
+// Export profesional de Vista Lista con campos calculados
+window.exportarListaCxP = function () {
+    if (typeof XLSX === 'undefined') { alert('Librería Excel no disponible.'); return; }
+    const datos = currentFilteredPagos;
+    if (!datos || datos.length === 0) { alert('No hay datos para exportar.'); return; }
+
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const fmt = d => d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+    const fmtMoney = n => n != null ? Number(n).toFixed(2) : '0.00';
+
+    const filas = datos.map(item => {
+        const fechaCreacion = new Date(item.created_at);
+        const fechaLimite   = new Date(fechaCreacion);
+        fechaLimite.setDate(fechaCreacion.getDate() + (item.dias_credito || 0));
+        const diasRetraso   = item.estado_pago !== 'Pagado' && hoy > fechaLimite
+            ? Math.floor((hoy - fechaLimite) / 86400000)
+            : 0;
+
+        return {
+            'Fecha Registro':        fmt(item.created_at),
+            'Fecha Límite':          item.metodo_pago === 'Crédito' ? fmt(fechaLimite) : '-',
+            'Días de Retraso':       diasRetraso > 0 ? diasRetraso : '',
+            'Proveedor':             item.proveedor || '',
+            'No. Factura / Ticket':  item.numero_factura || '',
+            'Sucursal':              item.sucursal || '',
+            'Categoría':             item.categoria || '',
+            'Subcategoría':          item.subcategoria || '',
+            'Método de Pago':        item.metodo_pago || '',
+            'Días Crédito':          item.dias_credito || '',
+            'Monto Original':        parseFloat(fmtMoney(item.monto_total)),
+            'Saldo Pendiente':       parseFloat(fmtMoney(item.saldo_pendiente ?? item.monto_total)),
+            'Estado':                item.estado_pago || '',
+            'Notas':                 item.notas || '',
+        };
+    });
+
+    const totalMonto  = filas.reduce((s, r) => s + (r['Monto Original'] || 0), 0);
+    const totalSaldo  = filas.reduce((s, r) => s + (r['Saldo Pendiente'] || 0), 0);
+    filas.push({
+        'Fecha Registro': '', 'Fecha Límite': '', 'Días de Retraso': '',
+        'Proveedor': 'TOTAL', 'No. Factura / Ticket': '', 'Sucursal': '',
+        'Categoría': '', 'Subcategoría': '', 'Método de Pago': '', 'Días Crédito': '',
+        'Monto Original': parseFloat(totalMonto.toFixed(2)),
+        'Saldo Pendiente': parseFloat(totalSaldo.toFixed(2)),
+        'Estado': '', 'Notas': `${datos.length} registros`,
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(filas);
+
+    // Anchos de columna
+    ws['!cols'] = [
+        { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 28 }, { wch: 18 },
+        { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 12 },
+        { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 35 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'CxP - Lista');
+    XLSX.writeFile(wb, `CxP_Lista_${new Date().toISOString().split('T')[0]}.xlsx`);
+};
+
+// Export profesional de Vista Calendario, agrupado por semana con subtotales
+window.exportarCalendarioCxP = function () {
+    if (typeof XLSX === 'undefined') { alert('Librería Excel no disponible.'); return; }
+    const datos = currentFilteredPagos;
+    if (!datos || datos.length === 0) { alert('No hay datos para exportar.'); return; }
+
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const fmt = d => d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+    const fmtMoney = n => n != null ? Number(n).toFixed(2) : '0.00';
+
+    // Replicar agrupación del calendario
+    const pendientes = datos.filter(g => g.estado_pago !== 'Pagado' && !(g.notas && g.notas.includes('PRÉSTAMO:')));
+    const _proxVier = (d) => {
+        const r = new Date(d);
+        const dia = r.getDay(); // 0=Dom,5=Vie
+        const diff = dia <= 5 ? 5 - dia : 7 - dia + 5;
+        r.setDate(r.getDate() + (diff === 0 ? 7 : diff));
+        return r;
+    };
+
+    const grupos = {};
+    for (const g of pendientes) {
+        const busqProv = (document.getElementById('calBusqProveedor')?.value || '').toLowerCase().trim();
+        const montoMin = parseFloat(document.getElementById('calMontoMin')?.value) || 0;
+        if (busqProv && !g.proveedor?.toLowerCase().includes(busqProv) && !g.numero_factura?.toLowerCase().includes(busqProv)) continue;
+        if (montoMin > 0 && (parseFloat(g.saldo_pendiente) || 0) < montoMin) continue;
+
+        const created = new Date(g.created_at);
+        const venc = new Date(created);
+        venc.setDate(created.getDate() + (g.dias_credito || 30));
+        venc.setHours(0,0,0,0);
+        const viernesTarget = venc <= hoy ? _proxVier(hoy) : _proxVier(venc);
+        const key = viernesTarget.toISOString().split('T')[0];
+        if (!grupos[key]) grupos[key] = { viernes: viernesTarget, items: [] };
+        grupos[key].items.push({ ...g, _vencimiento: venc });
+    }
+
+    const filas = [];
+    const sortedKeys = Object.keys(grupos).sort();
+
+    for (const key of sortedKeys) {
+        const { viernes, items } = grupos[key];
+        const labelViernes = viernes.toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+        const totalSemana = items.reduce((s, i) => s + (parseFloat(i.saldo_pendiente) || 0), 0);
+        const vencido = viernes <= hoy;
+
+        // Fila encabezado de semana
+        filas.push({
+            'Semana de Pago':        labelViernes.toUpperCase(),
+            'Estado Semana':         vencido ? 'VENCIDO' : 'PENDIENTE',
+            'Proveedor':             '',
+            'No. Factura / Ticket':  '',
+            'Sucursal':              '',
+            'Categoría':             '',
+            'Subcategoría':          '',
+            'Método Pago':           '',
+            'Fecha Registro':        '',
+            'Fecha Vencimiento':     '',
+            'Días de Retraso':       '',
+            'Saldo Pendiente':       '',
+            'SUBTOTAL SEMANA':       parseFloat(totalSemana.toFixed(2)),
+        });
+
+        for (const item of items) {
+            const diasRetraso = hoy > item._vencimiento
+                ? Math.floor((hoy - item._vencimiento) / 86400000)
+                : 0;
+            filas.push({
+                'Semana de Pago':        '',
+                'Estado Semana':         '',
+                'Proveedor':             item.proveedor || '',
+                'No. Factura / Ticket':  item.numero_factura || '',
+                'Sucursal':              item.sucursal || '',
+                'Categoría':             item.categoria || '',
+                'Subcategoría':          item.subcategoria || '',
+                'Método Pago':           item.metodo_pago || '',
+                'Fecha Registro':        fmt(item.created_at),
+                'Fecha Vencimiento':     fmt(item._vencimiento),
+                'Días de Retraso':       diasRetraso > 0 ? diasRetraso : '',
+                'Saldo Pendiente':       parseFloat(fmtMoney(item.saldo_pendiente)),
+                'SUBTOTAL SEMANA':       '',
+            });
+        }
+
+        // Fila separadora vacía entre semanas
+        filas.push({
+            'Semana de Pago': '', 'Estado Semana': '', 'Proveedor': '',
+            'No. Factura / Ticket': '', 'Sucursal': '', 'Categoría': '',
+            'Subcategoría': '', 'Método Pago': '', 'Fecha Registro': '',
+            'Fecha Vencimiento': '', 'Días de Retraso': '', 'Saldo Pendiente': '', 'SUBTOTAL SEMANA': '',
+        });
+    }
+
+    // Fila de total general
+    const totalGeneral = pendientes.reduce((s, i) => s + (parseFloat(i.saldo_pendiente) || 0), 0);
+    filas.push({
+        'Semana de Pago': 'TOTAL GENERAL', 'Estado Semana': '', 'Proveedor': '',
+        'No. Factura / Ticket': '', 'Sucursal': '', 'Categoría': '',
+        'Subcategoría': '', 'Método Pago': '', 'Fecha Registro': '',
+        'Fecha Vencimiento': '', 'Días de Retraso': '',
+        'Saldo Pendiente': '', 'SUBTOTAL SEMANA': parseFloat(totalGeneral.toFixed(2)),
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(filas);
+
+    ws['!cols'] = [
+        { wch: 40 }, { wch: 12 }, { wch: 28 }, { wch: 18 }, { wch: 10 },
+        { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 16 },
+        { wch: 14 }, { wch: 16 }, { wch: 16 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'CxP - Calendario');
+    XLSX.writeFile(wb, `CxP_Calendario_${new Date().toISOString().split('T')[0]}.xlsx`);
+};
 
 function renderizarTablaPagos(datos) {
     const tabla = document.getElementById('tablaCuentasPagar');

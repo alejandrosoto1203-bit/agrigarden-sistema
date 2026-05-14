@@ -128,23 +128,29 @@
         </div>
 
         <div id="vistaListaCxP" class="card overflow-hidden shadow-sm">
-            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-white flex-wrap gap-3">
                 <h3 class="font-black text-sm text-gray-700 uppercase tracking-tight">Obligaciones Recientes</h3>
-                <div
-                    class="bg-gray-50 rounded-lg flex items-center px-3 border border-gray-200 focus-within:border-emerald-500 transition-all shadow-sm">
-                    <span class="material-symbols-outlined text-gray-400 text-sm">search</span>
-                    <input type="text" id="busquedaProveedor" placeholder="Buscar proveedor..."
-                        class="bg-transparent border-none focus:ring-0 text-xs font-bold w-48 uppercase">
-                </div>
-                <div
-                    class="bg-gray-50 rounded-lg flex items-center px-3 border border-gray-200 focus-within:border-emerald-500 transition-all shadow-sm ml-2">
-                    <select id="filtroSucursalPago" onchange="aplicarFiltrosPagos()"
-                        class="bg-transparent border-none focus:ring-0 text-xs font-bold w-32 uppercase text-gray-500">
-                        <option value="Todos">Todas</option>
-                        <option value="Norte">Norte</option>
-                        <option value="Sur">Sur</option>
-                        <option value="Matriz">Matriz</option>
-                    </select>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div
+                        class="bg-gray-50 rounded-lg flex items-center px-3 border border-gray-200 focus-within:border-emerald-500 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-gray-400 text-sm">search</span>
+                        <input type="text" id="busquedaProveedor" placeholder="Buscar proveedor..."
+                            class="bg-transparent border-none focus:ring-0 text-xs font-bold w-48 uppercase">
+                    </div>
+                    <div
+                        class="bg-gray-50 rounded-lg flex items-center px-3 border border-gray-200 focus-within:border-emerald-500 transition-all shadow-sm">
+                        <select id="filtroSucursalPago" onchange="aplicarFiltrosPagos()"
+                            class="bg-transparent border-none focus:ring-0 text-xs font-bold w-32 uppercase text-gray-500">
+                            <option value="Todos">Todas</option>
+                            <option value="Norte">Norte</option>
+                            <option value="Sur">Sur</option>
+                            <option value="Matriz">Matriz</option>
+                        </select>
+                    </div>
+                    <button onclick="exportarListaCxP()"
+                        class="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black uppercase tracking-wide hover:bg-emerald-700 transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-sm">download</span> Exportar Excel
+                    </button>
                 </div>
             </div>
 
@@ -185,6 +191,10 @@
             <button onclick="limpiarFiltrosCalCxP()"
                 class="text-[10px] font-black text-gray-400 hover:text-red-500 transition-colors uppercase tracking-widest flex items-center gap-1">
                 <span class="material-symbols-outlined text-sm">close</span> Limpiar
+            </button>
+            <button onclick="exportarCalendarioCxP()"
+                class="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black uppercase tracking-wide hover:bg-emerald-700 transition-all shadow-sm ml-auto">
+                <span class="material-symbols-outlined text-sm">download</span> Exportar Excel
             </button>
         </div>
 
